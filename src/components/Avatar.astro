@@ -1,0 +1,22 @@
+---
+interface Props {
+  id: string;
+  nombre: string;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+const { id, nombre, size = 'md' } = Astro.props;
+const px = { sm: 40, md: 64, lg: 112 }[size];
+const src = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/avatars/${id}.svg`;
+---
+
+<img class="avatar" src={src} alt={nombre} width={px} height={px} loading="lazy" />
+
+<style>
+  .avatar {
+    border-radius: 50%;
+    border: var(--border-w) solid var(--accent, var(--c-yellow));
+    background: var(--c-paper);
+    flex: none;
+  }
+</style>

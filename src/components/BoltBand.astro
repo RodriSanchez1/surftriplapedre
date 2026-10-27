@@ -1,0 +1,60 @@
+---
+/** Banda roja con corte en forma de rayo. 'hero' para el home, 'page' para el resto. */
+interface Props {
+  title: string;
+  kicker?: string;
+  subtitle?: string;
+  size?: 'hero' | 'page';
+}
+
+const { title, kicker, subtitle, size = 'page' } = Astro.props;
+---
+
+<div class:list={['band', size]}>
+  <div class="wrap inner">
+    <slot name="media" />
+    <div>
+      {kicker && <p class="kicker">{kicker}</p>}
+      <h1>{title}</h1>
+      {subtitle && <p class="subtitle">{subtitle}</p>}
+    </div>
+  </div>
+</div>
+
+<style>
+  .band {
+    background: var(--c-red);
+    color: var(--c-white);
+    clip-path: polygon(0 0, 100% 0, 100% 78%, 62% 100%, 66% 84%, 0 96%);
+    padding: var(--s-5) 0 var(--s-6);
+  }
+  .inner {
+    display: flex;
+    align-items: center;
+    gap: var(--s-4);
+  }
+  .kicker {
+    font: 13px var(--font-head);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin: 0 0 var(--s-2);
+    color: var(--c-yellow);
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    line-height: 1;
+    margin: 0;
+  }
+  .hero h1 {
+    font-size: clamp(34px, 9vw, 72px);
+  }
+  .page h1 {
+    font-size: clamp(28px, 6vw, 48px);
+  }
+  .subtitle {
+    font: 15px/1.4 var(--font-strong);
+    margin: var(--s-2) 0 0;
+    color: #ffe3c2;
+  }
+</style>
