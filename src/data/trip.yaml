@@ -1,0 +1,9 @@
+# Datos del trip. Para un trip nuevo, cambiar estos valores (ver AGENTS.md).
+- id: la-pedrera-2026
+  nombre: Surftrip La Pedrera
+  equipo: Team Pedrera
+  lugar: La Pedrera, Rocha, Uruguay
+  coach: Douglas Cominski
+  fechaInicio: "2026-10-24"
+  fechaFin: "2026-11-01"
+  zonaHoraria: America/Montevideo

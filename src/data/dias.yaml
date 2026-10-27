@@ -1,0 +1,7 @@
+# Un ítem por día con algo cargado. El id es la fecha, entre comillas.
+# Los días del trip que no aparecen acá se muestran como "Sin plan".
+- id: "2026-10-26"
+  actividad:
+    es: Análisis de video con Douglas
+    pt: Análise de vídeo com Douglas
+  sesion: "2026-10-26"
