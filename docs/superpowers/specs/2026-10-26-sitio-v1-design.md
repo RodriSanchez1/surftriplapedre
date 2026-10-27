@@ -53,21 +53,26 @@ Navegación: el header tiene la marca, que lleva al home, y el selector ES/PT, q
 ## Modelo de contenido
 
 ```
-src/data/trip.yaml              nombre, lugar, fechaInicio, fechaFin, coach
-src/data/dias.yaml              lista: fecha, actividad {es, pt}, spot?, horario?, sesion?: AAAA-MM-DD
-src/data/surfistas.yaml         lista: id, nombre, color (token), avatar (archivo)
-src/content/sesiones/AAAA-MM-DD.es.md     frontmatter: fecha, titulo; cuerpo: resumen, plan y logística
+src/data/trip.yaml              id, nombre, equipo, lugar, coach, fechaInicio, fechaFin, zonaHoraria
+src/data/dias.yaml              lista: id (la fecha), actividad {es, pt?}, spot?, horario?, sesion?: AAAA-MM-DD
+src/data/surfistas.yaml         lista: id, nombre, color (red | sky | yellow | green | pink)
+src/content/sesiones/AAAA-MM-DD.es.md
+    frontmatter: fecha, titulo, planNota?, logistica[]
+    cuerpo: el resumen
 src/content/sesiones/AAAA-MM-DD.pt.md
 src/content/insights/AAAA-MM-DD/<id>.es.md
     frontmatter: fecha, surfista, foco, focoSecundario, frase
-    cuerpo: "## Lo que salió bien" y "## En qué trabajar"
+    cuerpo: intro, "### Lo que salió bien" y "### En qué trabajar"
 src/content/insights/AAAA-MM-DD/<id>.pt.md
-public/avatars/<id>.svg
+public/avatars/<id>.svg         el nombre sale del id del surfista
 ```
 
 - Cada colección de Astro tiene un schema con zod. Si falta un campo obligatorio, si un `surfista` no existe en `surfistas.yaml` o si una `sesion` de `dias.yaml` no tiene archivo, el build falla.
 - Si falta la versión `.pt` de un archivo, la página en portugués muestra el texto en español con la etiqueta "Tradução pendente". Publicar no se bloquea por una traducción.
-- Para sumar un participante alcanza con agregar una entrada en `surfistas.yaml` y su avatar. Los avatares son SVG de DiceBear (estilo `adventurer`), generados una vez con el nombre como seed y guardados en el repo, para no depender de una API en tiempo de ejecución.
+- La tabla del plan de cada sesión se arma con el frontmatter de los insights, así que no se escribe dos veces.
+- El roster se muestra en orden alfabético por nombre.
+- `scripts/import-sesion.mjs` convierte `sesiones/<fecha>/insights-<lang>.md` (el formato con el que se escribieron los insights del 26/10) en estos archivos. Sirve para la migración y para cargar sesiones futuras.
+- Para sumar un participante alcanza con agregar una entrada en `surfistas.yaml` y correr `npm run avatars`. Los avatares son SVG de DiceBear (estilo `adventurer`), generados una vez con el nombre como seed y guardados en el repo, para no depender de una API en tiempo de ejecución.
 - `dias.yaml` arranca con lo que ya se sabe: la sesión con análisis del 26/10. Los demás días los completa el equipo.
 
 ## Regla del proyecto: reutilizable en futuros surftrips
@@ -96,6 +101,8 @@ Inspirado en las tablas y gráficas de surf de los 80, con las referencias de `a
 | `--c-paper` | `#fffaf0` | Fondo de los bloques de lectura larga |
 | `--c-sky` | `#1aa7ff` | Acento secundario, links |
 | `--c-white` | `#ffffff` | Texto sobre rojo o negro |
+| `--c-muted` | `#5c4a36` | Texto secundario sobre amarillo o papel |
+| `--c-green`, `--c-pink` | `#2bb34a`, `#ff4f9a` | Acentos extra de surfista, junto con red, sky y yellow |
 | `--border` | `3px solid var(--c-ink)` | Borde estándar |
 | `--radius` | `8px` | Radio de tarjetas y celdas |
 | Espaciado | `--s-1` 4px … `--s-6` 48px | Escala de 4 |
@@ -130,7 +137,8 @@ Cada surfista tiene un color de acento tomado de la paleta. Se usa en el borde i
 ## Deploy
 
 - `astro.config.mjs` con `site: https://rodrisanchez1.github.io` y `base: /surftriplapedre`.
-- `.github/workflows/deploy.yml` usa `withastro/action` en cada push a `main`.
+- Node 24 (`.nvmrc`), porque Astro 7 pide Node ≥ 22.23.
+- `.github/workflows/deploy.yml` corre tests, check y build en cada PR, y en cada push a `main` además publica con `withastro/action` y `actions/deploy-pages`.
 - En GitHub hay que pasar Pages de "Deploy from a branch" a "GitHub Actions". Se hace recién cuando el primer build pase en CI, así la página actual sigue online mientras tanto.
 - El `index.html` actual se reemplaza por el sitio nuevo cuando la migración del 26/10 esté verificada.
 
@@ -139,7 +147,8 @@ Cada surfista tiene un color de acento tomado de la paleta. Se usa en el borde i
 - `astro check` y `astro build` corren en CI antes del deploy. Si fallan, no se publica.
 - Tests con Vitest para la lógica con reglas: estado de cada día (pasado, hoy, sesión), armado de los insights de un surfista ordenados por fecha y el fallback de traducción.
 - Antes de cerrar una tarea visual, captura de `/`, una sesión, un surfista y `/design/` en un ancho de celular (390 px) y en uno de escritorio.
-- Para la migración del 26/10, comparar que cada insight de `sesiones/2026-10-26/insights-*.md` aparezca en el sitio nuevo.
+- Para la migración del 26/10, comparar que cada insight de `sesiones/2026-10-26/insights-*.md` aparezca en el sitio nuevo. Como cada insight cita un minuto, alcanza con verificar que estén todos los minutos.
+- Las capturas salen de `scripts/shots.mjs` (Playwright).
 
 ## Workflow de desarrollo con IA (`AGENTS.md`)
 
