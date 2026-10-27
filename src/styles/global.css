@@ -121,6 +121,16 @@ td:first-child {
   }
 }
 
+/* Read by screen readers, not shown. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* hidden always wins, even if the class sets display (e.g. .btn). */
 [hidden] {
   display: none !important;

@@ -1,91 +1,123 @@
 ---
-import { dayMonth, type DayState } from '../lib/calendar';
-import { t, WEEKDAYS, type Lang } from '../lib/i18n';
+import Bolt from './Bolt.astro';
+import { type DayState } from '../lib/calendar';
+import { MONTHS, t, WEEKDAYS, type Lang } from '../lib/i18n';
 
 interface Props {
   lang: Lang;
   date: string;
   weekday: number;
+  /** Not shown: the day's activity is read by screen readers only. */
   activity?: string;
   /** If the day had a coach session, link to the session. */
   href?: string;
+  /** Shows the month next to the number: on the first day and where a month starts. */
+  showMonth?: boolean;
   /** Initial state. In the real calendar the browser script sets it; here it is used by /design/. */
   state?: DayState;
 }
 
-const { lang, date, weekday, activity, href, state } = Astro.props;
+const { lang, date, weekday, activity, href, showMonth = false, state } = Astro.props;
 const Tag = href ? 'a' : 'div';
+const [, month, day] = date.split('-');
 ---
 
 <Tag class:list={['day', { session: href }]} href={href} data-date={date} data-state={state}>
-  <span class="wd">{WEEKDAYS[lang][weekday]}</span>
-  <span class="dm">{dayMonth(date)}</span>
-  <span class="today">{t(lang, 'day.today')}</span>
-  <span class:list={['what', { empty: !activity }]}>{activity ?? t(lang, 'day.noPlan')}</span>
-  {href && <span class="tag">⚡ {t(lang, 'day.session')}</span>}
+  <span class="top">
+    <span class="wd">{WEEKDAYS[lang][weekday]}</span>
+    <span class="today">{t(lang, 'day.today')}</span>
+    {href && <Bolt size={15} />}
+  </span>
+  <span class="num">
+    {Number(day)}
+    {showMonth && <span class="month">{MONTHS[lang][Number(month) - 1]}</span>}
+  </span>
+  <span class="visually-hidden">{activity ?? t(lang, 'day.noPlan')}</span>
+  {href && <span class="visually-hidden">{t(lang, 'day.session')}</span>}
 </Tag>
 
 <style>
   .day {
-    flex: 1 0 104px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    min-height: 132px;
     background: var(--c-yellow);
     border: var(--border);
     border-radius: var(--radius);
-    padding: var(--s-2);
+    padding: var(--s-2) var(--s-2) var(--s-3);
     text-decoration: none;
     color: var(--c-ink);
+    scroll-snap-align: start;
   }
   .session {
     background: var(--c-white);
     box-shadow: var(--shadow);
+    transition:
+      transform 0.12s,
+      box-shadow 0.12s;
   }
-  .wd {
-    font: 11px var(--font-head);
-    letter-spacing: 0.06em;
+  a.day:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 var(--c-ink);
   }
-  .dm {
-    font: 22px/1 var(--font-strong);
+  a.day:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--c-ink);
   }
-  .what {
-    font-size: 13px;
-    line-height: 1.3;
-    margin-top: var(--s-1);
-  }
-  .what.empty {
-    color: var(--c-muted);
-  }
-  .tag {
-    margin-top: auto;
-    font: 10px/1.2 var(--font-head);
+
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 16px;
     color: var(--c-red);
+  }
+  .wd,
+  .today {
+    font: 11px/1 var(--font-head);
+    letter-spacing: 0.04em;
+    color: var(--c-ink);
   }
   .today {
     display: none;
-    align-self: flex-start;
-    font: 10px var(--font-head);
-    background: var(--c-yellow);
-    color: var(--c-ink);
-    border-radius: 999px;
-    padding: 1px 8px;
   }
+  .num {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    margin-top: var(--s-2);
+    font: 34px/0.9 var(--font-strong);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .month {
+    font: 12px var(--font-head);
+    letter-spacing: 0.02em;
+  }
+
+  /* Today: ink card, and "Today" takes the weekday's place. */
   .day[data-state='today'] {
     background: var(--c-ink);
     color: var(--c-white);
   }
+  .day[data-state='today'] .wd {
+    display: none;
+  }
   .day[data-state='today'] .today {
-    display: inline-block;
-  }
-  .day[data-state='today'] .what.empty {
-    color: #bbb;
-  }
-  .day[data-state='today'] .tag {
+    display: block;
     color: var(--c-yellow);
   }
-  .day[data-state='past'] {
-    opacity: 0.55;
+  .day[data-state='today'] .num,
+  .day[data-state='today'] .top {
+    color: var(--c-yellow);
+  }
+
+  /* Past: hollow, so what is ahead stays bright. A past session keeps its card: it is still worth reading. */
+  .day[data-state='past']:not(.session) {
+    background: transparent;
+    border-color: color-mix(in srgb, var(--c-ink) 35%, transparent);
+    color: var(--c-muted);
+  }
+  .day[data-state='past']:not(.session) :is(.top, .wd) {
+    color: inherit;
   }
 </style>
