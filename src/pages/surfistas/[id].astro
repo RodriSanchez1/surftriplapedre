@@ -1,0 +1,9 @@
+---
+import SurferView from '../../views/SurferView.astro';
+import { surferPaths } from '../../lib/content';
+
+export const getStaticPaths = surferPaths;
+const { id } = Astro.params;
+---
+
+<SurferView lang="es" id={id} />

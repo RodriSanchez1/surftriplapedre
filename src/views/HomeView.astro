@@ -1,0 +1,65 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import BoltBand from '../components/BoltBand.astro';
+import TripCalendar from '../components/TripCalendar.astro';
+import SurferCard from '../components/SurferCard.astro';
+import { loadSite } from '../lib/content';
+import { dayMonth } from '../lib/calendar';
+import { pathFor, t, type Lang } from '../lib/i18n';
+import { insightsForSurfer } from '../lib/localized';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const { trip, dias, surfistas, insights } = await loadSite();
+const fechas = `${dayMonth(trip.fechaInicio)} → ${dayMonth(trip.fechaFin)}`;
+---
+
+<BaseLayout title={trip.nombre} lang={lang} equipo={trip.equipo}>
+  <BoltBand
+    size="hero"
+    kicker={trip.equipo}
+    title={trip.nombre}
+    subtitle={`${trip.lugar} · ${fechas} · ${t(lang, 'home.coach')}: ${trip.coach}`}
+  />
+
+  <div class="wrap">
+    <h2 class="section-title">{t(lang, 'home.calendar')}</h2>
+    <TripCalendar lang={lang} inicio={trip.fechaInicio} fin={trip.fechaFin} zonaHoraria={trip.zonaHoraria} dias={dias} />
+
+    <h2 class="section-title">{t(lang, 'home.team')}</h2>
+    <div class="roster">
+      {
+        surfistas.map((s) => (
+          <SurferCard
+            id={s.id}
+            nombre={s.data.nombre}
+            color={s.data.color}
+            href={pathFor(lang, `/surfistas/${s.id}/`, base)}
+            foco={insightsForSurfer(insights, s.id, lang)[0]?.entry.data.foco}
+          />
+        ))
+      }
+    </div>
+  </div>
+</BaseLayout>
+
+{
+  lang === 'es' && (
+    <script is:inline define:vars={{ ptHome: pathFor('pt', '/', base) }}>
+      // Compatibilidad con los links viejos del tipo ...?lang=pt
+      if (new URLSearchParams(location.search).get('lang') === 'pt') location.replace(ptHome);
+    </script>
+  )
+}
+
+<style>
+  .roster {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--s-3);
+  }
+</style>

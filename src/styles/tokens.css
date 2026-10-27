@@ -1,0 +1,42 @@
+/*
+ * Tokens del design system "Board Graphic".
+ * Son del proyecto, no del trip: un trip futuro puede cambiar estos valores sin tocar componentes.
+ * Catálogo visual en /design/.
+ */
+:root {
+  /* Paleta base */
+  --c-orange: #ff9e1b;
+  --c-red: #e4261c;
+  --c-yellow: #ffd400;
+  --c-ink: #111111;
+  --c-paper: #fffaf0;
+  --c-white: #ffffff;
+  --c-muted: #5c4a36;
+
+  /* Acentos de surfista (surfistas.yaml → color) */
+  --c-sky: #1aa7ff;
+  --c-green: #2bb34a;
+  --c-pink: #ff4f9a;
+
+  /* Tipografía */
+  --font-display: 'Bungee Shade', 'Bungee', system-ui, sans-serif;
+  --font-head: 'Bungee', system-ui, sans-serif;
+  --font-strong: 'Archivo Black', system-ui, sans-serif;
+  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Forma */
+  --border-w: 3px;
+  --border: var(--border-w) solid var(--c-ink);
+  --radius: 8px;
+  --shadow: 4px 4px 0 var(--c-ink);
+
+  /* Espaciado (escala de 4) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 48px;
+
+  --max-w: 960px;
+}

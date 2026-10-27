@@ -1,0 +1,52 @@
+---
+import { t, type Lang } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+  foco: string;
+  focoSecundario: string;
+  frase: string;
+}
+
+const { lang, foco, focoSecundario, frase } = Astro.props;
+---
+
+<div class="focus">
+  <p class="label">{t(lang, 'focus.main')}</p>
+  <p class="main">{foco}</p>
+  <p class="label">{t(lang, 'focus.secondary')}</p>
+  <p class="secondary">{focoSecundario}</p>
+  <p class="label">{t(lang, 'focus.phrase')}</p>
+  <p class="phrase">“{frase}”</p>
+</div>
+
+<style>
+  .focus {
+    background: var(--c-yellow);
+    border: var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: var(--s-4) var(--s-5);
+  }
+  p {
+    margin: 0;
+  }
+  .label {
+    font: 11px var(--font-head);
+    letter-spacing: 0.08em;
+    margin-top: var(--s-3);
+  }
+  .label:first-child {
+    margin-top: 0;
+  }
+  .main {
+    font: 20px/1.25 var(--font-strong);
+  }
+  .secondary {
+    font: 16px/1.35 var(--font-strong);
+  }
+  .phrase {
+    font: italic 18px/1.35 var(--font-body);
+    font-weight: 700;
+  }
+</style>

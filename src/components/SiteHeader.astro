@@ -1,0 +1,66 @@
+---
+import { LANGS, pathFor, switchLang, t, type Lang } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+  equipo: string;
+  langSwitch?: boolean;
+}
+
+const { lang, equipo, langSwitch = true } = Astro.props;
+const base = import.meta.env.BASE_URL;
+---
+
+<header>
+  <div class="wrap bar">
+    <a class="brand" href={pathFor(lang, '/', base)}>⚡ {equipo}</a>
+    {
+      langSwitch && (
+        <nav class="lang" aria-label={t(lang, 'site.langLabel')}>
+          {LANGS.map((l) => (
+            <a href={switchLang(Astro.url.pathname, base, l)} aria-current={l === lang ? 'page' : undefined} hreflang={l} lang={l}>
+              {l.toUpperCase()}
+            </a>
+          ))}
+        </nav>
+      )
+    }
+  </div>
+</header>
+
+<style>
+  header {
+    background: var(--c-ink);
+    color: var(--c-white);
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding-block: var(--s-3);
+  }
+  .brand {
+    font: 15px var(--font-head);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--c-yellow);
+  }
+  .lang {
+    display: flex;
+    border: 2px solid var(--c-yellow);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .lang a {
+    font: 13px var(--font-head);
+    padding: 4px 12px;
+    text-decoration: none;
+    color: var(--c-yellow);
+  }
+  .lang a[aria-current='page'] {
+    background: var(--c-yellow);
+    color: var(--c-ink);
+  }
+</style>

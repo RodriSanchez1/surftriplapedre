@@ -1,0 +1,114 @@
+---
+/**
+ * Catálogo del design system. No está enlazado desde la navegación.
+ * Antes de crear un componente nuevo, revisar si ya existe acá. Si se crea uno, agregarlo acá.
+ */
+import BaseLayout from '../components/BaseLayout.astro';
+import BoltBand from '../components/BoltBand.astro';
+import DayCell from '../components/DayCell.astro';
+import SurferCard from '../components/SurferCard.astro';
+import Avatar from '../components/Avatar.astro';
+import FocusBlock from '../components/FocusBlock.astro';
+import InsightBlock from '../components/InsightBlock.astro';
+import TranslationBadge from '../components/TranslationBadge.astro';
+import { ACCENTS } from '../content.config';
+
+const colors = [...new Set(['orange', 'red', 'yellow', 'ink', 'paper', 'white', 'muted', ...ACCENTS])];
+const fonts = [
+  ['--font-display', 'Bungee Shade · títulos de página'],
+  ['--font-head', 'Bungee · encabezados y etiquetas'],
+  ['--font-strong', 'Archivo Black · datos destacados'],
+  ['--font-body', 'system-ui · texto corrido'],
+];
+---
+
+<BaseLayout title="Design system" lang="es" equipo="Design system" langSwitch={false}>
+  <BoltBand kicker="Board Graphic" title="Design system" subtitle="Tokens y componentes del sitio" />
+
+  <div class="wrap">
+    <h2 class="section-title">Colores</h2>
+    <div class="swatches">
+      {
+        colors.map((c) => (
+          <div class="swatch">
+            <span style={`background: var(--c-${c})`} />
+            <code>--c-{c}</code>
+          </div>
+        ))
+      }
+    </div>
+
+    <h2 class="section-title">Tipografía</h2>
+    <div class="prose">
+      {fonts.map(([v, label]) => <p style={`font-family: var(${v}); font-size: 22px; margin: 8px 0`}>{label}</p>)}
+    </div>
+
+    <h2 class="section-title">DayCell</h2>
+    <div class="row">
+      <DayCell lang="es" fecha="2026-10-25" weekday={0} state="past" actividad="Pasado" />
+      <DayCell lang="es" fecha="2026-10-26" weekday={1} state="today" actividad="Hoy, con sesión" href="#" />
+      <DayCell lang="es" fecha="2026-10-27" weekday={2} state="future" actividad="Futuro con plan" />
+      <DayCell lang="es" fecha="2026-10-28" weekday={3} state="future" />
+      <DayCell lang="es" fecha="2026-10-29" weekday={4} state="future" actividad="Sesión" href="#" />
+    </div>
+
+    <h2 class="section-title">SurferCard y Avatar</h2>
+    <div class="row">
+      {
+        ACCENTS.map((color) => (
+          <div style="width: 160px">
+            <SurferCard id="juan" nombre={color} color={color} href="#" foco="Foco principal de ejemplo" />
+          </div>
+        ))
+      }
+    </div>
+    <div class="row">
+      <Avatar id="juan" nombre="Juan" size="sm" />
+      <Avatar id="juan" nombre="Juan" size="md" />
+      <Avatar id="juan" nombre="Juan" size="lg" />
+    </div>
+
+    <h2 class="section-title">FocusBlock</h2>
+    <FocusBlock lang="es" foco="Manos al centro en el drop" focoSecundario="Subir después de la base" frase="Bajé, llegué a la base, tengo que subir" />
+
+    <h2 class="section-title">InsightBlock y TranslationBadge</h2>
+    <InsightBlock heading="Con link" href="#" linkText="Ver la sesión completa">
+      <p>Texto del insight sobre papel.</p>
+    </InsightBlock>
+    <InsightBlock heading="Con fallback de traducción" fallback>
+      <p>Se muestra en español porque falta el .pt.md.</p>
+    </InsightBlock>
+    <p><TranslationBadge /></p>
+  </div>
+</BaseLayout>
+
+<style>
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: var(--s-3);
+  }
+  .swatch {
+    background: var(--c-paper);
+    border: var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .swatch span {
+    display: block;
+    height: 56px;
+    border-bottom: var(--border);
+  }
+  .swatch code {
+    display: block;
+    padding: var(--s-2);
+    font-size: 12px;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    align-items: flex-start;
+    margin-bottom: var(--s-3);
+  }
+</style>

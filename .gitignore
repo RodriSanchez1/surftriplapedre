@@ -1,9 +1,12 @@
 # Audios y videos crudos de las sesiones (pesados y privados)
-*.m4a
-*.mp3
-*.wav
-*.mp4
-*.mov
+*.[mM]4[aA]
+*.[mM][pP]3
+*.[wW][aA][vV]
+*.[aA][aA][cC]
+*.[oO][gG][gG]
+*.[oO][pP][uU][sS]
+*.[mM][pP]4
+*.[mM][oO][vV]
 
 # Sistema
 .DS_Store
@@ -18,3 +21,8 @@ sesiones/*/transcripcion.md
 
 # Metadatos de Windows (WSL)
 *:Zone.Identifier
+
+# Astro / Node
+node_modules/
+dist/
+.astro/

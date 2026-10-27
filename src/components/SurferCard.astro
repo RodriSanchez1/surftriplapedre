@@ -1,0 +1,47 @@
+---
+import Avatar from './Avatar.astro';
+
+interface Props {
+  id: string;
+  nombre: string;
+  color: string;
+  href: string;
+  foco?: string;
+}
+
+const { id, nombre, color, href, foco } = Astro.props;
+---
+
+<a class="card" href={href} style={`--accent: var(--c-${color})`}>
+  <Avatar id={id} nombre="" size="md" />
+  <span class="name">{nombre}</span>
+  {foco && <span class="focus">{foco}</span>}
+</a>
+
+<style>
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+    background: var(--c-ink);
+    color: var(--c-white);
+    border-radius: 10px;
+    border-bottom: 6px solid var(--accent);
+    padding: var(--s-3);
+    text-decoration: none;
+    transition: transform 0.12s;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+  }
+  .name {
+    font: 18px var(--font-head);
+    color: var(--c-yellow);
+    text-transform: uppercase;
+  }
+  .focus {
+    font-size: 13px;
+    line-height: 1.35;
+    color: #e6e6e6;
+  }
+</style>
