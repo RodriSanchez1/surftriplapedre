@@ -26,6 +26,7 @@ src/data/trip.yaml            trip data (name, team, location, coach, dates, tim
 src/data/days.yaml            days with something loaded (activity, spot, time, session)
 src/data/surfers.yaml         roster: id, name, accent color
 src/data/coaches.yaml         coaches shown under the team: id, name, accent color
+src/content/coaches/<id>.<es|pt>.md              a coach's profile page (optional)
 src/content/sessions/<date>.<es|pt>.md           summary of a coach session
 src/content/insights/<date>/<id>.<es|pt>.md      a surfer's insight in a session
 src/lib/                      pure logic with tests (i18n, calendar, language fallback, integrity)
@@ -116,9 +117,10 @@ In `src/data/days.yaml`: `id` is the date in quotes, and `activity` has `es` and
 
 ### Add a coach  ·  Haiku
 
-1. Add `{ id, name, color }` in `src/data/coaches.yaml` (same rules as a surfer). Coaches are shown on the home page under the team, without a page of their own.
+1. Add `{ id, name, color }` in `src/data/coaches.yaml` (same rules as a surfer). Coaches are shown on the home page under the team.
 2. `npm run avatars` generates `public/avatars/<id>.svg` (it covers surfers and coaches, so a coach `id` must not repeat a surfer's).
-3. `npm run build`.
+3. Optional profile page: `src/content/coaches/<id>.es.md` (and `.pt.md`), with an optional `tagline` in the frontmatter and the profile as Markdown. With it, the coach's card links to `/coaches/<id>/`; without it, the card is not a link.
+4. `npm run build`.
 
 ### Set up audio upload for a trip  ·  human
 

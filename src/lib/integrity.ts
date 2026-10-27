@@ -3,13 +3,15 @@ import { splitLangId } from './localized';
 export interface IntegrityInput {
   trip: { startDate: string; endDate: string };
   surferIds: string[];
+  coachIds: string[];
+  coachProfileIds: string[];
   days: { id: string; session?: string }[];
   sessionIds: string[];
   insights: { id: string; data: { surfer: string; date: string } }[];
 }
 
 /** Checks the references between content files. Returns one readable error per problem. */
-export function findContentErrors({ trip, surferIds, days, sessionIds, insights }: IntegrityInput): string[] {
+export function findContentErrors({ trip, surferIds, coachIds, coachProfileIds, days, sessionIds, insights }: IntegrityInput): string[] {
   const errors: string[] = [];
   const surfers = new Set(surferIds);
   const sessions = new Set(sessionIds.map((id) => splitLangId(id).base));
@@ -38,6 +40,12 @@ export function findContentErrors({ trip, surferIds, days, sessionIds, insights 
     if (!sessions.has(insight.data.date)) {
       errors.push(`insights/${insight.id}.md: session src/content/sessions/${insight.data.date}.es.md does not exist`);
     }
+  }
+
+  const coaches = new Set(coachIds);
+  for (const id of coachProfileIds) {
+    const { base } = splitLangId(id);
+    if (!coaches.has(base)) errors.push(`coaches/${id}.md: coach "${base}" is not in coaches.yaml`);
   }
 
   return errors;
