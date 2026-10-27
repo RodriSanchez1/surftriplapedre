@@ -7,16 +7,19 @@
 import { dayMonth, weekdayOf } from '../lib/calendar';
 import { WEEKDAYS, format, t, type Lang } from '../lib/i18n';
 import type { State, Texts } from '../lib/audio/page';
+import FootageCard from './FootageCard.astro';
 
 interface Props {
   lang: Lang;
   dates: string[];
   timeZone: string;
+  spots?: string[];
+  surfers?: { id: string; name: string; color: string }[];
   audio?: { driveFolder: string; googleClientId: string; contact: string };
   demo?: State;
 }
 
-const { lang, dates, timeZone, audio, demo } = Astro.props;
+const { lang, dates, timeZone, spots = [], surfers = [], audio, demo } = Astro.props;
 const texts: Texts = {
   cut: t(lang, 'audio.cut'),
   pending: t(lang, 'audio.pending'),
@@ -65,6 +68,18 @@ const texts: Texts = {
             ))}
           </select>
         </label>
+        <div data-footage-slot>
+          <fieldset class="footage" data-footage>
+            <legend>{t(lang, 'footage.title')}</legend>
+            <p class="help">{t(lang, 'footage.help')}</p>
+            <div data-footage-cards>
+              <FootageCard lang={lang} dates={dates} spots={spots} surfers={surfers} date={dates[0]} time="morning" />
+            </div>
+            <button type="button" class="btn" data-action="add-footage">
+              + {t(lang, 'footage.add')}
+            </button>
+          </fieldset>
+        </div>
         <div class="actions">
           <button type="button" class="btn record" data-action="record">
             ● {t(lang, 'audio.record')}
@@ -99,6 +114,7 @@ const texts: Texts = {
         <button type="button" class="btn primary" data-action="finish">
           ■ {t(lang, 'audio.finish')}
         </button>
+        <div data-footage-slot />
       </div>
 
       <div data-step="cut">
@@ -113,6 +129,7 @@ const texts: Texts = {
             {t(lang, 'audio.uploadWhatWeHave')}
           </button>
         </div>
+        <div data-footage-slot />
       </div>
 
       <div data-step="uploading">
@@ -150,6 +167,10 @@ const texts: Texts = {
       </div>
 
       <div data-pending />
+
+      <template data-footage-template>
+        <FootageCard lang={lang} dates={dates} spots={spots} surfers={surfers} date={dates[0]} time="morning" removable />
+      </template>
     </section>
   )
 }
@@ -248,6 +269,16 @@ const texts: Texts = {
   }
   .percent {
     font-family: var(--font-strong);
+  }
+  .footage {
+    border: 0;
+    padding: 0;
+    margin: var(--s-4) 0;
+    min-width: 0;
+  }
+  legend {
+    font: 15px var(--font-head);
+    padding: 0;
   }
   .help {
     font-size: 14px;

@@ -24,6 +24,12 @@ const fonts = [
 const audioStates = ['login', 'ready', 'recording', 'cut', 'uploading', 'done', 'error'] as const;
 const audioDemo = { driveFolder: 'demo', googleClientId: 'demo.apps.googleusercontent.com', contact: 'el organizador' };
 const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
+const demoSpots = ['Playa A', 'Playa B'];
+const demoSurfers = [
+  { id: 'juan', name: 'Juan', color: 'red' },
+  { id: 'ana', name: 'Ana', color: 'sky' },
+  { id: 'leo', name: 'Leo', color: 'green' },
+];
 ---
 
 <BaseLayout title="Design system" lang="es" team="Design system" langSwitch={false}>
@@ -108,7 +114,15 @@ const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
       audioStates.map((state) => (
         <>
           <p class="state">{state}</p>
-          <AudioUploader lang="es" dates={demoDates} timeZone="UTC" audio={audioDemo} demo={state} />
+          <AudioUploader
+            lang="es"
+            dates={demoDates}
+            timeZone="UTC"
+            spots={demoSpots}
+            surfers={demoSurfers}
+            audio={audioDemo}
+            demo={state}
+          />
         </>
       ))
     }
