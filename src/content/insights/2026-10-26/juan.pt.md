@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-26'
-surfista: juan
-foco: Mãos no centro no drop, pé entre as mãos
-focoSecundario: Subir depois da base
-frase: Desci, cheguei na base, tenho que subir
+date: '2026-10-26'
+surfer: juan
+focus: Mãos no centro no drop, pé entre as mãos
+secondaryFocus: Subir depois da base
+cue: Desci, cheguei na base, tenho que subir
 ---
 
 O tema do dia foi o pé da frente no drop: cai atrás e muito perto do pé de trás. Douglas encontrou a causa nas mãos, e a onda de 48:45 já saiu melhor porque ele "vinha pensando no pé".

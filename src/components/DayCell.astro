@@ -4,24 +4,24 @@ import { t, WEEKDAYS, type Lang } from '../lib/i18n';
 
 interface Props {
   lang: Lang;
-  fecha: string;
+  date: string;
   weekday: number;
-  actividad?: string;
-  /** Si el día tuvo sesión con coach, link a la sesión. */
+  activity?: string;
+  /** If the day had a coach session, link to the session. */
   href?: string;
-  /** Estado inicial. En el calendario real lo pone el script del navegador; acá sirve para /design/. */
+  /** Initial state. In the real calendar the browser script sets it; here it is used by /design/. */
   state?: DayState;
 }
 
-const { lang, fecha, weekday, actividad, href, state } = Astro.props;
+const { lang, date, weekday, activity, href, state } = Astro.props;
 const Tag = href ? 'a' : 'div';
 ---
 
-<Tag class:list={['day', { session: href }]} href={href} data-fecha={fecha} data-state={state}>
+<Tag class:list={['day', { session: href }]} href={href} data-date={date} data-state={state}>
   <span class="wd">{WEEKDAYS[lang][weekday]}</span>
-  <span class="dm">{dayMonth(fecha)}</span>
+  <span class="dm">{dayMonth(date)}</span>
   <span class="today">{t(lang, 'day.today')}</span>
-  <span class:list={['what', { empty: !actividad }]}>{actividad ?? t(lang, 'day.noPlan')}</span>
+  <span class:list={['what', { empty: !activity }]}>{activity ?? t(lang, 'day.noPlan')}</span>
   {href && <span class="tag">⚡ {t(lang, 'day.session')}</span>}
 </Tag>
 

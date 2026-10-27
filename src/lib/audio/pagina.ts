@@ -310,7 +310,7 @@ export function iniciar(raiz: HTMLElement): void {
         item.className = 'notice warn pendiente';
         const texto = document.createElement('p');
         const pedazos = partes.reduce((suma, p) => suma + p.pedazos, 0);
-        texto.textContent = format(textos.pending, { min: minutos(pedazos), fecha: dayMonth(partes[0].fecha) });
+        texto.textContent = format(textos.pending, { min: minutos(pedazos), date: dayMonth(partes[0].fecha) });
         const acciones = document.createElement('div');
         acciones.className = 'acciones';
         acciones.append(

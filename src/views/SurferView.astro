@@ -17,29 +17,29 @@ interface Props {
 
 const { lang, id } = Astro.props;
 const base = import.meta.env.BASE_URL;
-const { trip, surfistas, insights } = await loadSite();
+const { trip, surfers, insights } = await loadSite();
 
-const surfista = surfistas.find((s) => s.id === id);
-if (!surfista) throw new Error(`El surfista "${id}" no está en surfistas.yaml`);
+const surfer = surfers.find((s) => s.id === id);
+if (!surfer) throw new Error(`Surfer "${id}" is not in surfers.yaml`);
 
 const items = await Promise.all(
   insightsForSurfer(insights, id, lang).map(async (l) => ({ ...l, Content: (await render(l.entry)).Content })),
 );
-const actual = items[0]?.entry.data;
+const current = items[0]?.entry.data;
 ---
 
-<BaseLayout title={`${surfista.data.nombre} · ${trip.nombre}`} lang={lang} equipo={trip.equipo}>
-  <BoltBand kicker={trip.equipo} title={surfista.data.nombre}>
-    <div slot="media" style={`--accent: var(--c-${surfista.data.color})`}>
-      <Avatar id={id} nombre="" size="lg" />
+<BaseLayout title={`${surfer.data.name} · ${trip.name}`} lang={lang} team={trip.team}>
+  <BoltBand kicker={trip.team} title={surfer.data.name}>
+    <div slot="media" style={`--accent: var(--c-${surfer.data.color})`}>
+      <Avatar id={id} name="" size="lg" />
     </div>
   </BoltBand>
 
   <div class="wrap">
     <h2 class="section-title">{t(lang, 'surfer.current')}</h2>
     {
-      actual ? (
-        <FocusBlock lang={lang} foco={actual.foco} focoSecundario={actual.focoSecundario} frase={actual.frase} />
+      current ? (
+        <FocusBlock lang={lang} focus={current.focus} secondaryFocus={current.secondaryFocus} cue={current.cue} />
       ) : (
         <p class="prose">{t(lang, 'surfer.none')}</p>
       )
@@ -49,9 +49,9 @@ const actual = items[0]?.entry.data;
     {
       items.map(({ entry, fallback, Content }) => (
         <InsightBlock
-          heading={`${t(lang, 'session.title')} ${dayMonth(entry.data.fecha)}`}
+          heading={`${t(lang, 'session.title')} ${dayMonth(entry.data.date)}`}
           fallback={fallback}
-          href={pathFor(lang, `/sesiones/${entry.data.fecha}/`, base)}
+          href={pathFor(lang, `/sessions/${entry.data.date}/`, base)}
           linkText={t(lang, 'surfer.seeSession')}
         >
           <Content />

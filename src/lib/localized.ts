@@ -1,20 +1,20 @@
 import { DEFAULT_LANG, isLang, type Lang } from './i18n';
 
-/** Los archivos de contenido se llaman '<base>.<lang>.md'; su id es '<base>.<lang>'. */
+/** Content files are named '<base>.<lang>.md'; their id is '<base>.<lang>'. */
 export function splitLangId(id: string): { base: string; lang: Lang } {
   const dot = id.lastIndexOf('.');
   const lang = dot === -1 ? '' : id.slice(dot + 1);
-  if (!isLang(lang)) throw new Error(`El id "${id}" no termina en un idioma conocido (.es o .pt)`);
+  if (!isLang(lang)) throw new Error(`The id "${id}" does not end in a known language (.es or .pt)`);
   return { base: id.slice(0, dot), lang };
 }
 
 export interface Localized<T> {
   entry: T;
-  /** true si se pidió otro idioma y se devolvió el español. */
+  /** true if another language was requested and Spanish was returned. */
   fallback: boolean;
 }
 
-/** Busca la versión de un contenido en un idioma; si no existe, usa la de español. */
+/** Finds the version of a piece of content in a language; if missing, uses the Spanish one. */
 export function pickLang<T extends { id: string }>(entries: T[], base: string, lang: Lang): Localized<T> | undefined {
   const exact = entries.find((e) => e.id === `${base}.${lang}`);
   if (exact) return { entry: exact, fallback: false };
@@ -22,7 +22,7 @@ export function pickLang<T extends { id: string }>(entries: T[], base: string, l
   return def ? { entry: def, fallback: lang !== DEFAULT_LANG } : undefined;
 }
 
-/** Un elemento por contenido (sin repetir idiomas), en el idioma pedido o con fallback. */
+/** One item per piece of content (no repeated languages), in the requested language or with fallback. */
 export function localizeAll<T extends { id: string }>(entries: T[], lang: Lang): Localized<T>[] {
   const bases = [...new Set(entries.map((e) => splitLangId(e.id).base))];
   return bases.map((b) => pickLang(entries, b, lang)).filter((x): x is Localized<T> => x !== undefined);
@@ -30,27 +30,27 @@ export function localizeAll<T extends { id: string }>(entries: T[], lang: Lang):
 
 interface InsightLike {
   id: string;
-  data: { surfista: string; fecha: string };
+  data: { surfer: string; date: string };
 }
 
-/** Insights de un surfista en un idioma, del más reciente al más viejo. */
-export function insightsForSurfer<T extends InsightLike>(entries: T[], surfistaId: string, lang: Lang): Localized<T>[] {
+/** A surfer's insights in a language, newest first. */
+export function insightsForSurfer<T extends InsightLike>(entries: T[], surferId: string, lang: Lang): Localized<T>[] {
   return localizeAll(
-    entries.filter((e) => e.data.surfista === surfistaId),
+    entries.filter((e) => e.data.surfer === surferId),
     lang,
-  ).sort((a, b) => b.entry.data.fecha.localeCompare(a.entry.data.fecha));
+  ).sort((a, b) => b.entry.data.date.localeCompare(a.entry.data.date));
 }
 
-/** Insights de una sesión en un idioma, en el orden de la lista de surfistas. */
+/** A session's insights in a language, in the order of the surfer list. */
 export function insightsForSession<T extends InsightLike>(
   entries: T[],
-  fecha: string,
+  date: string,
   lang: Lang,
-  surfistaOrder: string[],
+  surferOrder: string[],
 ): Localized<T>[] {
-  const rank = (id: string) => surfistaOrder.indexOf(id);
+  const rank = (id: string) => surferOrder.indexOf(id);
   return localizeAll(
-    entries.filter((e) => e.data.fecha === fecha),
+    entries.filter((e) => e.data.date === date),
     lang,
-  ).sort((a, b) => rank(a.entry.data.surfista) - rank(b.entry.data.surfista));
+  ).sort((a, b) => rank(a.entry.data.surfer) - rank(b.entry.data.surfer));
 }

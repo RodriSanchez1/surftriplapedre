@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-26'
-surfista: ciro
-foco: Bajar hasta el bottom antes de atacar
-focoSecundario: Girar mirada y brazos para salir de la batida
-frase: Pensá adelante
+date: '2026-10-26'
+surfer: ciro
+focus: Bajar hasta el bottom antes de atacar
+secondaryFocus: Girar mirada y brazos para salir de la batida
+cue: Pensá adelante
 ---
 
 Ciro ya maniobra (batida y cavada de backside "animal", "muy bonita"). Lo que lo frena es el timing: corta la ola a la mitad y se queda mirando la maniobra en vez de salir de ella.

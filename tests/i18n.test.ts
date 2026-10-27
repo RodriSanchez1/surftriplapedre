@@ -4,51 +4,51 @@ import { format, isLang, parsePath, pathFor, switchLang, t } from '../src/lib/i1
 const BASE = '/surftriplapedre';
 
 describe('t', () => {
-  it('devuelve el texto en cada idioma', () => {
+  it('returns the text in each language', () => {
     expect(t('es', 'day.noPlan')).toBe('Sin plan');
     expect(t('pt', 'day.noPlan')).toBe('Sem plano');
   });
 });
 
 describe('isLang', () => {
-  it('acepta solo idiomas conocidos', () => {
+  it('accepts only known languages', () => {
     expect(isLang('pt')).toBe(true);
     expect(isLang('en')).toBe(false);
   });
 });
 
 describe('pathFor', () => {
-  it('no agrega prefijo para español', () => {
+  it('adds no prefix for Spanish', () => {
     expect(pathFor('es', '/', BASE)).toBe('/surftriplapedre/');
-    expect(pathFor('es', 'surfistas/juan', BASE)).toBe('/surftriplapedre/surfistas/juan/');
+    expect(pathFor('es', 'surfers/juan', BASE)).toBe('/surftriplapedre/surfers/juan/');
   });
-  it('agrega /pt para portugués', () => {
+  it('adds /pt for Portuguese', () => {
     expect(pathFor('pt', '/', BASE)).toBe('/surftriplapedre/pt/');
-    expect(pathFor('pt', '/sesiones/2026-10-26/', BASE)).toBe('/surftriplapedre/pt/sesiones/2026-10-26/');
+    expect(pathFor('pt', '/sessions/2026-10-26/', BASE)).toBe('/surftriplapedre/pt/sessions/2026-10-26/');
   });
-  it('funciona sin base', () => {
+  it('works without a base', () => {
     expect(pathFor('es', '/', '/')).toBe('/');
     expect(pathFor('pt', 'design', '')).toBe('/pt/design/');
   });
 });
 
 describe('parsePath', () => {
-  it('detecta idioma y ruta', () => {
-    expect(parsePath('/surftriplapedre/pt/surfistas/juan/', BASE)).toEqual({ lang: 'pt', path: 'surfistas/juan' });
-    expect(parsePath('/surftriplapedre/surfistas/juan/', BASE)).toEqual({ lang: 'es', path: 'surfistas/juan' });
+  it('detects language and path', () => {
+    expect(parsePath('/surftriplapedre/pt/surfers/juan/', BASE)).toEqual({ lang: 'pt', path: 'surfers/juan' });
+    expect(parsePath('/surftriplapedre/surfers/juan/', BASE)).toEqual({ lang: 'es', path: 'surfers/juan' });
     expect(parsePath('/surftriplapedre/', BASE)).toEqual({ lang: 'es', path: '' });
   });
 });
 
 describe('switchLang', () => {
-  it('mantiene la página al cambiar de idioma', () => {
-    expect(switchLang('/surftriplapedre/surfistas/juan/', BASE, 'pt')).toBe('/surftriplapedre/pt/surfistas/juan/');
+  it('keeps the page when switching language', () => {
+    expect(switchLang('/surftriplapedre/surfers/juan/', BASE, 'pt')).toBe('/surftriplapedre/pt/surfers/juan/');
     expect(switchLang('/surftriplapedre/pt/', BASE, 'es')).toBe('/surftriplapedre/');
   });
 });
 
 describe('format', () => {
-  it('reemplaza las variables y deja las desconocidas', () => {
-    expect(format('a los {min} min, {x}', { min: 23 })).toBe('a los 23 min, {x}');
+  it('replaces variables and leaves unknown ones', () => {
+    expect(format('at {min} min, {x}', { min: 23 })).toBe('at 23 min, {x}');
   });
 });

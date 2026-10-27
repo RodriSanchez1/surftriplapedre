@@ -2,72 +2,72 @@ import { defineCollection } from 'astro:content';
 import { file, glob } from 'astro/loaders';
 import { z } from 'astro/zod';
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Usar formato AAAA-MM-DD entre comillas');
-const texto = z.object({ es: z.string().min(1), pt: z.string().min(1).optional() });
-/** Colores de acento disponibles para cada surfista (ver src/styles/tokens.css). */
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the YYYY-MM-DD format, in quotes');
+const text = z.object({ es: z.string().min(1), pt: z.string().min(1).optional() });
+/** Accent colors available for each surfer (see src/styles/tokens.css). */
 export const ACCENTS = ['red', 'sky', 'yellow', 'green', 'pink'] as const;
 
-/** Quita la extensión para que el id quede '<base>.<lang>' (p. ej. '2026-10-26/juan.es'). */
+/** Strips the extension so the id is '<base>.<lang>' (e.g. '2026-10-26/juan.es'). */
 const idFromPath = ({ entry }: { entry: string }) => entry.replace(/\.md$/, '');
 
 const trip = defineCollection({
   loader: file('src/data/trip.yaml'),
   schema: z.object({
-    nombre: z.string(),
-    equipo: z.string(),
-    lugar: z.string(),
+    name: z.string(),
+    team: z.string(),
+    location: z.string(),
     coach: z.string(),
-    fechaInicio: isoDate,
-    fechaFin: isoDate,
-    zonaHoraria: z.string(),
-    /** Subida del audio del coach a Drive (ver AGENTS.md). Opcional: sin esto, /subir/ avisa que no está configurada. */
+    startDate: isoDate,
+    endDate: isoDate,
+    timeZone: z.string(),
+    /** Upload of the coach's audio to Drive (see AGENTS.md). Optional: without it, /upload/ says it is not configured. */
     audio: z
       .object({
-        carpetaDrive: z.string().min(1),
+        driveFolder: z.string().min(1),
         googleClientId: z.string().endsWith('.apps.googleusercontent.com'),
-        contacto: z.string().min(1),
+        contact: z.string().min(1),
       })
       .optional(),
   }),
 });
 
-const dias = defineCollection({
-  loader: file('src/data/dias.yaml'),
+const days = defineCollection({
+  loader: file('src/data/days.yaml'),
   schema: z.object({
-    actividad: texto.optional(),
+    activity: text.optional(),
     spot: z.string().optional(),
-    horario: z.string().optional(),
-    sesion: isoDate.optional(),
+    time: z.string().optional(),
+    session: isoDate.optional(),
   }),
 });
 
-const surfistas = defineCollection({
-  loader: file('src/data/surfistas.yaml'),
+const surfers = defineCollection({
+  loader: file('src/data/surfers.yaml'),
   schema: z.object({
-    nombre: z.string(),
+    name: z.string(),
     color: z.enum(ACCENTS),
   }),
 });
 
-const sesiones = defineCollection({
-  loader: glob({ pattern: '*.{es,pt}.md', base: 'src/content/sesiones', generateId: idFromPath }),
+const sessions = defineCollection({
+  loader: glob({ pattern: '*.{es,pt}.md', base: 'src/content/sessions', generateId: idFromPath }),
   schema: z.object({
-    fecha: isoDate,
-    titulo: z.string(),
-    planNota: z.string().optional(),
-    logistica: z.array(z.string()).default([]),
+    date: isoDate,
+    title: z.string(),
+    planNote: z.string().optional(),
+    logistics: z.array(z.string()).default([]),
   }),
 });
 
 const insights = defineCollection({
   loader: glob({ pattern: '*/*.{es,pt}.md', base: 'src/content/insights', generateId: idFromPath }),
   schema: z.object({
-    fecha: isoDate,
-    surfista: z.string(),
-    foco: z.string(),
-    focoSecundario: z.string(),
-    frase: z.string(),
+    date: isoDate,
+    surfer: z.string(),
+    focus: z.string(),
+    secondaryFocus: z.string(),
+    cue: z.string(),
   }),
 });
 
-export const collections = { trip, dias, surfistas, sesiones, insights };
+export const collections = { trip, days, surfers, sessions, insights };

@@ -1,7 +1,7 @@
-# Un ítem por día con algo cargado. El id es la fecha, entre comillas.
-# Los días del trip que no aparecen acá se muestran como "Sin plan".
+# One item per day with something loaded. The id is the date, in quotes.
+# Trip days that don't appear here are shown as "Sin plan".
 - id: "2026-10-26"
-  actividad:
+  activity:
     es: Análisis de video con Douglas
     pt: Análise de vídeo com Douglas
-  sesion: "2026-10-26"
+  session: "2026-10-26"

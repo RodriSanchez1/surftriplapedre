@@ -10,13 +10,13 @@ import type { Lang } from '../lib/i18n';
 interface Props {
   title: string;
   lang: Lang;
-  equipo: string;
+  team: string;
   description?: string;
-  /** false en páginas que solo existen en un idioma, como /design/. */
+  /** false on pages that only exist in one language, like /design/. */
   langSwitch?: boolean;
 }
 
-const { title, lang, equipo, description, langSwitch = true } = Astro.props;
+const { title, lang, team, description, langSwitch = true } = Astro.props;
 const base = import.meta.env.BASE_URL;
 ---
 
@@ -31,11 +31,11 @@ const base = import.meta.env.BASE_URL;
     <link rel="icon" type="image/svg+xml" href={`${base.replace(/\/$/, '')}/favicon.svg`} />
   </head>
   <body>
-    <SiteHeader lang={lang} equipo={equipo} langSwitch={langSwitch} />
+    <SiteHeader lang={lang} team={team} langSwitch={langSwitch} />
     <main>
       <slot />
     </main>
-    <footer class="wrap">⚡ {equipo}</footer>
+    <footer class="wrap">⚡ {team}</footer>
   </body>
 </html>
 

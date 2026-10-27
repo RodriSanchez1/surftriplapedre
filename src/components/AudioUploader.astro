@@ -10,19 +10,19 @@ import type { Estado, Textos } from '../lib/audio/pagina';
 
 interface Props {
   lang: Lang;
-  fechas: string[];
-  zonaHoraria: string;
-  audio?: { carpetaDrive: string; googleClientId: string; contacto: string };
+  dates: string[];
+  timeZone: string;
+  audio?: { driveFolder: string; googleClientId: string; contact: string };
   demo?: Estado;
 }
 
-const { lang, fechas, zonaHoraria, audio, demo } = Astro.props;
+const { lang, dates, timeZone, audio, demo } = Astro.props;
 const textos: Textos = {
   cut: t(lang, 'audio.cut'),
   pending: t(lang, 'audio.pending'),
   discardConfirm: t(lang, 'audio.discardConfirm'),
   errorUpload: t(lang, 'audio.errorUpload'),
-  errorPermission: format(t(lang, 'audio.errorPermission'), { contacto: audio?.contacto ?? '' }),
+  errorPermission: format(t(lang, 'audio.errorPermission'), { contact: audio?.contact ?? '' }),
   errorLogin: t(lang, 'audio.errorLogin'),
   errorMic: t(lang, 'audio.errorMic'),
   upload: t(lang, 'audio.upload'),
@@ -39,9 +39,9 @@ const textos: Textos = {
       data-audio
       data-estado={demo ?? 'login'}
       data-demo={demo}
-      data-carpeta={audio.carpetaDrive}
+      data-carpeta={audio.driveFolder}
       data-client-id={audio.googleClientId}
-      data-zona={zonaHoraria}
+      data-zona={timeZone}
       data-textos={JSON.stringify(textos)}
     >
       <div data-paso="login">
@@ -58,7 +58,7 @@ const textos: Textos = {
         <label class="campo">
           {t(lang, 'audio.session')}
           <select data-fecha>
-            {fechas.map((f) => (
+            {dates.map((f) => (
               <option value={f}>
                 {WEEKDAYS[lang][weekdayOf(f)]} {dayMonth(f)}
               </option>
@@ -117,7 +117,7 @@ const textos: Textos = {
 
       <div data-paso="subiendo">
         <p>
-          {t(lang, 'audio.uploading')} <strong data-subiendo-nombre>{demo ? `${fechas[0]}_1830.webm` : ''}</strong>
+          {t(lang, 'audio.uploading')} <strong data-subiendo-nombre>{demo ? `${dates[0]}_1830.webm` : ''}</strong>
         </p>
         <progress max="100" value={demo ? 42 : 0} data-progreso />
         <p class="porcentaje" data-porcentaje>

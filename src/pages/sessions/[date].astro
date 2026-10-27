@@ -3,7 +3,7 @@ import SessionView from '../../views/SessionView.astro';
 import { sessionPaths } from '../../lib/content';
 
 export const getStaticPaths = sessionPaths;
-const { fecha } = Astro.params;
+const { date } = Astro.params;
 ---
 
-<SessionView lang="es" fecha={fecha} />
+<SessionView lang="es" date={date} />

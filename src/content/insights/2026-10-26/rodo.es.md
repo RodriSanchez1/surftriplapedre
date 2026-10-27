@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-26'
-surfista: rodo
-foco: Soltar la tabla en el drop
-focoSecundario: Cadera abajo, tronco erguido, mirar adelante
-frase: Me siento y miro adonde voy
+date: '2026-10-26'
+surfer: rodo
+focus: Soltar la tabla en el drop
+secondaryFocus: Cadera abajo, tronco erguido, mirar adelante
+cue: Me siento y miro adonde voy
 ---
 
 Rodo agarró muchas olas. El freno principal es un vicio del drop: se para agarrando la tabla, sobre todo con la mano derecha. Douglas propuso corregirlo en tierra, con drops en la arena en la entrada en calor.

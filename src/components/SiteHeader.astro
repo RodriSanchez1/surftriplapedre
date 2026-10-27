@@ -3,17 +3,17 @@ import { LANGS, pathFor, switchLang, t, type Lang } from '../lib/i18n';
 
 interface Props {
   lang: Lang;
-  equipo: string;
+  team: string;
   langSwitch?: boolean;
 }
 
-const { lang, equipo, langSwitch = true } = Astro.props;
+const { lang, team, langSwitch = true } = Astro.props;
 const base = import.meta.env.BASE_URL;
 ---
 
 <header>
   <div class="wrap bar">
-    <a class="brand" href={pathFor(lang, '/', base)}>⚡ {equipo}</a>
+    <a class="brand" href={pathFor(lang, '/', base)}>⚡ {team}</a>
     {
       langSwitch && (
         <nav class="lang" aria-label={t(lang, 'site.langLabel')}>

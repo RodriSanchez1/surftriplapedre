@@ -2,45 +2,45 @@ import { getCollection, type CollectionEntry } from 'astro:content';
 import { findContentErrors } from './integrity';
 
 export type Insight = CollectionEntry<'insights'>;
-export type Sesion = CollectionEntry<'sesiones'>;
-export type Surfista = CollectionEntry<'surfistas'>;
-export type Dia = CollectionEntry<'dias'>;
+export type Session = CollectionEntry<'sessions'>;
+export type Surfer = CollectionEntry<'surfers'>;
+export type Day = CollectionEntry<'days'>;
 
-/** Carga todo el contenido del sitio y corta el build si hay referencias rotas. */
+/** Loads all the site's content and fails the build if there are broken references. */
 export async function loadSite() {
-  const [trips, dias, surfistas, sesiones, insights] = await Promise.all([
+  const [trips, days, surfers, sessions, insights] = await Promise.all([
     getCollection('trip'),
-    getCollection('dias'),
-    getCollection('surfistas'),
-    getCollection('sesiones'),
+    getCollection('days'),
+    getCollection('surfers'),
+    getCollection('sessions'),
     getCollection('insights'),
   ]);
-  if (trips.length !== 1) throw new Error(`src/data/trip.yaml tiene que tener exactamente un trip (tiene ${trips.length})`);
+  if (trips.length !== 1) throw new Error(`src/data/trip.yaml must have exactly one trip (it has ${trips.length})`);
   const trip = trips[0].data;
 
   const errors = findContentErrors({
     trip,
-    surfistaIds: surfistas.map((s) => s.id),
-    dias: dias.map((d) => ({ id: d.id, sesion: d.data.sesion })),
-    sesionIds: sesiones.map((s) => s.id),
+    surferIds: surfers.map((s) => s.id),
+    days: days.map((d) => ({ id: d.id, session: d.data.session })),
+    sessionIds: sessions.map((s) => s.id),
     insights,
   });
-  if (errors.length) throw new Error(`Contenido inválido:\n- ${errors.join('\n- ')}`);
+  if (errors.length) throw new Error(`Invalid content:\n- ${errors.join('\n- ')}`);
 
-  surfistas.sort((a, b) => a.data.nombre.localeCompare(b.data.nombre, 'es'));
+  surfers.sort((a, b) => a.data.name.localeCompare(b.data.name, 'es'));
 
-  return { trip, dias, surfistas, sesiones, insights };
+  return { trip, days, surfers, sessions, insights };
 }
 
-/** Una página por sesión (en cada idioma, con fallback a español). */
+/** One page per session (in each language, falling back to Spanish). */
 export async function sessionPaths() {
-  const { sesiones } = await loadSite();
-  const fechas = [...new Set(sesiones.map((s) => s.data.fecha))];
-  return fechas.map((fecha) => ({ params: { fecha } }));
+  const { sessions } = await loadSite();
+  const dates = [...new Set(sessions.map((s) => s.data.date))];
+  return dates.map((date) => ({ params: { date } }));
 }
 
-/** Una página por surfista. */
+/** One page per surfer. */
 export async function surferPaths() {
-  const { surfistas } = await loadSite();
-  return surfistas.map((s) => ({ params: { id: s.id } }));
+  const { surfers } = await loadSite();
+  return surfers.map((s) => ({ params: { id: s.id } }));
 }

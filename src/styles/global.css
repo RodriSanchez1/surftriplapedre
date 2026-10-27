@@ -43,7 +43,7 @@ a {
   margin: var(--s-6) 0 var(--s-3);
 }
 
-/* Bloque de lectura larga: siempre sobre papel, nunca directo sobre el naranja. */
+/* Long reading block: always on paper, never directly on the orange. */
 .prose {
   background: var(--c-paper);
   border: var(--border);
@@ -100,7 +100,7 @@ th {
 td:first-child {
   font-family: var(--font-strong);
 }
-/* En el celular cada fila de la tabla se apila; data-k repite el encabezado de la columna. */
+/* On mobile each table row stacks; data-k repeats the column header. */
 @media (max-width: 640px) {
   thead {
     display: none;
@@ -121,12 +121,12 @@ td:first-child {
   }
 }
 
-/* hidden gana siempre, aunque la clase tenga display (p. ej. .btn). */
+/* hidden always wins, even if the class sets display (e.g. .btn). */
 [hidden] {
   display: none !important;
 }
 
-/* Botones. .primary para la acción principal; .record para grabar. */
+/* Buttons. .primary for the main action; .record for recording. */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -160,7 +160,7 @@ td:first-child {
   padding: var(--s-4) var(--s-5);
 }
 
-/* Aviso corto sobre papel. .warn para advertencias, .error para errores. */
+/* Short notice on paper. .warn for warnings, .error for errors. */
 .notice {
   background: var(--c-paper);
   border: var(--border);
