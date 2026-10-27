@@ -1,0 +1,9 @@
+---
+import CoachView from '../../../views/CoachView.astro';
+import { coachPaths } from '../../../lib/content';
+
+export const getStaticPaths = coachPaths;
+const { id } = Astro.params;
+---
+
+<CoachView lang="pt" id={id} />

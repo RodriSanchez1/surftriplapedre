@@ -12,7 +12,7 @@ const { title, kicker, subtitle, size = 'page' } = Astro.props;
 
 <div class:list={['band', size]}>
   <div class="wrap inner">
-    <slot name="media" />
+    {Astro.slots.has('media') && <div class="media"><slot name="media" /></div>}
     <div>
       {kicker && <p class="kicker">{kicker}</p>}
       <h1>{title}</h1>
@@ -32,6 +32,10 @@ const { title, kicker, subtitle, size = 'page' } = Astro.props;
     display: flex;
     align-items: center;
     gap: var(--s-4);
+  }
+  /* The media keeps its size when a long title wraps. */
+  .media {
+    flex: none;
   }
   .kicker {
     font: 13px var(--font-head);

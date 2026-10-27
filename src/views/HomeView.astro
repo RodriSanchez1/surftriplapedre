@@ -6,7 +6,7 @@ import SurferCard from '../components/SurferCard.astro';
 import { loadSite } from '../lib/content';
 import { dayMonth } from '../lib/calendar';
 import { pathFor, t, type Lang } from '../lib/i18n';
-import { insightsForSurfer } from '../lib/localized';
+import { insightsForSurfer, pickLang } from '../lib/localized';
 
 interface Props {
   lang: Lang;
@@ -14,7 +14,8 @@ interface Props {
 
 const { lang } = Astro.props;
 const base = import.meta.env.BASE_URL;
-const { trip, days, surfers, insights } = await loadSite();
+const { trip, days, surfers, coaches, coachProfiles, insights } = await loadSite();
+const hasProfile = (id: string) => pickLang(coachProfiles, id, lang) !== undefined;
 const dates = `${dayMonth(trip.startDate)} → ${dayMonth(trip.endDate)}`;
 ---
 
@@ -44,6 +45,24 @@ const dates = `${dayMonth(trip.startDate)} → ${dayMonth(trip.endDate)}`;
         ))
       }
     </div>
+
+    {
+      coaches.length > 0 && (
+        <>
+          <h2 class="section-title">{t(lang, 'home.coaches')}</h2>
+          <div class="roster">
+            {coaches.map((c) => (
+              <SurferCard
+                id={c.id}
+                name={c.data.name}
+                color={c.data.color}
+                href={hasProfile(c.id) ? pathFor(lang, `/coaches/${c.id}/`, base) : undefined}
+              />
+            ))}
+          </div>
+        </>
+      )
+    }
   </div>
 </BaseLayout>
 

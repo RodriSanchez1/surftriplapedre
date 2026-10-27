@@ -1,5 +1,6 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { findContentErrors } from './integrity';
+import { splitLangId } from './localized';
 
 export type Insight = CollectionEntry<'insights'>;
 export type Session = CollectionEntry<'sessions'>;
@@ -8,10 +9,12 @@ export type Day = CollectionEntry<'days'>;
 
 /** Loads all the site's content and fails the build if there are broken references. */
 export async function loadSite() {
-  const [trips, days, surfers, sessions, insights] = await Promise.all([
+  const [trips, days, surfers, coaches, coachProfiles, sessions, insights] = await Promise.all([
     getCollection('trip'),
     getCollection('days'),
     getCollection('surfers'),
+    getCollection('coaches'),
+    getCollection('coachProfiles'),
     getCollection('sessions'),
     getCollection('insights'),
   ]);
@@ -21,6 +24,8 @@ export async function loadSite() {
   const errors = findContentErrors({
     trip,
     surferIds: surfers.map((s) => s.id),
+    coachIds: coaches.map((c) => c.id),
+    coachProfileIds: coachProfiles.map((p) => p.id),
     days: days.map((d) => ({ id: d.id, session: d.data.session })),
     sessionIds: sessions.map((s) => s.id),
     insights,
@@ -29,8 +34,9 @@ export async function loadSite() {
   if (errors.length) throw new Error(`Invalid content:\n- ${errors.join('\n- ')}`);
 
   surfers.sort((a, b) => a.data.name.localeCompare(b.data.name, 'es'));
+  coaches.sort((a, b) => a.data.name.localeCompare(b.data.name, 'es'));
 
-  return { trip, days, surfers, sessions, insights };
+  return { trip, days, surfers, coaches, coachProfiles, sessions, insights };
 }
 
 /** One page per session (in each language, falling back to Spanish). */
@@ -44,4 +50,11 @@ export async function sessionPaths() {
 export async function surferPaths() {
   const { surfers } = await loadSite();
   return surfers.map((s) => ({ params: { id: s.id } }));
+}
+
+/** One page per coach with a profile in src/content/coaches/. */
+export async function coachPaths() {
+  const { coachProfiles } = await loadSite();
+  const ids = [...new Set(coachProfiles.map((p) => splitLangId(p.id).base))];
+  return ids.map((id) => ({ params: { id } }));
 }

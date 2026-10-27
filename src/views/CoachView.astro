@@ -1,0 +1,45 @@
+---
+import { render } from 'astro:content';
+import BaseLayout from '../components/BaseLayout.astro';
+import BoltBand from '../components/BoltBand.astro';
+import Avatar from '../components/Avatar.astro';
+import TranslationBadge from '../components/TranslationBadge.astro';
+import { loadSite } from '../lib/content';
+import { t, type Lang } from '../lib/i18n';
+import { pickLang } from '../lib/localized';
+
+interface Props {
+  lang: Lang;
+  id: string;
+}
+
+const { lang, id } = Astro.props;
+const { trip, coaches, coachProfiles } = await loadSite();
+
+const coach = coaches.find((c) => c.id === id);
+if (!coach) throw new Error(`Coach "${id}" is not in coaches.yaml`);
+const profile = pickLang(coachProfiles, id, lang);
+if (!profile) throw new Error(`src/content/coaches/${id}.es.md does not exist`);
+const { Content } = await render(profile.entry);
+---
+
+<BaseLayout title={`${coach.data.name} · ${trip.name}`} lang={lang} team={trip.team}>
+  <BoltBand kicker={trip.team} title={coach.data.name} subtitle={profile.entry.data.tagline ?? t(lang, 'home.coach')}>
+    <div slot="media" style={`--accent: var(--c-${coach.data.color})`}>
+      <Avatar id={id} name="" size="lg" />
+    </div>
+  </BoltBand>
+
+  <div class="wrap">
+    <section class="prose profile">
+      {profile.fallback && <TranslationBadge />}
+      <Content />
+    </section>
+  </div>
+</BaseLayout>
+
+<style>
+  .profile {
+    margin-top: var(--s-5);
+  }
+</style>
