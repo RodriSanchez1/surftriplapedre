@@ -22,6 +22,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -51,8 +52,9 @@ def preparar_cuda():
 
 preparar_cuda()
 
+import numpy as np  # noqa: E402
 import yaml  # noqa: E402
-from faster_whisper import WhisperModel, decode_audio  # noqa: E402
+from faster_whisper import WhisperModel  # noqa: E402
 from faster_whisper.vad import VadOptions, get_speech_timestamps  # noqa: E402
 
 SR = 16000
@@ -64,6 +66,13 @@ SURF = {
     "pt": "drop, cavada, batida, rasgada, cutback, floater, bottom, lip, espuma, remada, "
     "prancha, borda, quilha, base, joelho, quadril, backside, frontside, manobra, série",
 }
+# Frases que Whisper inventa en silencios o al final del audio (vienen de subtítulos de YouTube).
+ALUCINACIONES = re.compile(
+    r"legendas? (por|pela)|subt[ií]tulos? (por|realizados)|amara\.org|obrigad[oa] por assistir|"
+    r"gracias por ver|inscreva-se|suscr[ií]bete",
+    re.IGNORECASE,
+)
+
 FRASE = {
     "es": "Charla de análisis de video de una sesión de surf con el coach {coach}. Surfistas: {nombres}. {surf}.",
     "pt": "Conversa de análise de vídeo de uma sessão de surf com o coach {coach}. Surfistas: {nombres}. {surf}.",
@@ -93,12 +102,13 @@ def duracion(path):
 
 
 def unir(audios, destino, hasta):
-    """Todas las partes en orden → un WAV mono de 16 kHz."""
+    """Todas las partes en orden → PCM crudo (s16le) mono de 16 kHz.
+    No se usa decode_audio de faster-whisper porque falla con PyAV ≥ 16."""
     cmd = ["ffmpeg", "-v", "error", "-y"]
     for a in audios:
         cmd += ["-i", str(a)]
     entradas = "".join(f"[{i}:a]" for i in range(len(audios)))
-    cmd += ["-filter_complex", f"{entradas}concat=n={len(audios)}:v=0:a=1[a]", "-map", "[a]", "-ac", "1", "-ar", str(SR)]
+    cmd += ["-filter_complex", f"{entradas}concat=n={len(audios)}:v=0:a=1[a]", "-map", "[a]", "-ac", "1", "-ar", str(SR), "-f", "s16le"]
     if hasta:
         cmd += ["-t", str(hasta)]
     subprocess.run(cmd + [str(destino)], check=True)
@@ -172,9 +182,9 @@ def main():
 
     t0 = time.time()
     with tempfile.TemporaryDirectory() as tmp:
-        wav = Path(tmp) / "audio.wav"
-        unir(args.audios, wav, args.hasta)
-        audio = decode_audio(str(wav), sampling_rate=SR)
+        pcm = Path(tmp) / "audio.pcm"
+        unir(args.audios, pcm, args.hasta)
+        audio = np.fromfile(pcm, dtype=np.int16).astype(np.float32) / 32768.0
     total_s = len(audio) / SR
     print(f"Audio: {mmss(total_s)} · {len(args.audios)} archivo(s)", flush=True)
 
@@ -200,7 +210,7 @@ def main():
         base = g["inicio"] / SR
         for s in segs:
             texto = s.text.strip()
-            if not texto:
+            if not texto or ALUCINACIONES.search(texto):
                 continue
             segmentos.append({
                 "inicio": round(base + s.start, 2),
