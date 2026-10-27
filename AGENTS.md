@@ -28,6 +28,7 @@ src/data/surfers.yaml         roster: id, name, accent color
 src/content/sessions/<date>.<es|pt>.md           summary of a coach session
 src/content/insights/<date>/<id>.<es|pt>.md      a surfer's insight in a session
 src/lib/                      pure logic with tests (i18n, calendar, language fallback, integrity)
+src/lib/footage.ts            footage the coach reviewed (day, time, spot, who was in the water) and its meta file
 src/lib/content.ts            loads the content and stops the build on broken references
 src/lib/audio/                upload of the coach's audio to Drive (filenames, upload, store, recorder, login, page)
                               and which Drive audios still need processing (pending)
@@ -36,7 +37,8 @@ src/views/                    body of each page (they receive lang)
 src/pages/  src/pages/pt/     one-line wrappers per language
 scripts/                      avatars, import-session, shots, transcribe.py, session-auto
 .claude/skills/process-session/   skill: from the transcript to the insights loaded in the site
-sessions/<date>/              inputs for each session (insights-es.md, insights-pt.md; audio and transcripts are local)
+sessions/<date>/              inputs for each session (insights-es.md, insights-pt.md; audio, transcripts and
+                              <date>_<HHmm>.meta.json footage files are local)
 docs/superpowers/specs/       approved specs
 docs/superpowers/plans/       implementation plans (historical, in Spanish)
 ```
@@ -72,10 +74,10 @@ If a subagent gets stuck or the task turns out to have open decisions, it goes b
 
 `npm run session-auto` does all of this on its own (see "Automatic summary"). By hand, use the `process-session` skill (`/process-session <date>`), which follows these steps:
 
-1. Download the audio from the trip's Drive folder (the coach uploads it from `/upload/`) to `sessions/<date>/` and transcribe it with `npm run transcribe -- sessions/<date>/<audio> [<part2> ...]`. This leaves `raw-transcript.md`; the skill organizes it into `transcript.md`. Audio and transcripts are local and are not committed.
+1. Download the audio from the trip's Drive folder (the coach uploads it from `/upload/`) to `sessions/<date>/` and transcribe it with `npm run transcribe -- sessions/<date>/<audio> [<part2> ...]`. This leaves `raw-transcript.md`; the skill organizes it into `transcript.md`. Audio and transcripts are local and are not committed. Download the `<date>_<HHmm>.meta.json` files too, if there are any: they say which surf sessions were reviewed and who was in the water.
 2. Write `sessions/<date>/insights-es.md` in the same format as `sessions/2026-10-26/insights-es.md`: `## Resumen`, one `## <Name>` per surfer with `**Lo que salió bien**` and `**En qué trabajar**`, and `## Plan para la próxima sesión` with the table (Surfista | Foco principal | Foco secundario | Frase para el agua) and the logistics list. Cite the minute of each insight in parentheses. These headings are content format: they stay in Spanish.
 3. Translate to `sessions/<date>/insights-pt.md`, with the same structure and `## Resumo`.
-4. `npm run import-session -- <date> "<ES title>" "<PT title>"`
+4. `npm run import-session -- <date> "<ES title>" "<PT title>"`. It merges the meta files into `footage` in the session frontmatter, which is how the footage gets committed (the meta files themselves are ignored).
 5. Add or update the day in `src/data/days.yaml` with `session: "<date>"`.
 6. `npm run check && npm test && npm run build`, and open `/sessions/<date>/` in `npm run dev`.
 7. Commit `Session <dd/mm>: insights` and ask for confirmation to push.
@@ -84,6 +86,7 @@ If a subagent gets stuck or the task turns out to have open decisions, it goes b
 
 `scripts/session-auto.mjs` does the whole path: it lists the Drive folder, downloads the audio for each date, transcribes it locally and runs `claude -p "/process-session <date>"`. It leaves a commit on `feat/session-<date>` (created from `main`) and goes back to the branch it was on. It never pushes.
 
+- It downloads the footage meta files with the audio. A new meta file counts as a change, like a new audio.
 - A date is processed when its last audio is more than 15 minutes old (`--wait`), in case the coach uploads another part.
 - If new audio arrives for a date that was already processed, it warns and overwrites nothing unless you use `--date <date> --force`.
 - `--local` uses the audio already in `sessions/<date>/`, without Drive. `--no-claude` only downloads and transcribes. `--list` shows the status.
@@ -122,7 +125,8 @@ The `/upload/` page uploads audio straight from the browser to a Drive folder (G
 3. Google Auth Platform → Audience: type **External**, in **testing mode**, with the coach and the organizer as **test users**. Without this Google answers `Error 403: access_denied`.
 4. Clients → OAuth client ID of type **Web application**, with origins `https://<user>.github.io` and `http://localhost:4321`.
 5. In `src/data/trip.yaml`, inside the trip: `audio: { driveFolder, googleClientId, contact }`. `contact` is the name shown when an account has no access.
-6. Never commit the `client_secret_*.json` that Google downloads (it is in `.gitignore`; the site does not use it).
+6. Also in the trip, `spots: [...]`: the surf spots offered in the form where the coach says which footage was reviewed (they can always type another one). Without it the spot is free text.
+7. Never commit the `client_secret_*.json` that Google downloads (it is in `.gitignore`; the site does not use it).
 
 ### Prepare the repo for another surftrip  ·  Sonnet
 
