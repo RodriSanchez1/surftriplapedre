@@ -14,7 +14,7 @@ interface Props {
 
 const { lang } = Astro.props;
 const base = import.meta.env.BASE_URL;
-const { trip, days, surfers, insights } = await loadSite();
+const { trip, days, surfers, coaches, insights } = await loadSite();
 const dates = `${dayMonth(trip.startDate)} → ${dayMonth(trip.endDate)}`;
 ---
 
@@ -44,6 +44,19 @@ const dates = `${dayMonth(trip.startDate)} → ${dayMonth(trip.endDate)}`;
         ))
       }
     </div>
+
+    {
+      coaches.length > 0 && (
+        <>
+          <h2 class="section-title">{t(lang, 'home.coaches')}</h2>
+          <div class="roster">
+            {coaches.map((c) => (
+              <SurferCard id={c.id} name={c.data.name} color={c.data.color} />
+            ))}
+          </div>
+        </>
+      )
+    }
   </div>
 </BaseLayout>
 

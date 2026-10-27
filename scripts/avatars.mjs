@@ -1,14 +1,14 @@
-// Generates public/avatars/<id>.svg for every surfer that does not have an avatar yet.
+// Generates public/avatars/<id>.svg for every surfer and coach that does not have an avatar yet.
 // Usage: npm run avatars   (to regenerate one, delete its file and run it again)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createAvatar } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
 import { load } from 'js-yaml';
 
-const surfers = load(readFileSync('src/data/surfers.yaml', 'utf8'));
+const people = ['surfers', 'coaches'].flatMap((f) => load(readFileSync(`src/data/${f}.yaml`, 'utf8')));
 mkdirSync('public/avatars', { recursive: true });
 
-for (const { id, name } of surfers) {
+for (const { id, name } of people) {
   const out = `public/avatars/${id}.svg`;
   if (existsSync(out)) {
     console.log(`= ${out} (already exists)`);

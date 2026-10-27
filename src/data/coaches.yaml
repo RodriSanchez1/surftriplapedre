@@ -1,0 +1,5 @@
+# The coaches, shown on the home page under the team. Same shape as surfers.yaml.
+# color: red | sky | yellow | green | pink
+- id: douglas
+  name: Douglas Cominski
+  color: sky

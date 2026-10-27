@@ -5,18 +5,20 @@ interface Props {
   id: string;
   name: string;
   color: string;
-  href: string;
+  /** Without href (e.g. a coach, who has no page) the card is not a link. */
+  href?: string;
   focus?: string;
 }
 
 const { id, name, color, href, focus } = Astro.props;
+const Tag = href ? 'a' : 'div';
 ---
 
-<a class="card" href={href} style={`--accent: var(--c-${color})`}>
+<Tag class="card" href={href} style={`--accent: var(--c-${color})`}>
   <Avatar id={id} name="" size="md" />
   <span class="name">{name}</span>
   {focus && <span class="focus">{focus}</span>}
-</a>
+</Tag>
 
 <style>
   .card {
@@ -31,7 +33,7 @@ const { id, name, color, href, focus } = Astro.props;
     text-decoration: none;
     transition: transform 0.12s;
   }
-  .card:hover {
+  a.card:hover {
     transform: translateY(-2px);
   }
   .name {

@@ -49,6 +49,14 @@ const surfers = defineCollection({
   }),
 });
 
+const coaches = defineCollection({
+  loader: file('src/data/coaches.yaml'),
+  schema: z.object({
+    name: z.string(),
+    color: z.enum(ACCENTS),
+  }),
+});
+
 const sessions = defineCollection({
   loader: glob({ pattern: '*.{es,pt}.md', base: 'src/content/sessions', generateId: idFromPath }),
   schema: z.object({
@@ -70,4 +78,4 @@ const insights = defineCollection({
   }),
 });
 
-export const collections = { trip, days, surfers, sessions, insights };
+export const collections = { trip, days, surfers, coaches, sessions, insights };
