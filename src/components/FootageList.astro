@@ -1,0 +1,64 @@
+---
+/** The surf sessions whose footage was reviewed in a talk: one card per session, with who was in the water. */
+import { dayMonth, weekdayOf } from '../lib/calendar';
+import type { Footage } from '../lib/footage';
+import { WEEKDAYS, t, type Lang } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+  footage: Footage[];
+  surfers: { id: string; name: string; color: string }[];
+}
+
+const { lang, footage, surfers } = Astro.props;
+---
+
+<div class="footage-list">
+  {
+    footage.map((f) => (
+      <div class="prose item">
+        <p class="when">
+          {WEEKDAYS[lang][weekdayOf(f.date)]} {dayMonth(f.date)} · {t(lang, `footage.${f.time}`)}
+          {f.spot && ` · ${f.spot}`}
+        </p>
+        <ul class="chips">
+          {surfers.map((s) => {
+            const out = !f.surfers.includes(s.id);
+            return (
+              <li class:list={['chip', { out }]} style={`--accent: var(--c-${s.color})`}>
+                {out ? <del>{s.name}</del> : s.name}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    ))
+  }
+</div>
+
+<style>
+  .footage-list {
+    display: grid;
+    gap: var(--s-3);
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    margin: var(--s-4) 0;
+  }
+  .item {
+    margin: 0;
+  }
+  .when {
+    font-family: var(--font-strong);
+    margin: 0 0 var(--s-2);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  del {
+    text-decoration: none;
+  }
+</style>
