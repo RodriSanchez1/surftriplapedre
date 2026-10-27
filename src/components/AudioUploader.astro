@@ -1,0 +1,252 @@
+---
+/**
+ * Grabar o subir el audio de una sesión a la carpeta de Drive del trip.
+ * La lógica de cliente está en src/lib/audio/pagina.ts.
+ * Con `demo` se muestra un estado fijo y el script no lo toca (para /design/).
+ */
+import { dayMonth, weekdayOf } from '../lib/calendar';
+import { WEEKDAYS, format, t, type Lang } from '../lib/i18n';
+import type { Estado, Textos } from '../lib/audio/pagina';
+
+interface Props {
+  lang: Lang;
+  fechas: string[];
+  zonaHoraria: string;
+  audio?: { carpetaDrive: string; googleClientId: string; contacto: string };
+  demo?: Estado;
+}
+
+const { lang, fechas, zonaHoraria, audio, demo } = Astro.props;
+const textos: Textos = {
+  cut: t(lang, 'audio.cut'),
+  pending: t(lang, 'audio.pending'),
+  discardConfirm: t(lang, 'audio.discardConfirm'),
+  errorUpload: t(lang, 'audio.errorUpload'),
+  errorPermission: format(t(lang, 'audio.errorPermission'), { contacto: audio?.contacto ?? '' }),
+  errorLogin: t(lang, 'audio.errorLogin'),
+  errorMic: t(lang, 'audio.errorMic'),
+  upload: t(lang, 'audio.upload'),
+  discard: t(lang, 'audio.discard'),
+};
+---
+
+{
+  !audio ? (
+    <p class="notice warn">{t(lang, 'audio.notConfigured')}</p>
+  ) : (
+    <section
+      class="uploader prose"
+      data-audio
+      data-estado={demo ?? 'login'}
+      data-demo={demo}
+      data-carpeta={audio.carpetaDrive}
+      data-client-id={audio.googleClientId}
+      data-zona={zonaHoraria}
+      data-textos={JSON.stringify(textos)}
+    >
+      <div data-paso="login">
+        <button type="button" class="btn primary" data-accion="login">
+          {t(lang, 'audio.login')}
+        </button>
+        <p class="help">{t(lang, 'audio.loginHelp')}</p>
+      </div>
+
+      <div data-paso="listo">
+        <p>
+          {t(lang, 'audio.connectedAs')} <strong data-email>{demo ? 'coach@gmail.com' : ''}</strong>
+        </p>
+        <label class="campo">
+          {t(lang, 'audio.session')}
+          <select data-fecha>
+            {fechas.map((f) => (
+              <option value={f}>
+                {WEEKDAYS[lang][weekdayOf(f)]} {dayMonth(f)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div class="acciones">
+          <button type="button" class="btn record" data-accion="grabar">
+            ● {t(lang, 'audio.record')}
+          </button>
+          <label class="btn">
+            {t(lang, 'audio.pickFile')}
+            <input type="file" accept="audio/*" class="oculto" data-archivo />
+          </label>
+        </div>
+        <p class="notice warn" data-sin-grabador hidden>
+          {t(lang, 'audio.noRecorder')}
+        </p>
+        <div class="elegido" data-elegido hidden>
+          <strong data-elegido-nombre />
+          <button type="button" class="btn primary" data-accion="subir-archivo">
+            {t(lang, 'audio.uploadFile')}
+          </button>
+        </div>
+      </div>
+
+      <div data-paso="grabando">
+        <p class="reloj" data-reloj>
+          {demo ? '12:34' : '0:00'}
+        </p>
+        <div class="nivel">
+          <span data-nivel style={demo ? 'transform: scaleX(0.6)' : undefined} />
+        </div>
+        <p>{t(lang, 'audio.keepOpen')}</p>
+        <p class="notice warn" data-sin-respaldo hidden>
+          {t(lang, 'audio.noBackup')}
+        </p>
+        <button type="button" class="btn primary" data-accion="terminar">
+          ■ {t(lang, 'audio.finish')}
+        </button>
+      </div>
+
+      <div data-paso="cortada">
+        <p class="notice warn" data-mensaje-corte>
+          {format(t(lang, 'audio.cut'), { min: 23 })}
+        </p>
+        <div class="acciones">
+          <button type="button" class="btn record" data-accion="seguir">
+            ● {t(lang, 'audio.continue')}
+          </button>
+          <button type="button" class="btn primary" data-accion="subir-corte">
+            {t(lang, 'audio.uploadWhatWeHave')}
+          </button>
+        </div>
+      </div>
+
+      <div data-paso="subiendo">
+        <p>
+          {t(lang, 'audio.uploading')} <strong data-subiendo-nombre>{demo ? `${fechas[0]}_1830.webm` : ''}</strong>
+        </p>
+        <progress max="100" value={demo ? 42 : 0} data-progreso />
+        <p class="porcentaje" data-porcentaje>
+          {demo ? '42%' : '0%'}
+        </p>
+        <p class="notice warn" data-sin-red hidden>
+          {t(lang, 'audio.offline')}
+        </p>
+      </div>
+
+      <div data-paso="hecho">
+        <p class="notice">✓ {t(lang, 'audio.done')}</p>
+        <button type="button" class="btn" data-accion="otro">
+          {t(lang, 'audio.another')}
+        </button>
+      </div>
+
+      <div data-paso="error">
+        <p class="notice error" data-mensaje-error>
+          {t(lang, 'audio.errorUpload')}
+        </p>
+        <div class="acciones">
+          <button type="button" class="btn primary" data-accion="reintentar">
+            {t(lang, 'audio.retry')}
+          </button>
+          <button type="button" class="btn" data-accion="descargar" hidden={!demo}>
+            {t(lang, 'audio.download')}
+          </button>
+        </div>
+      </div>
+
+      <div data-pendientes />
+    </section>
+  )
+}
+
+<script>
+  import { iniciar } from '../lib/audio/pagina';
+  document.querySelectorAll<HTMLElement>('[data-audio]:not([data-demo])').forEach(iniciar);
+</script>
+
+<style>
+  .uploader {
+    margin: var(--s-5) 0;
+  }
+  [data-paso] {
+    display: none;
+  }
+  .uploader[data-estado='login'] [data-paso='login'],
+  .uploader[data-estado='listo'] [data-paso='listo'],
+  .uploader[data-estado='grabando'] [data-paso='grabando'],
+  .uploader[data-estado='cortada'] [data-paso='cortada'],
+  .uploader[data-estado='subiendo'] [data-paso='subiendo'],
+  .uploader[data-estado='hecho'] [data-paso='hecho'],
+  .uploader[data-estado='error'] [data-paso='error'] {
+    display: block;
+  }
+  /* Las grabaciones pendientes solo se ofrecen antes de empezar algo nuevo. */
+  .uploader:not([data-estado='login']):not([data-estado='listo']) [data-pendientes] {
+    display: none;
+  }
+  .acciones,
+  .uploader :global(.acciones) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    margin: var(--s-4) 0;
+  }
+  .uploader :global(.pendiente .acciones) {
+    margin: var(--s-2) 0 0;
+  }
+  .uploader :global(.pendiente p) {
+    margin: 0;
+  }
+  .campo {
+    display: grid;
+    gap: var(--s-1);
+    font: 13px var(--font-head);
+    max-width: 20rem;
+  }
+  select {
+    font: 16px var(--font-body);
+    padding: var(--s-2);
+    border: var(--border);
+    border-radius: var(--radius);
+    background: var(--c-white);
+  }
+  .oculto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+  }
+  label.btn:focus-within {
+    outline: 3px solid var(--c-sky);
+    outline-offset: 2px;
+  }
+  .elegido {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-3);
+  }
+  .reloj {
+    font: 48px/1 var(--font-strong);
+    font-variant-numeric: tabular-nums;
+    margin: var(--s-3) 0;
+  }
+  .nivel {
+    height: 14px;
+    border: var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--c-white);
+  }
+  .nivel span {
+    display: block;
+    height: 100%;
+    background: var(--c-green);
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 0.1s linear;
+  }
+  .porcentaje {
+    font-family: var(--font-strong);
+  }
+  .help {
+    font-size: 14px;
+    color: var(--c-muted);
+  }
+</style>
