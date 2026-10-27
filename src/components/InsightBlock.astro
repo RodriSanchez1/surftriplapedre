@@ -1,0 +1,44 @@
+---
+/** Bloque de lectura de un insight. El contenido markdown va en el slot. */
+import TranslationBadge from './TranslationBadge.astro';
+
+interface Props {
+  heading: string;
+  href?: string;
+  linkText?: string;
+  fallback?: boolean;
+  id?: string;
+}
+
+const { heading, href, linkText, fallback = false, id } = Astro.props;
+---
+
+<article class="prose insight" id={id}>
+  <header>
+    <slot name="media" />
+    <h2>{heading}</h2>
+    {fallback && <TranslationBadge />}
+  </header>
+  <slot />
+  {href && linkText && <p class="more"><a href={href}>{linkText} →</a></p>}
+</article>
+
+<style>
+  .insight {
+    margin: var(--s-4) 0;
+    scroll-margin-top: var(--s-4);
+  }
+  header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    margin-bottom: var(--s-3);
+  }
+  h2 {
+    margin: 0 !important;
+  }
+  .more {
+    font-family: var(--font-strong);
+  }
+</style>

@@ -1,0 +1,91 @@
+---
+import { dayMonth, type DayState } from '../lib/calendar';
+import { t, WEEKDAYS, type Lang } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+  fecha: string;
+  weekday: number;
+  actividad?: string;
+  /** Si el día tuvo sesión con coach, link a la sesión. */
+  href?: string;
+  /** Estado inicial. En el calendario real lo pone el script del navegador; acá sirve para /design/. */
+  state?: DayState;
+}
+
+const { lang, fecha, weekday, actividad, href, state } = Astro.props;
+const Tag = href ? 'a' : 'div';
+---
+
+<Tag class:list={['day', { session: href }]} href={href} data-fecha={fecha} data-state={state}>
+  <span class="wd">{WEEKDAYS[lang][weekday]}</span>
+  <span class="dm">{dayMonth(fecha)}</span>
+  <span class="today">{t(lang, 'day.today')}</span>
+  <span class:list={['what', { empty: !actividad }]}>{actividad ?? t(lang, 'day.noPlan')}</span>
+  {href && <span class="tag">⚡ {t(lang, 'day.session')}</span>}
+</Tag>
+
+<style>
+  .day {
+    flex: 1 0 104px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 132px;
+    background: var(--c-yellow);
+    border: var(--border);
+    border-radius: var(--radius);
+    padding: var(--s-2);
+    text-decoration: none;
+    color: var(--c-ink);
+  }
+  .session {
+    background: var(--c-white);
+    box-shadow: var(--shadow);
+  }
+  .wd {
+    font: 11px var(--font-head);
+    letter-spacing: 0.06em;
+  }
+  .dm {
+    font: 22px/1 var(--font-strong);
+  }
+  .what {
+    font-size: 13px;
+    line-height: 1.3;
+    margin-top: var(--s-1);
+  }
+  .what.empty {
+    color: var(--c-muted);
+  }
+  .tag {
+    margin-top: auto;
+    font: 10px/1.2 var(--font-head);
+    color: var(--c-red);
+  }
+  .today {
+    display: none;
+    align-self: flex-start;
+    font: 10px var(--font-head);
+    background: var(--c-yellow);
+    color: var(--c-ink);
+    border-radius: 999px;
+    padding: 1px 8px;
+  }
+  .day[data-state='today'] {
+    background: var(--c-ink);
+    color: var(--c-white);
+  }
+  .day[data-state='today'] .today {
+    display: inline-block;
+  }
+  .day[data-state='today'] .what.empty {
+    color: #bbb;
+  }
+  .day[data-state='today'] .tag {
+    color: var(--c-yellow);
+  }
+  .day[data-state='past'] {
+    opacity: 0.55;
+  }
+</style>
