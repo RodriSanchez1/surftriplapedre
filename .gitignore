@@ -1,4 +1,4 @@
-# Audios y videos crudos de las sesiones (pesados y privados)
+# Raw audio and video from the sessions (heavy and private)
 *.[mM]4[aA]
 *.[mM][pP]3
 *.[wW][aA][vV]
@@ -10,12 +10,20 @@
 *.[wW][eE][bB][mM]
 *.[wW][eE][bB][aA]
 
-# Sistema
+# System
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Transcripciones completas (privadas, solo locales) y estado del resumen automático
+# Full transcripts (private, local only) and auto-summary state
+sessions/*/transcript.md
+sessions/*/raw-transcript.*
+sessions/*/processed.json
+sessions/*/auto.log
+sessions/.session-auto.lock
+sessions/cron.log
+
+# Legacy paths (remove once the local folder is renamed)
 sesiones/*/transcripcion.md
 sesiones/*/transcripcion-cruda.*
 sesiones/*/procesado.json
@@ -23,10 +31,10 @@ sesiones/*/auto.log
 sesiones/.sesion-auto.lock
 sesiones/cron.log
 
-# Mockups del brainstorming (locales)
+# Brainstorming mockups (local)
 .superpowers/brainstorm/
 
-# Metadatos de Windows (WSL)
+# Windows metadata (WSL)
 *:Zone.Identifier
 
 # Astro / Node
@@ -34,5 +42,5 @@ node_modules/
 dist/
 .astro/
 
-# Credenciales de Google Cloud (nunca al repo)
+# Google Cloud credentials (never in the repo)
 client_secret_*.json
