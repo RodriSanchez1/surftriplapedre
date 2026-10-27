@@ -22,24 +22,24 @@ En `sesiones/<fecha>/` tiene que haber una de estas cosas, en este orden de pref
 
 Si no hay nada, parar y decir qué falta.
 
-Leer además: `src/data/trip.yaml`, `src/data/surfistas.yaml`, `src/data/dias.yaml`, `sesiones/2026-10-26/insights-es.md` (el ejemplo del formato) y los `insights-es.md` de la sesión anterior, si hay, para ver qué foco tenía cada uno.
+Leer además: `src/data/trip.yaml`, `src/data/surfistas.yaml`, `src/data/dias.yaml`, `ejemplos/insights-es.md` de esta skill (una sesión real, de ejemplo del formato y del tono) y los `insights-es.md` de la sesión anterior, si hay, para ver qué foco tenía cada uno.
 
 ## 2. Leer la transcripción cruda
 
 Cada línea es `[mm:ss] (idioma) texto`. El idioma se detectó por tramo entre español y portugués, y `(pt?)` indica una detección dudosa.
 
-- **Quién habla.** No hay separación de voces. El coach habla en portugués o portuñol, y los surfistas responden en español. Lo que está en `(pt)` casi siempre es el coach. Las interjecciones cortas ("Sí", "Claro", "Sim") pueden ser de cualquiera.
+- **Quién habla.** No hay separación de voces, pero el idioma ayuda: en este trip el coach habla en portugués o portuñol y los surfistas responden en español, así que lo que está en `(pt)` casi siempre es el coach. Las interjecciones cortas ("Sí", "Claro", "Sim") pueden ser de cualquiera.
 - **De quién es la ola.** El coach analiza video ola por ola. El surfista se reconoce porque lo nombran ("esa es de Ciro", "Rodri, olha..."). Si no lo nombran, inferirlo por el contexto y marcarlo *(probable)*. Si no se puede, *sin identificar*, y no se le atribuye a nadie.
 - **Errores típicos.** Si un tramo se detectó en el idioma equivocado, Whisper puede haber "traducido" o deformado lo que se dijo. Interpretar por el sentido y no citar textual algo que no tiene sentido. Los nombres del roster y los términos de surf (cavada, batida, rasgada, drop, bottom, lip) pueden venir mal escritos.
 - **No inventar.** Todo insight tiene que estar en el audio. Si algo es inferencia, decirlo.
 
 ## 3. `sesiones/<fecha>/transcripcion.md` (privada)
 
-Mismo formato que la del 26/10: título, ficha (audio, duración, cómo se transcribió, participantes), "Cómo leerla", **índice de tramos** (`| Tiempo | Tramo | Surfista analizado |`) y después el texto por tramos, con `## mm:ss · tema · surfista` y quién habla en negrita. Las palabras dudosas van como *[¿…?]*. Es privada: nunca se commitea.
+Formato: título, ficha (audio, duración, cómo se transcribió, participantes), "Cómo leerla", **índice de tramos** (`| Tiempo | Tramo | Surfista analizado |`) y después el texto por tramos, con `## mm:ss · tema · surfista` y quién habla en negrita. Las palabras dudosas van como *[¿…?]*. Es privada: nunca se commitea.
 
 ## 4. `sesiones/<fecha>/insights-es.md`
 
-Mismo formato que `sesiones/2026-10-26/insights-es.md`, porque `scripts/import-sesion.mjs` lo parsea:
+Mismo formato que `ejemplos/insights-es.md`, porque `scripts/import-sesion.mjs` lo parsea:
 
 ```markdown
 # Insights sesión surftrip — dd/mm
@@ -85,7 +85,7 @@ Reglas:
 
 ## 5. `sesiones/<fecha>/insights-pt.md`
 
-Traducción al portugués de Brasil (el coach lo lee), con la misma estructura. Los encabezados cambian: `## Resumo`, `**O que saiu bem**`, `**No que trabalhar**`, `## Plano para a próxima sessão`, tabla `| Surfista | Foco principal | Foco secundário | Frase para a água |` y `**Logística combinada no fechamento**`. Los nombres de los surfistas no se traducen. Tomar `sesiones/2026-10-26/insights-pt.md` como ejemplo.
+Traducción al portugués de Brasil (el coach lo lee), con la misma estructura. Los encabezados cambian: `## Resumo`, `**O que saiu bem**`, `**No que trabalhar**`, `## Plano para a próxima sessão`, tabla `| Surfista | Foco principal | Foco secundário | Frase para a água |` y `**Logística combinada no fechamento**`. Los nombres de los surfistas no se traducen. Tomar `ejemplos/insights-pt.md` como ejemplo.
 
 ## 6. Cargar en el sitio
 
