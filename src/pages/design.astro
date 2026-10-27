@@ -5,6 +5,7 @@
  */
 import BaseLayout from '../components/BaseLayout.astro';
 import BoltBand from '../components/BoltBand.astro';
+import Bolt from '../components/Bolt.astro';
 import DayCell from '../components/DayCell.astro';
 import SurferCard from '../components/SurferCard.astro';
 import Avatar from '../components/Avatar.astro';
@@ -49,11 +50,31 @@ const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
 
     <h2 class="section-title">DayCell</h2>
     <div class="row">
-      <DayCell lang="es" date="2026-10-25" weekday={0} state="past" activity="Pasado" />
+      <DayCell lang="es" date="2026-10-24" weekday={6} state="past" showMonth />
+      <DayCell lang="es" date="2026-10-25" weekday={0} state="past" activity="Pasado, con sesión" href="#" />
       <DayCell lang="es" date="2026-10-26" weekday={1} state="today" activity="Hoy, con sesión" href="#" />
       <DayCell lang="es" date="2026-10-27" weekday={2} state="future" activity="Futuro con plan" />
       <DayCell lang="es" date="2026-10-28" weekday={3} state="future" />
       <DayCell lang="es" date="2026-10-29" weekday={4} state="future" activity="Sesión" href="#" />
+      <DayCell lang="es" date="2026-11-01" weekday={0} state="future" showMonth />
+    </div>
+
+    <h2 class="section-title">BoltBand hero with facts</h2>
+  </div>
+  <BoltBand
+    size="hero"
+    title="Surftrip Demo"
+    facts={[
+      { icon: 'place', text: 'Lugar del trip' },
+      { icon: 'dates', text: '5 ene → 12 ene' },
+    ]}
+  />
+  <div class="wrap">
+    <h2 class="section-title">Bolt</h2>
+    <div class="row" style="color: var(--c-red)">
+      <Bolt size={14} />
+      <Bolt size={24} />
+      <Bolt size={40} />
     </div>
 
     <h2 class="section-title">SurferCard and Avatar</h2>

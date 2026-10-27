@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { format, isLang, parsePath, pathFor, switchLang, t } from '../src/lib/i18n';
+import { format, isLang, parsePath, pathFor, shortDate, switchLang, t } from '../src/lib/i18n';
 
 const BASE = '/surftriplapedre';
 
@@ -50,5 +50,12 @@ describe('switchLang', () => {
 describe('format', () => {
   it('replaces variables and leaves unknown ones', () => {
     expect(format('at {min} min, {x}', { min: 23 })).toBe('at 23 min, {x}');
+  });
+});
+
+describe('shortDate', () => {
+  it('writes the day without a leading zero and the month in each language', () => {
+    expect(shortDate('es', '2026-11-01')).toBe('1 nov');
+    expect(shortDate('pt', '2026-10-24')).toBe('24 out');
   });
 });

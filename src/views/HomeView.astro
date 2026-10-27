@@ -4,8 +4,7 @@ import BoltBand from '../components/BoltBand.astro';
 import TripCalendar from '../components/TripCalendar.astro';
 import SurferCard from '../components/SurferCard.astro';
 import { loadSite } from '../lib/content';
-import { dayMonth } from '../lib/calendar';
-import { pathFor, t, type Lang } from '../lib/i18n';
+import { pathFor, shortDate, t, type Lang } from '../lib/i18n';
 import { insightsForSurfer, pickLang } from '../lib/localized';
 
 interface Props {
@@ -16,15 +15,17 @@ const { lang } = Astro.props;
 const base = import.meta.env.BASE_URL;
 const { trip, days, surfers, coaches, coachProfiles, insights } = await loadSite();
 const hasProfile = (id: string) => pickLang(coachProfiles, id, lang) !== undefined;
-const dates = `${dayMonth(trip.startDate)} → ${dayMonth(trip.endDate)}`;
+const dates = `${shortDate(lang, trip.startDate)} → ${shortDate(lang, trip.endDate)}`;
 ---
 
 <BaseLayout title={trip.name} lang={lang} team={trip.team}>
   <BoltBand
     size="hero"
-    kicker={trip.team}
     title={trip.name}
-    subtitle={`${trip.location} · ${dates} · ${t(lang, 'home.coach')}: ${trip.coach}`}
+    facts={[
+      { icon: 'place', text: trip.location },
+      { icon: 'dates', text: dates },
+    ]}
   />
 
   <div class="wrap">

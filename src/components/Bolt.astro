@@ -1,0 +1,19 @@
+---
+/** The lightning bolt that marks a coach session. Takes the text color (currentColor). */
+interface Props {
+  size?: number;
+}
+
+const { size = 16 } = Astro.props;
+---
+
+<svg class="bolt" width={size} height={size} viewBox="0 0 16 16" aria-hidden="true">
+  <path d="M10 0 2 9h5l-2 7 9-10H9l2-6z" fill="currentColor" />
+</svg>
+
+<style>
+  .bolt {
+    flex: none;
+    display: block;
+  }
+</style>

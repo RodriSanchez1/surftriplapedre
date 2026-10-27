@@ -11,6 +11,7 @@ const es = {
   'day.noPlan': 'Sin plan',
   'day.session': 'Sesión con coach',
   'day.today': 'Hoy',
+  'day.of': 'Día {n} de {total}',
   'session.title': 'Sesión del',
   'session.summary': 'Resumen',
   'session.plan': 'Plan para la próxima sesión',
@@ -69,6 +70,7 @@ const pt: Record<UiKey, string> = {
   'day.noPlan': 'Sem plano',
   'day.session': 'Sessão com coach',
   'day.today': 'Hoje',
+  'day.of': 'Dia {n} de {total}',
   'session.title': 'Sessão de',
   'session.summary': 'Resumo',
   'session.plan': 'Plano para a próxima sessão',
@@ -123,6 +125,18 @@ export const WEEKDAYS: Record<Lang, readonly string[]> = {
   es: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
   pt: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'],
 };
+
+/** January = 0. */
+export const MONTHS: Record<Lang, readonly string[]> = {
+  es: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'],
+  pt: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'],
+};
+
+/** '2026-11-01' → '1 nov' */
+export function shortDate(lang: Lang, date: string): string {
+  const [, m, d] = date.split('-');
+  return `${Number(d)} ${MONTHS[lang][Number(m) - 1]}`;
+}
 
 export function t(lang: Lang, key: UiKey): string {
   return ui[lang][key];

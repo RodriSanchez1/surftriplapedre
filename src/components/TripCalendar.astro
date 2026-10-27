@@ -1,7 +1,8 @@
 ---
+import Bolt from './Bolt.astro';
 import DayCell from './DayCell.astro';
 import { buildCalendar } from '../lib/calendar';
-import { pathFor, type Lang } from '../lib/i18n';
+import { pathFor, t, type Lang } from '../lib/i18n';
 import type { Day } from '../lib/content';
 
 interface Props {
@@ -19,49 +20,123 @@ const calendar = buildCalendar(
   endDate,
   days.map((d) => ({ id: d.id, ...d.data })),
 );
+const hasSessions = calendar.some((d) => d.day?.session);
 ---
 
-<div class="calendar" data-calendar data-tz={timeZone}>
-  {
-    calendar.map((d) => (
-      <DayCell
-        lang={lang}
-        date={d.date}
-        weekday={d.weekday}
-        activity={d.day?.activity?.[lang] ?? d.day?.activity?.es}
-        href={d.day?.session ? pathFor(lang, `/sessions/${d.day.session}/`, base) : undefined}
-      />
-    ))
-  }
+<div class="trip-calendar" data-calendar data-tz={timeZone} data-day-of={t(lang, 'day.of')}>
+  <div class="strip" data-strip>
+    {
+      calendar.map((d, i) => (
+        <DayCell
+          lang={lang}
+          date={d.date}
+          weekday={d.weekday}
+          showMonth={i === 0 || d.date.endsWith('-01')}
+          activity={d.day?.activity?.[lang] ?? d.day?.activity?.es}
+          href={d.day?.session ? pathFor(lang, `/sessions/${d.day.session}/`, base) : undefined}
+        />
+      ))
+    }
+  </div>
+  <div class="foot">
+    {
+      hasSessions && (
+        <span class="legend">
+          <Bolt size={14} />
+          {t(lang, 'day.session')}
+        </span>
+      )
+    }
+    <span class="progress" data-progress hidden></span>
+  </div>
 </div>
 
 <script>
   import { dayState, todayIn } from '../lib/calendar';
+  import { format } from '../lib/i18n';
 
   // "Today" depends on when the page is viewed, so it is computed in the browser.
   for (const cal of document.querySelectorAll<HTMLElement>('[data-calendar]')) {
+    const strip = cal.querySelector<HTMLElement>('[data-strip]')!;
+    const cells = [...strip.querySelectorAll<HTMLElement>('[data-date]')];
     const today = todayIn(cal.dataset.tz ?? 'UTC');
-    for (const cell of cal.querySelectorAll<HTMLElement>('[data-date]')) {
+    cells.forEach((cell, i) => {
       const state = dayState(cell.dataset.date ?? '', today);
       cell.dataset.state = state;
-      if (state === 'today') {
-        cell.setAttribute('aria-current', 'date');
-        cal.scrollLeft = cell.offsetLeft - (cal.clientWidth - cell.clientWidth) / 2;
-      }
-    }
+      if (state !== 'today') return;
+      cell.setAttribute('aria-current', 'date');
+      strip.scrollLeft = cell.offsetLeft - (strip.clientWidth - cell.clientWidth) / 2;
+      const progress = cal.querySelector<HTMLElement>('[data-progress]')!;
+      progress.textContent = format(cal.dataset.dayOf ?? '', { n: i + 1, total: cells.length });
+      progress.hidden = false;
+    });
+
+    // Fade the edge that has more days behind it.
+    const edges = () => {
+      const end = strip.scrollWidth - strip.clientWidth;
+      strip.toggleAttribute('data-more-start', strip.scrollLeft > 2);
+      strip.toggleAttribute('data-more-end', strip.scrollLeft < end - 2);
+    };
+    edges();
+    strip.addEventListener('scroll', edges, { passive: true });
+    addEventListener('resize', edges);
   }
 </script>
 
 <style>
-  .calendar {
+  /* The strip bleeds into the side padding so days slide out from the screen edge on mobile. */
+  .strip {
+    --fade-start: 0px;
+    --fade-end: 0px;
     position: relative;
-    display: flex;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(72px, 1fr);
     gap: var(--s-2);
+    margin-inline: calc(-1 * var(--s-4));
+    padding: var(--s-1) var(--s-4) var(--s-4);
     overflow-x: auto;
-    padding: var(--s-1) var(--s-1) var(--s-3);
-    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--s-4);
+    scrollbar-width: thin;
+    scrollbar-color: var(--c-ink) color-mix(in srgb, var(--c-ink) 12%, transparent);
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 var(--fade-start),
+      #000 calc(100% - var(--fade-end)),
+      transparent
+    );
   }
-  .calendar > :global(*) {
-    scroll-snap-align: center;
+  .strip[data-more-start] {
+    --fade-start: 40px;
+  }
+  .strip[data-more-end] {
+    --fade-end: 40px;
+  }
+
+  .foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+    margin-top: var(--s-1);
+    font: 12px/1 var(--font-head);
+  }
+  .legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend :global(.bolt) {
+    color: var(--c-red);
+  }
+  .progress {
+    margin-left: auto;
+    background: var(--c-ink);
+    color: var(--c-yellow);
+    border-radius: 999px;
+    padding: 5px 10px;
   }
 </style>
