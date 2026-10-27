@@ -23,14 +23,6 @@ sessions/*/auto.log
 sessions/.session-auto.lock
 sessions/cron.log
 
-# Legacy paths (remove once the local folder is renamed)
-sesiones/*/transcripcion.md
-sesiones/*/transcripcion-cruda.*
-sesiones/*/procesado.json
-sesiones/*/auto.log
-sesiones/.sesion-auto.lock
-sesiones/cron.log
-
 # Brainstorming mockups (local)
 .superpowers/brainstorm/
 

@@ -1,15 +1,15 @@
-// Capturas de revisión visual, en celular (390 px) y escritorio (1280 px).
-// Uso: node scripts/shots.mjs <url-base> <carpeta-salida> [ruta ...]
-// Ej.: node scripts/shots.mjs http://localhost:4321/surftriplapedre /tmp/shots / /pt/ /surfistas/juan/
+// Visual review screenshots, on mobile (390 px) and desktop (1280 px).
+// Usage: node scripts/shots.mjs <base-url> <output-folder> [path ...]
+// E.g.: node scripts/shots.mjs http://localhost:4321/surftriplapedre /tmp/shots / /pt/ /surfers/juan/
 import { mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 
-const [baseUrl, out, ...rutas] = process.argv.slice(2);
+const [baseUrl, out, ...routes] = process.argv.slice(2);
 if (!baseUrl || !out) {
-  console.error('Uso: node scripts/shots.mjs <url-base> <carpeta-salida> [ruta ...]');
+  console.error('Usage: node scripts/shots.mjs <base-url> <output-folder> [path ...]');
   process.exit(1);
 }
-const paths = rutas.length ? rutas : ['/', '/pt/', '/design/'];
+const paths = routes.length ? routes : ['/', '/pt/', '/design/'];
 mkdirSync(out, { recursive: true });
 
 const browser = await chromium.launch();

@@ -1,4 +1,4 @@
-/** Which audios in the Drive folder still need processing. Used by scripts/sesion-auto.mjs. */
+/** Which audios in the Drive folder still need processing. Used by scripts/session-auto.mjs. */
 
 export interface DriveFile {
   name: string;
