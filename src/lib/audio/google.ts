@@ -1,18 +1,18 @@
-/** Login con Google Identity Services (cliente de token) y email de la cuenta conectada. */
+/** Google Identity Services login (token client) and the email of the connected account. */
 
 const GIS = 'https://accounts.google.com/gsi/client';
-/** Solo permite crear archivos y ver los que creó la app. Alcanza para subir a una carpeta compartida (spike del 26/10). */
+/** Only allows creating files and seeing the ones the app created. Enough to upload to a shared folder (spike of 10/26). */
 export const SCOPE = 'https://www.googleapis.com/auth/drive.file';
-const CLAVE_EMAIL = 'surftrip-audio:email';
+const EMAIL_KEY = 'surftrip-audio:email';
 
-interface RespuestaToken {
+interface TokenResponse {
   access_token?: string;
   expires_in?: number | string;
   error?: string;
 }
 
-interface ClienteToken {
-  requestAccessToken(opciones?: { prompt?: string; login_hint?: string }): void;
+interface TokenClient {
+  requestAccessToken(options?: { prompt?: string; login_hint?: string }): void;
 }
 
 declare global {
@@ -23,91 +23,91 @@ declare global {
           initTokenClient(config: {
             client_id: string;
             scope: string;
-            callback: (r: RespuestaToken) => void;
+            callback: (r: TokenResponse) => void;
             error_callback?: (e: { type: string }) => void;
-          }): ClienteToken;
+          }): TokenClient;
         };
       };
     };
   }
 }
 
-/** El login se canceló, el popup se bloqueó o Google devolvió un error. */
-export class ErrorLogin extends Error {}
+/** The login was cancelled, the popup was blocked or Google returned an error. */
+export class LoginError extends Error {}
 
-let carga: Promise<void> | null = null;
+let loading: Promise<void> | null = null;
 
-/** Carga el script de Google una sola vez. Conviene llamarlo al abrir la página, antes del primer toque. */
-export function cargarGoogle(): Promise<void> {
-  carga ??= new Promise<void>((resolve, reject) => {
+/** Loads the Google script once. Call it when the page opens, before the first tap. */
+export function loadGoogle(): Promise<void> {
+  loading ??= new Promise<void>((resolve, reject) => {
     const script = document.createElement('script');
     script.src = GIS;
     script.async = true;
     script.onload = () => resolve();
     script.onerror = () => {
-      carga = null;
-      reject(new ErrorLogin('No se pudo cargar Google'));
+      loading = null;
+      reject(new LoginError('Could not load Google'));
     };
     document.head.append(script);
   });
-  return carga;
+  return loading;
 }
 
-export function emailGuardado(): string | null {
-  return localStorage.getItem(CLAVE_EMAIL);
+export function savedEmail(): string | null {
+  return localStorage.getItem(EMAIL_KEY);
 }
 
-/** Email de la cuenta (Drive about.get). Se guarda para sugerir la misma cuenta en el próximo login. */
-export async function emailDeCuenta(token: string): Promise<string | null> {
+/** Account email (Drive about.get). It is saved to suggest the same account on the next login. */
+export async function accountEmail(token: string): Promise<string | null> {
   try {
     const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)', {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return null;
     const email = ((await res.json()) as { user?: { emailAddress?: string } }).user?.emailAddress ?? null;
-    if (email) localStorage.setItem(CLAVE_EMAIL, email);
+    if (email) localStorage.setItem(EMAIL_KEY, email);
     return email;
   } catch {
     return null;
   }
 }
 
-export interface Cuenta {
-  /** Token de acceso vigente; con forzar = true pide uno nuevo. Llamarlo dentro de un toque, por el popup. */
-  token: (forzar?: boolean) => Promise<string>;
+export interface Account {
+  /** Current access token; with force = true it asks for a new one. Call it inside a tap, because of the popup. */
+  token: (force?: boolean) => Promise<string>;
 }
 
-export function cuentaGoogle(clientId: string): Cuenta {
-  let actual: { token: string; vence: number } | null = null;
-  let cliente: ClienteToken | null = null;
-  let enCurso: Promise<string> | null = null;
-  let pendiente: { resolve: (token: string) => void; reject: (e: Error) => void } | null = null;
+export function googleAccount(clientId: string): Account {
+  let current: { token: string; expires: number } | null = null;
+  let client: TokenClient | null = null;
+  let inFlight: Promise<string> | null = null;
+  let waiting: { resolve: (token: string) => void; reject: (e: Error) => void } | null = null;
 
-  async function pedir(): Promise<string> {
-    await cargarGoogle();
+  async function request(): Promise<string> {
+    await loadGoogle();
     return new Promise<string>((resolve, reject) => {
-      pendiente = { resolve, reject };
-      cliente ??= window.google!.accounts.oauth2.initTokenClient({
+      waiting = { resolve, reject };
+      client ??= window.google!.accounts.oauth2.initTokenClient({
         client_id: clientId,
         scope: SCOPE,
         callback: (r) => {
-          if (r.error || !r.access_token) return pendiente?.reject(new ErrorLogin(r.error ?? 'Google no devolvió un token'));
-          actual = { token: r.access_token, vence: Date.now() + Number(r.expires_in ?? 3600) * 1000 };
-          pendiente?.resolve(r.access_token);
+          if (r.error || !r.access_token) return waiting?.reject(new LoginError(r.error ?? 'Google did not return a token'));
+          current = { token: r.access_token, expires: Date.now() + Number(r.expires_in ?? 3600) * 1000 };
+          waiting?.resolve(r.access_token);
         },
-        error_callback: (e) => pendiente?.reject(new ErrorLogin(e.type)),
+        error_callback: (e) => waiting?.reject(new LoginError(e.type)),
       });
-      cliente.requestAccessToken({ prompt: '', login_hint: emailGuardado() ?? undefined });
+      client.requestAccessToken({ prompt: '', login_hint: savedEmail() ?? undefined });
     });
   }
 
   return {
-    token(forzar = false) {
-      if (!forzar && actual && actual.vence - Date.now() > 5 * 60_000) return Promise.resolve(actual.token);
-      enCurso ??= pedir().finally(() => {
-        enCurso = null;
+    token(force = false) {
+      if (!force && current && current.expires - Date.now() > 5 * 60_000) return Promise.resolve(current.token);
+      inFlight ??= request().finally(() => {
+        inFlight = null;
       });
-      return enCurso;
+      return inFlight;
     },
   };
 }

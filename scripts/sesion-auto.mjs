@@ -19,7 +19,7 @@ import {
 } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { load } from 'js-yaml';
-import { agruparPorFecha, estadoDeFecha } from '../src/lib/audio/pendientes.ts';
+import { groupByDate, dateStatus } from '../src/lib/audio/pending.ts';
 
 const { values: op } = parseArgs({
   options: {
@@ -93,7 +93,7 @@ function archivosEnDrive() {
   if (!carpeta) salir('Falta audio.carpetaDrive en src/data/trip.yaml.');
   if (!hay('rclone')) salir('No está rclone. Ver "Conectar el resumen automático" en AGENTS.md, o usar --local.');
   const json = correr('rclone', ['lsjson', `${REMOTE}:`, '--drive-root-folder-id', carpeta, '--files-only'], { capturar: true });
-  return JSON.parse(json).map((f) => ({ nombre: f.Name, modificado: f.ModTime }));
+  return JSON.parse(json).map((f) => ({ name: f.Name, modified: f.ModTime }));
 }
 
 function archivosLocales() {
@@ -102,8 +102,8 @@ function archivosLocales() {
     .filter((d) => d.isDirectory())
     .flatMap((d) =>
       readdirSync(`sesiones/${d.name}`).map((nombre) => ({
-        nombre,
-        modificado: statSync(`sesiones/${d.name}/${nombre}`).mtime.toISOString(),
+        name: nombre,
+        modified: statSync(`sesiones/${d.name}/${nombre}`).mtime.toISOString(),
       })),
     );
 }
@@ -116,15 +116,15 @@ function procesados(fecha) {
 // --- Pasos -------------------------------------------------------------------------------------
 
 function bajar(fecha, audios) {
-  const faltan = audios.filter((a) => !existsSync(`sesiones/${fecha}/${a.nombre}`));
+  const faltan = audios.filter((a) => !existsSync(`sesiones/${fecha}/${a.name}`));
   if (!faltan.length) return decir('Los audios ya estaban bajados.');
-  decir(`Bajando ${faltan.map((a) => a.nombre).join(', ')}`);
-  const incluir = faltan.flatMap((a) => ['--include', a.nombre]);
+  decir(`Bajando ${faltan.map((a) => a.name).join(', ')}`);
+  const incluir = faltan.flatMap((a) => ['--include', a.name]);
   correr('rclone', ['copy', `${REMOTE}:`, `sesiones/${fecha}/`, '--drive-root-folder-id', carpeta, ...incluir]);
 }
 
 function transcribir(fecha, audios) {
-  const nombres = audios.map((a) => a.nombre);
+  const nombres = audios.map((a) => a.name);
   const cruda = `sesiones/${fecha}/transcripcion-cruda.json`;
   if (existsSync(cruda) && JSON.stringify(JSON.parse(readFileSync(cruda, 'utf8')).audios) === JSON.stringify(nombres)) {
     return decir('La transcripción cruda ya estaba hecha con estos audios.');
@@ -174,30 +174,30 @@ function generarInsights(fecha) {
 // --- Principal ---------------------------------------------------------------------------------
 
 const archivos = op.local ? archivosLocales() : archivosEnDrive();
-const { porFecha, ignorados } = agruparPorFecha(archivos);
+const { byDate: porFecha, ignored: ignorados } = groupByDate(archivos);
 if (ignorados.length && !op.local) console.log(`Se ignoran (otro nombre): ${ignorados.join(', ')}`);
 
 const ahora = new Date();
 const espera = Number(op.espera);
 const filas = [...porFecha]
   .filter(([fecha]) => !op.fecha || fecha === op.fecha)
-  .map(([fecha, audios]) => ({ fecha, audios, estado: estadoDeFecha(audios, procesados(fecha), ahora, espera) }));
+  .map(([fecha, audios]) => ({ fecha, audios, estado: dateStatus(audios, procesados(fecha), ahora, espera) }));
 
 if (!filas.length) {
   console.log(op.fecha ? `No hay audios para ${op.fecha}.` : 'No hay audios.');
   process.exit(0);
 }
 for (const { fecha, audios, estado } of filas) {
-  console.log(`${fecha}  ${estado.padEnd(10)} ${audios.map((a) => a.nombre).join(', ')}`);
+  console.log(`${fecha}  ${estado.padEnd(10)} ${audios.map((a) => a.name).join(', ')}`);
 }
 if (op.listar) process.exit(0);
 
 // Con --fecha no se espera; lo ya procesado solo se pisa con --forzar.
 const aProcesar = filas.filter(({ estado }) =>
-  estado === 'lista' || (op.fecha && estado === 'esperando') || (op.forzar && (estado === 'procesada' || estado === 'cambio')),
+  estado === 'ready' || (op.fecha && estado === 'waiting') || (op.forzar && (estado === 'processed' || estado === 'changed')),
 );
 for (const { fecha, estado } of filas) {
-  if (estado === 'cambio' && !op.forzar) {
+  if (estado === 'changed' && !op.forzar) {
     console.log(`${fecha}: llegaron audios nuevos después de procesar. Revisá y corré con --fecha ${fecha} --forzar.`);
   }
 }
@@ -219,7 +219,7 @@ for (const { fecha, audios } of aProcesar) {
     generarInsights(fecha);
     writeFileSync(
       `sesiones/${fecha}/procesado.json`,
-      JSON.stringify({ audios: audios.map((a) => a.nombre), fecha: new Date().toISOString() }, null, 1),
+      JSON.stringify({ audios: audios.map((a) => a.name), fecha: new Date().toISOString() }, null, 1),
     );
     decir(`Listo. Revisá feat/sesion-${fecha} y confirmá el push.`);
   } catch (e) {
