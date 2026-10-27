@@ -18,6 +18,9 @@ export type Status = 'waiting' | 'ready' | 'processed' | 'changed';
 // `_parte` is the name the first uploads got in Drive; `_part` is the current one.
 const NAME = /^(\d{4}-\d{2}-\d{2})_(\d{4})(?:_parte?(\d+))?\.([a-z0-9]{1,5})$/i;
 
+// Footage metadata uploaded next to the audio: '2026-10-27_1830.meta.json'.
+const META = /^(\d{4}-\d{2}-\d{2})_(\d{4})\.meta\.json$/i;
+
 /** '2026-10-27_1830_part2.webm' → { date, time, part: 2, extension }. Any other name → null. */
 export function parseName(name: string): Omit<Audio, keyof DriveFile> | null {
   const m = NAME.exec(name);
@@ -25,14 +28,27 @@ export function parseName(name: string): Omit<Audio, keyof DriveFile> | null {
   return { date: m[1], time: m[2], part: m[3] ? Number(m[3]) : 1, extension: m[4].toLowerCase() };
 }
 
-/** Groups the audios by session date, in recording order (time and part). */
+/** '2026-10-27_1830.meta.json' → { date, time }. Any other name → null. */
+export function parseMetaName(name: string): { date: string; time: string } | null {
+  const m = META.exec(name);
+  return m ? { date: m[1], time: m[2] } : null;
+}
+
+/** Groups the audios by session date, in recording order (time and part). Meta files go apart, by date. */
 export function groupByDate(files: DriveFile[]): {
   byDate: Map<string, Audio[]>;
+  meta: Map<string, DriveFile[]>;
   ignored: string[];
 } {
   const byDate = new Map<string, Audio[]>();
+  const meta = new Map<string, DriveFile[]>();
   const ignored: string[] = [];
   for (const file of files) {
+    const metaData = parseMetaName(file.name);
+    if (metaData) {
+      meta.set(metaData.date, [...(meta.get(metaData.date) ?? []), file]);
+      continue;
+    }
     const data = parseName(file.name);
     if (!data) {
       ignored.push(file.name);
@@ -45,21 +61,22 @@ export function groupByDate(files: DriveFile[]): {
   for (const list of byDate.values()) {
     list.sort((a, b) => a.time.localeCompare(b.time) || a.part - b.part);
   }
-  return { byDate: new Map([...byDate].sort(([a], [b]) => a.localeCompare(b))), ignored };
+  for (const list of meta.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+  return { byDate: new Map([...byDate].sort(([a], [b]) => a.localeCompare(b))), meta, ignored };
 }
 
 /**
- * - processed: exactly this list of audios was already processed.
- * - changed: it was processed, but audios arrived or changed afterwards.
- * - waiting: the last audio is very recent; another part may be coming.
+ * - processed: exactly this list of files (audios and meta files) was already processed.
+ * - changed: it was processed, but files arrived or changed afterwards.
+ * - waiting: the last file is very recent; another part may be coming.
  * - ready: it can be processed.
  */
-export function dateStatus(audios: Audio[], processed: string[] | null, now: Date, waitMinutes: number): Status {
-  const names = audios.map((a) => a.name).sort();
+export function dateStatus(files: DriveFile[], processed: string[] | null, now: Date, waitMinutes: number): Status {
+  const names = files.map((a) => a.name).sort();
   if (processed) {
     const same = processed.length === names.length && [...processed].sort().every((n, i) => n === names[i]);
     return same ? 'processed' : 'changed';
   }
-  const last = Math.max(...audios.map((a) => Date.parse(a.modified)));
+  const last = Math.max(...files.map((a) => Date.parse(a.modified)));
   return now.getTime() - last < waitMinutes * 60_000 ? 'waiting' : 'ready';
 }
