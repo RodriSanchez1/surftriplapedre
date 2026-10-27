@@ -47,19 +47,6 @@ const { lang, dates, spots, surfers, date, time, removable } = Astro.props;
         }
       </select>
     </label>
-    {
-      removable && (
-        <button
-          type="button"
-          class="btn remove"
-          data-action="remove-footage"
-          aria-label={t(lang, 'footage.remove')}
-          title={t(lang, 'footage.remove')}
-        >
-          ✕
-        </button>
-      )
-    }
   </div>
   <label class="field">
     {t(lang, 'footage.spot')}
@@ -93,6 +80,13 @@ const { lang, dates, spots, surfers, date, time, removable } = Astro.props;
       }
     </div>
   </div>
+  {
+    removable && (
+      <button type="button" class="btn remove" data-action="remove-footage">
+        ✕ {t(lang, 'footage.remove')}
+      </button>
+    )
+  }
 </div>
 
 <style>
@@ -124,12 +118,10 @@ const { lang, dates, spots, surfers, date, time, removable } = Astro.props;
     border-radius: var(--radius);
     background: var(--c-white);
   }
-  input[type='text'][hidden] {
-    display: none;
-  }
   .remove {
-    margin-left: auto;
+    justify-self: start;
     padding: var(--s-2) var(--s-3);
+    font-size: 13px;
   }
   .chips {
     display: flex;

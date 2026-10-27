@@ -12,6 +12,7 @@ import FocusBlock from '../components/FocusBlock.astro';
 import InsightBlock from '../components/InsightBlock.astro';
 import TranslationBadge from '../components/TranslationBadge.astro';
 import AudioUploader from '../components/AudioUploader.astro';
+import FootageList from '../components/FootageList.astro';
 import { ACCENTS } from '../content.config';
 
 const colors = [...new Set(['orange', 'red', 'yellow', 'ink', 'paper', 'white', 'muted', ...ACCENTS])];
@@ -89,6 +90,16 @@ const demoSurfers = [
       <p>Shown in Spanish because the .pt.md is missing.</p>
     </InsightBlock>
     <p><TranslationBadge /></p>
+
+    <h2 class="section-title">FootageList</h2>
+    <FootageList
+      lang="es"
+      surfers={demoSurfers}
+      footage={[
+        { date: '2026-01-05', time: 'afternoon', spot: 'Playa A', surfers: ['juan', 'leo'] },
+        { date: '2026-01-06', time: 'morning', surfers: ['juan', 'ana', 'leo'] },
+      ]}
+    />
 
     <h2 class="section-title">Buttons, notices, chips and progress</h2>
     <div class="prose">

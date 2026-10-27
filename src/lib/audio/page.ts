@@ -269,19 +269,12 @@ export function init(root: HTMLElement): void {
     url: string | undefined,
     onSessionCreated: (url: string) => void,
   ) => {
-    const blob = new Blob([toMeta(talkDate, footage)], {
-      type: 'application/json',
-    });
+    const blob = new Blob([toMeta(talkDate, footage)], { type: 'application/json' });
     const name = metaName(group);
     showUpload(name);
     return send(
       deps,
-      {
-        file: { name, mime: 'application/json', size: blob.size, folder },
-        blob,
-        url,
-        onSessionCreated,
-      },
+      { file: { name, mime: 'application/json', size: blob.size, folder }, blob, url, onSessionCreated },
       progress,
     );
   };
@@ -353,12 +346,7 @@ export function init(root: HTMLElement): void {
       await send(
         deps,
         {
-          file: {
-            name,
-            mime: p.file.type || 'application/octet-stream',
-            size: p.file.size,
-            folder,
-          },
+          file: { name, mime: p.file.type || 'application/octet-stream', size: p.file.size, folder },
           blob: p.file,
           url: p.url,
           onSessionCreated: (url) => {
@@ -414,10 +402,7 @@ export function init(root: HTMLElement): void {
         item.className = 'notice warn pending-item';
         const text = document.createElement('p');
         const chunks = parts.reduce((sum, p) => sum + p.chunks, 0);
-        text.textContent = format(texts.pending, {
-          min: minutes(chunks),
-          date: dayMonth(parts[0].date),
-        });
+        text.textContent = format(texts.pending, { min: minutes(chunks), date: dayMonth(parts[0].date) });
         const actions = document.createElement('div');
         actions.className = 'actions';
         actions.append(
