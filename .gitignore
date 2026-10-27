@@ -26,3 +26,6 @@ sesiones/*/transcripcion.md
 node_modules/
 dist/
 .astro/
+
+# Credenciales de Google Cloud (nunca al repo)
+client_secret_*.json
