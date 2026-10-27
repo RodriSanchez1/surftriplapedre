@@ -12,7 +12,7 @@ sesiones/
   2026-10-26/
     insights-es.md                 Insights por surfista y plan, en español
     insights-pt.md                 Lo mismo, en portugués
-    transcripcion.md               Transcripción completa del análisis (59:29), con marcas de tiempo
+    transcripcion.md               Transcripción completa (59:29), solo local: no se sube al repo
 ```
 
 ## Publicar con GitHub Pages
