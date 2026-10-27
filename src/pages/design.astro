@@ -12,6 +12,7 @@ import FocusBlock from '../components/FocusBlock.astro';
 import InsightBlock from '../components/InsightBlock.astro';
 import TranslationBadge from '../components/TranslationBadge.astro';
 import AudioUploader from '../components/AudioUploader.astro';
+import FootageList from '../components/FootageList.astro';
 import { ACCENTS } from '../content.config';
 
 const colors = [...new Set(['orange', 'red', 'yellow', 'ink', 'paper', 'white', 'muted', ...ACCENTS])];
@@ -24,6 +25,12 @@ const fonts = [
 const audioStates = ['login', 'ready', 'recording', 'cut', 'uploading', 'done', 'error'] as const;
 const audioDemo = { driveFolder: 'demo', googleClientId: 'demo.apps.googleusercontent.com', contact: 'el organizador' };
 const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
+const demoSpots = ['Playa A', 'Playa B'];
+const demoSurfers = [
+  { id: 'juan', name: 'Juan', color: 'red' },
+  { id: 'ana', name: 'Ana', color: 'sky' },
+  { id: 'leo', name: 'Leo', color: 'green' },
+];
 ---
 
 <BaseLayout title="Design system" lang="es" team="Design system" langSwitch={false}>
@@ -87,7 +94,17 @@ const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
     </InsightBlock>
     <p><TranslationBadge /></p>
 
-    <h2 class="section-title">Buttons, notices and progress</h2>
+    <h2 class="section-title">FootageList</h2>
+    <FootageList
+      lang="es"
+      surfers={demoSurfers}
+      footage={[
+        { date: '2026-01-05', time: 'afternoon', spot: 'Playa A', surfers: ['juan', 'leo'] },
+        { date: '2026-01-06', time: 'morning', surfers: ['juan', 'ana', 'leo'] },
+      ]}
+    />
+
+    <h2 class="section-title">Buttons, notices, chips and progress</h2>
     <div class="prose">
       <div class="row">
         <button type="button" class="btn">.btn</button>
@@ -98,6 +115,11 @@ const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
       <p class="notice">.notice</p>
       <p class="notice warn">.notice.warn</p>
       <p class="notice error">.notice.error</p>
+      <div class="row">
+        <span class="chip" style="--accent: var(--c-sky)">.chip</span>
+        <span class="chip out">.chip.out</span>
+        <label class="chip" style="--accent: var(--c-green)"><input type="checkbox" checked /> checkbox</label>
+      </div>
       <progress max="100" value="42"></progress>
     </div>
 
@@ -106,7 +128,15 @@ const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
       audioStates.map((state) => (
         <>
           <p class="state">{state}</p>
-          <AudioUploader lang="es" dates={demoDates} timeZone="UTC" audio={audioDemo} demo={state} />
+          <AudioUploader
+            lang="es"
+            dates={demoDates}
+            timeZone="UTC"
+            spots={demoSpots}
+            surfers={demoSurfers}
+            audio={audioDemo}
+            demo={state}
+          />
         </>
       ))
     }

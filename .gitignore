@@ -20,6 +20,7 @@ sessions/*/transcript.md
 sessions/*/raw-transcript.*
 sessions/*/processed.json
 sessions/*/auto.log
+sessions/*/*.meta.json
 sessions/.session-auto.lock
 sessions/cron.log
 

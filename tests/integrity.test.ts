@@ -9,6 +9,7 @@ const valid = (): IntegrityInput => ({
   days: [{ id: '2026-10-26', session: '2026-10-26' }, { id: '2026-10-27' }],
   sessionIds: ['2026-10-26.es', '2026-10-26.pt'],
   insights: [{ id: '2026-10-26/juan.es', data: { surfer: 'juan', date: '2026-10-26' } }],
+  footage: [{ session: '2026-10-26.es', footage: [{ date: '2026-10-26', surfers: ['juan'] }] }],
 });
 
 describe('findContentErrors', () => {
@@ -46,6 +47,18 @@ describe('findContentErrors', () => {
     const input = valid();
     input.insights[0].data.surfer = 'ciro';
     expect(findContentErrors(input)).toEqual([expect.stringContaining('is named "juan" but the surfer is "ciro"')]);
+  });
+
+  it('detects footage with a surfer that does not exist', () => {
+    const input = valid();
+    input.footage[0].footage[0].surfers.push('rodo');
+    expect(findContentErrors(input)).toEqual([expect.stringContaining('footage surfer "rodo" is not in surfers.yaml')]);
+  });
+
+  it('detects footage with a date outside the trip', () => {
+    const input = valid();
+    input.footage[0].footage[0].date = '2026-11-05';
+    expect(findContentErrors(input)).toEqual([expect.stringContaining('footage date 2026-11-05 is outside the trip')]);
   });
 
   it('detects a coach profile for a coach that does not exist', () => {

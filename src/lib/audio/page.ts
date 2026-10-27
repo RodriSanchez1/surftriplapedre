@@ -3,8 +3,9 @@
  * Ties together login, recording, the device store and the resumable upload.
  */
 import { clampToTrip, dayMonth, todayIn } from '../calendar';
+import { defaultTime, OTHER_SPOT, toMeta, type Footage, type TimeOfDay } from '../footage';
 import { format } from '../i18n';
-import { extensionOfFile, extensionFor, groupOf, timeIn, fileName } from './filenames';
+import { extensionOfFile, extensionFor, groupOf, timeIn, fileName, metaName } from './filenames';
 import { googleAccount, accountEmail, loadGoogle, LoginError } from './google';
 import { startRecording, recordingFormat, TIMESLICE, type Recorder } from './recorder';
 import { openStore, type Store, type Recording } from './store';
@@ -47,6 +48,9 @@ export function init(root: HTMLElement): void {
 
   const dateSelect = $<HTMLSelectElement>('[data-date]');
   const fileInput = $<HTMLInputElement>('[data-file]');
+  const footageBox = $('[data-footage]');
+  const cards = $('[data-footage-cards]');
+  const template = $<HTMLTemplateElement>('[data-footage-template]');
   const mime = recordingFormat();
 
   let store: Store | null = null;
@@ -57,14 +61,63 @@ export function init(root: HTMLElement): void {
   const local = new Map<string, { r: Recording; chunks: Blob[] }>();
   let backup = true;
   let writes: Promise<unknown> = Promise.resolve();
-  let picked: { file: File; name?: string; url?: string } | null = null;
+  let picked: {
+    file: File;
+    name?: string;
+    url?: string;
+    group?: string;
+    date?: string;
+    footage?: Footage[];
+    metaUrl?: string;
+    metaDone?: boolean;
+  } | null = null;
   let clock = 0;
   let retry: () => void = () => {};
   let downloads: Download[] = [];
 
   const show = (state: State) => {
     root.dataset.state = state;
+    // The footage form follows the visible step, so it can be edited while recording.
+    root.querySelector(`[data-step="${state}"] [data-footage-slot]`)?.append(footageBox);
   };
+
+  // --- Footage form ---
+
+  /** The cards of the form as data. */
+  function readFootage(): Footage[] {
+    return [...cards.querySelectorAll<HTMLElement>('[data-footage-card]')].map((card) => {
+      const field = <T extends HTMLElement>(selector: string) => card.querySelector<T>(selector)!;
+      const spotSelect = card.querySelector<HTMLSelectElement>('[data-footage-spot]');
+      const spot = (
+        !spotSelect || spotSelect.value === OTHER_SPOT
+          ? field<HTMLInputElement>('[data-footage-spot-other]').value
+          : spotSelect.value
+      ).trim();
+      return {
+        date: field<HTMLSelectElement>('[data-footage-date]').value,
+        time: field<HTMLSelectElement>('[data-footage-time]').value as TimeOfDay,
+        ...(spot ? { spot } : {}),
+        surfers: [...card.querySelectorAll<HTMLInputElement>('[data-footage-surfer]:checked')].map((i) => i.value),
+      };
+    });
+  }
+
+  /** Saves the form on the recording in progress, so a reload does not lose it. */
+  function footageChanged() {
+    const r = current;
+    if (!r) return;
+    r.footage = readFootage();
+    write((s) => s.save({ ...r }));
+  }
+
+  function addCard() {
+    const card = template.content.firstElementChild!.cloneNode(true) as HTMLElement;
+    const last = [...cards.querySelectorAll<HTMLSelectElement>('[data-footage-date]')].pop();
+    card.querySelector<HTMLSelectElement>('[data-footage-date]')!.value = last?.value ?? dateSelect.value;
+    card.querySelector<HTMLSelectElement>('[data-footage-time]')!.value = defaultTime(timeIn(timeZone, new Date()));
+    cards.append(card);
+    footageChanged();
+  }
 
   /** Queues a write to the store. If it fails, the user is warned and the recording stays in memory. */
   function write(f: (s: Store) => Promise<void>) {
@@ -131,6 +184,7 @@ export function init(root: HTMLElement): void {
       mime,
       start,
       chunks: 0,
+      footage: readFootage(),
     };
     const chunks: Blob[] = [];
     backup = store !== null;
@@ -207,9 +261,42 @@ export function init(root: HTMLElement): void {
 
   const nameOf = (r: Recording) => fileName(r.group, r.part, extensionFor(r.mime));
 
+  /** Uploads the meta file (the footage form) that goes next to the audio. */
+  const sendMeta = (
+    group: string,
+    talkDate: string,
+    footage: Footage[],
+    url: string | undefined,
+    onSessionCreated: (url: string) => void,
+  ) => {
+    const blob = new Blob([toMeta(talkDate, footage)], { type: 'application/json' });
+    const name = metaName(group);
+    showUpload(name);
+    return send(
+      deps,
+      { file: { name, mime: 'application/json', size: blob.size, folder }, blob, url, onSessionCreated },
+      progress,
+    );
+  };
+
   async function uploadGroup(group: string) {
     const parts = await partsOf(group);
+    // The last part has the latest version of the form. Old recordings have none: no meta file.
+    const footage = [...parts].reverse().find((r) => r.footage)?.footage;
     try {
+      // The meta goes first, once: after it succeeds (or on a retry) it is not uploaded again.
+      if (footage && !parts.some((r) => r.metaUploaded)) {
+        await sendMeta(group, parts[0].date, footage, parts.find((r) => r.metaSessionUrl)?.metaSessionUrl, (url) => {
+          for (const r of parts) {
+            r.metaSessionUrl = url;
+            write((s) => s.save({ ...r }));
+          }
+        });
+        for (const r of parts) {
+          r.metaUploaded = true;
+          write((s) => s.save({ ...r }));
+        }
+      }
       for (const r of parts) {
         const blob = await blobOf(r);
         const name = nameOf(r);
@@ -243,13 +330,18 @@ export function init(root: HTMLElement): void {
   async function uploadFile() {
     const p = picked;
     if (!p) return;
-    p.name ??= fileName(
-      groupOf(dateSelect.value, timeIn(timeZone, new Date())),
-      1,
-      extensionOfFile(p.file.name, p.file.type),
-    );
+    p.date ??= dateSelect.value;
+    p.group ??= groupOf(p.date, timeIn(timeZone, new Date()));
+    p.footage ??= readFootage();
+    p.name ??= fileName(p.group, 1, extensionOfFile(p.file.name, p.file.type));
     const name = p.name;
     try {
+      if (!p.metaDone) {
+        await sendMeta(p.group, p.date, p.footage, p.metaUrl, (url) => {
+          p.metaUrl = url;
+        });
+        p.metaDone = true;
+      }
       showUpload(name);
       await send(
         deps,
@@ -353,11 +445,40 @@ export function init(root: HTMLElement): void {
     },
     retry: () => retry(),
     download: () => download(),
+    'add-footage': () => addCard(),
+    'remove-footage': (b) => {
+      b.closest('[data-footage-card]')?.remove();
+      footageChanged();
+    },
   };
 
   root.addEventListener('click', (e) => {
     const b = (e.target as Element).closest<HTMLElement>('[data-action]');
     if (b && root.contains(b)) actions[b.dataset.action!]?.(b);
+  });
+
+  footageBox.addEventListener('change', (e) => {
+    const target = e.target as HTMLElement;
+    const card = target.closest('[data-footage-card]');
+    if (target.matches('[data-footage-spot]') && card) {
+      const other = card.querySelector<HTMLInputElement>('[data-footage-spot-other]')!;
+      other.hidden = (target as HTMLSelectElement).value !== OTHER_SPOT;
+      if (!other.hidden) other.focus();
+    }
+    if (target.matches('[data-footage-date]')) target.dataset.touched = '1';
+    footageChanged();
+  });
+  footageBox.addEventListener('input', (e) => {
+    if ((e.target as HTMLElement).matches('[data-footage-spot-other]')) footageChanged();
+  });
+
+  // The first card follows the talk's date until the user changes it.
+  dateSelect.addEventListener('change', () => {
+    const first = cards.querySelector<HTMLSelectElement>('[data-footage-date]');
+    if (first && !first.dataset.touched) {
+      first.value = dateSelect.value;
+      footageChanged();
+    }
   });
 
   fileInput.addEventListener('change', () => {
@@ -382,6 +503,8 @@ export function init(root: HTMLElement): void {
 
   const dates = [...dateSelect.options].map((o) => o.value);
   dateSelect.value = clampToTrip(dates[0], dates[dates.length - 1], todayIn(timeZone));
+  cards.querySelector<HTMLSelectElement>('[data-footage-date]')!.value = dateSelect.value;
+  cards.querySelector<HTMLSelectElement>('[data-footage-time]')!.value = defaultTime(timeIn(timeZone, new Date()));
   if (!mime) {
     $('[data-action="record"]').hidden = true;
     $('[data-no-recorder]').hidden = false;

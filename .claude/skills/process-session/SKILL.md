@@ -24,6 +24,8 @@ The insights are participant-facing content: `insights-es.md` is written in Span
 
 If there is nothing, stop and say what is missing.
 
+If there are `sessions/<date>/*.meta.json` files, read them too. The coach fills them in from `/upload/`: which surf sessions' footage was reviewed (`date`, `time`: `morning` or `afternoon`, `spot`) and who was in the water in each one (`surfers`, ids from `surfers.yaml`). The format is in `src/lib/footage.ts`. Without them, everything below works the same.
+
 Also read: `src/data/trip.yaml`, `src/data/surfers.yaml`, `src/data/days.yaml`, this skill's `examples/insights-es.md` (a real session, as an example of the format and the tone) and the `insights-es.md` of the previous session, if there is one, to see what focus each surfer had.
 
 ## 2. Read the raw transcript
@@ -77,6 +79,7 @@ dd/mm/aaaa
 
 Rules:
 
+- If there is footage metadata, the summary can say which sessions and spots were reviewed. The transcript wins over the ticks: a surfer the coach talks about gets a section even if they are not ticked as in the water.
 - One `## <Name>` section per surfer **who was talked about**, with the name exactly as it is in `surfers.yaml` (`name`). If someone was not talked about, they get no section and no table row; say so in the final message.
 - Every surfer with a section must have a row in the table (otherwise the import fails).
 - Cite the minute of each point in parentheses. The coach's quotes are translated into Spanish, in quotation marks.
@@ -92,7 +95,7 @@ Translation into Brazilian Portuguese (the coach reads it), with the same struct
 ## 6. Load into the site
 
 1. Short titles: in ES, for example, "Análisis de video con <coach>"; in PT, "Análise de vídeo com <coach>". If the session was something else (a talk on the beach, theory), adapt them.
-2. `npm run import-session -- <date> "<ES title>" "<PT title>"`
+2. `npm run import-session -- <date> "<ES title>" "<PT title>"`. If there are meta files, it merges their footage into the session frontmatter by itself.
 3. In `src/data/days.yaml`, add or update the day `"<date>"` with `session: "<date>"`. If the day did not exist, set `activity` with `es` and `pt` equal to the title. If it already existed, do not touch its activity.
 4. `npm run check && npm test && npm run build`. If it fails, fix it and repeat.
 
@@ -105,4 +108,4 @@ Translation into Brazilian Portuguese (the coach reads it), with the same struct
 
 ## 8. Final message
 
-Short, in Spanish (the human who reads it is Spanish-speaking): which surfers have insights, who was not talked about, interpretation doubts (unidentified spans, doubtful quotes) and the command to see the page: `npm run dev` → `/surftriplapedre/sessions/<date>/`.
+Short, in Spanish (the human who reads it is Spanish-speaking): which surfers have insights, who was not talked about, mismatches with the footage metadata (unticked surfers who were discussed, ticked surfers who were not), interpretation doubts (unidentified spans, doubtful quotes) and the command to see the page: `npm run dev` → `/surftriplapedre/sessions/<date>/`.
