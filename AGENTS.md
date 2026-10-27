@@ -29,11 +29,13 @@ src/content/insights/<fecha>/<id>.<es|pt>.md      insight de un surfista en una 
 src/lib/                      lógica pura con tests (i18n, calendario, fallback de idioma, integridad)
 src/lib/content.ts            carga el contenido y corta el build si hay referencias rotas
 src/lib/audio/                subida del audio del coach a Drive (nombres, subida, almacén, grabador, login, página)
+                              y qué audios de Drive falta procesar (pendientes)
 src/components/               design system
 src/views/                    cuerpo de cada página (reciben lang)
 src/pages/  src/pages/pt/     envoltorios de una línea por idioma
-scripts/                      avatars, import-sesion, shots
-sesiones/<fecha>/             insumos de cada sesión (insights-es.md, insights-pt.md; la transcripción es local)
+scripts/                      avatars, import-sesion, shots, transcribir.py, sesion-auto
+.claude/skills/procesar-sesion/   skill: de la transcripción a los insights cargados en el sitio
+sesiones/<fecha>/             insumos de cada sesión (insights-es.md, insights-pt.md; audio y transcripciones son locales)
 docs/superpowers/specs/       specs aprobadas
 docs/superpowers/plans/       planes de implementación
 ```
@@ -67,13 +69,38 @@ Si un subagente se traba o la tarea resulta tener decisiones abiertas, vuelve al
 
 ### Cargar una sesión nueva con coach  ·  Sonnet
 
-1. Bajar el audio de la carpeta de Drive del trip (el coach lo sube desde `/subir/`) a `sesiones/<fecha>/`. Transcribirlo (fuera del repo) y guardar la transcripción en `sesiones/<fecha>/transcripcion.md`. El audio y la transcripción son locales y no se commitean.
+Todo esto lo hace solo `npm run sesion-auto` (ver "Resumen automático"). A mano, con la skill `procesar-sesion` (`/procesar-sesion <fecha>`), que sigue estos pasos:
+
+1. Bajar el audio de la carpeta de Drive del trip (el coach lo sube desde `/subir/`) a `sesiones/<fecha>/` y transcribirlo con `npm run transcribir -- sesiones/<fecha>/<audio> [<parte2> ...]`. Deja `transcripcion-cruda.md`; la skill la ordena en `transcripcion.md`. El audio y las transcripciones son locales y no se commitean.
 2. Escribir `sesiones/<fecha>/insights-es.md` con el mismo formato que `sesiones/2026-10-26/insights-es.md`: `## Resumen`, un `## <Nombre>` por surfista con `**Lo que salió bien**` y `**En qué trabajar**`, y `## Plan para la próxima sesión` con la tabla (Surfista | Foco principal | Foco secundario | Frase para el agua) y la lista de logística. Citar el minuto de cada insight entre paréntesis.
 3. Traducir a `sesiones/<fecha>/insights-pt.md`, con la misma estructura y `## Resumo`.
 4. `npm run import-sesion -- <fecha> "<título ES>" "<título PT>"`
 5. Agregar o actualizar el día en `src/data/dias.yaml` con `sesion: "<fecha>"`.
 6. `npm run check && npm test && npm run build`, y abrir `/sesiones/<fecha>/` en `npm run dev`.
 7. Commit `Sesión <dd/mm>: insights` y pedir confirmación para el push.
+
+### Resumen automático  ·  humano para conectarlo
+
+`scripts/sesion-auto.mjs` hace todo el camino: lista la carpeta de Drive, baja los audios de cada fecha, los transcribe en local y corre `claude -p "/procesar-sesion <fecha>"`. Deja un commit en `feat/sesion-<fecha>` (creada desde `main`) y vuelve a la rama en la que estaba. Nunca hace push.
+
+- Una fecha se procesa cuando su último audio tiene más de 15 minutos (`--espera`), por si el coach sube otra parte.
+- Si llegan audios nuevos a una fecha ya procesada, avisa y no pisa nada salvo con `--fecha <fecha> --forzar`.
+- `--local` usa los audios que ya están en `sesiones/<fecha>/`, sin Drive. `--sin-claude` solo baja y transcribe. `--listar` muestra el estado.
+- Necesita el árbol de git limpio y que `main` tenga la skill.
+- Deja el detalle en `sesiones/<fecha>/auto.log`.
+
+**Transcripción** (`scripts/transcribir.py`): faster-whisper `large-v3` en la GPU, con dependencias declaradas en el script (`uv run` las instala solas; la primera vez baja ~3 GB entre CUDA y el modelo). El coach habla en portugués y los surfistas en español, así que el audio se corta en tramos de voz y el idioma se detecta por tramo, solo entre `es` y `pt`. Los nombres del roster y del coach van como vocabulario. No separa voces: la skill infiere quién habla por el idioma y el contexto.
+
+**Conectarlo** (una sola vez):
+
+1. Instalar rclone sin sudo: bajar el zip de https://rclone.org/downloads/ y copiar el binario a `~/.local/bin/`.
+2. `rclone config` → remote nuevo llamado `drive`, tipo Google Drive, scope `drive.readonly`, sin `root_folder_id` (lo pone el script). Iniciar sesión con una cuenta que vea la carpeta del trip.
+3. Probar: `npm run sesion-auto -- --listar` tiene que mostrar los audios de la carpeta.
+4. Probar de punta a punta con una fecha: `npm run sesion-auto -- --fecha <fecha>`.
+5. Programarlo cada 10 minutos con `crontab -e` (WSL tiene que estar abierto y cron andando: `sudo service cron start`):
+   `*/10 * * * * cd "<ruta del repo>" && PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/<v24>/bin:$PATH" node scripts/sesion-auto.mjs >> sesiones/cron.log 2>&1`
+
+Variables: `SURFTRIP_RCLONE_REMOTE` (remote, por defecto `drive`), `SURFTRIP_MODELO` (modelo para la skill, por defecto `sonnet`) y `SURFTRIP_RAMA_BASE` (por defecto `main`).
 
 ### Cargar o cambiar un día del calendario  ·  Haiku
 
@@ -110,5 +137,7 @@ npm test                tests de src/lib
 npm run build           genera dist/ (falla si el contenido tiene referencias rotas)
 npm run avatars         genera avatares que falten
 npm run import-sesion -- <fecha> "<título ES>" "<título PT>"
+npm run transcribir -- <audio> [<audio> ...] [--hasta <seg>]   transcripción local ES/PT
+npm run sesion-auto -- [--listar] [--fecha <fecha>] [--local] [--sin-claude] [--forzar]
 npm run shots -- <url-base> <carpeta> [ruta ...]   capturas en 390 px y 1280 px
 ```

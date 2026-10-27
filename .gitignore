@@ -15,8 +15,13 @@
 Thumbs.db
 desktop.ini
 
-# Transcripciones completas (privadas, solo locales)
+# Transcripciones completas (privadas, solo locales) y estado del resumen automático
 sesiones/*/transcripcion.md
+sesiones/*/transcripcion-cruda.*
+sesiones/*/procesado.json
+sesiones/*/auto.log
+sesiones/.sesion-auto.lock
+sesiones/cron.log
 
 # Mockups del brainstorming (locales)
 .superpowers/brainstorm/
