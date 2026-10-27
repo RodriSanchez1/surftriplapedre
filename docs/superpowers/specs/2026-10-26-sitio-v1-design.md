@@ -70,6 +70,17 @@ public/avatars/<id>.svg
 - Para sumar un participante alcanza con agregar una entrada en `surfistas.yaml` y su avatar. Los avatares son SVG de DiceBear (estilo `adventurer`), generados una vez con el nombre como seed y guardados en el repo, para no depender de una API en tiempo de ejecución.
 - `dias.yaml` arranca con lo que ya se sabe: la sesión con análisis del 26/10. Los demás días los completa el equipo.
 
+## Regla del proyecto: reutilizable en futuros surftrips
+
+El repo tiene que poder usarse en otro surftrip cambiando solo datos y contenido, sin tocar componentes ni páginas. En la v1 no se construye soporte para varios trips a la vez (no hay selector ni rutas por trip), pero no se hace nada que lo impida:
+
+- **Nada específico del trip en el código.** Nombres, fechas, lugar, coach, cantidad de días y nombre del equipo salen de `src/data/` o `src/content/`. Esto incluye la marca del header ("Team Pedrera"), que se lee de `trip.yaml`.
+- **El calendario se arma con `fechaInicio` y `fechaFin`** y no da por hecho que el trip dure 9 días.
+- **Los textos fijos de la interfaz** ("Lo que salió bien", "Sin plan", etc.) van en un diccionario de i18n y no repetidos en los componentes.
+- **El design system es del proyecto, no del trip.** Si un trip futuro quiere otra paleta, se cambian los tokens.
+
+Cómo se espera crecer, sin hacerlo ahora: mover el contenido a `src/content/trips/<trip-id>/` y generar `/<trip-id>/...` por trip. La regla de arriba es la que vuelve barato ese cambio. Queda escrita en `AGENTS.md` como regla del proyecto.
+
 ## Design system: "Board Graphic"
 
 Inspirado en las tablas y gráficas de surf de los 80, con las referencias de `assets/references/`. Toma el estilo, no la marca: el nombre propio es **Team Pedrera** y el rayo es un dibujo genérico propio. No se usa el nombre ni el logo de Lightning Bolt.
@@ -105,7 +116,7 @@ Cada surfista tiene un color de acento tomado de la paleta. Se usa en el borde i
 | Componente | Qué hace |
 |---|---|
 | `BaseLayout` | HTML base, meta `noindex`, fuentes, tokens, header y footer |
-| `SiteHeader` | Marca "⚡ TEAM PEDRERA" y selector ES/PT |
+| `SiteHeader` | Marca del equipo (de `trip.yaml`, hoy "⚡ TEAM PEDRERA") y selector ES/PT |
 | `BoltBand` | Banda roja con corte en forma de rayo, para el hero y los encabezados de página |
 | `TripCalendar` / `DayCell` | Calendario con sus cuatro estados |
 | `SurferCard` | Avatar, nombre y foco principal, en una tarjeta negra con borde inferior de color |
@@ -144,7 +155,7 @@ Cada surfista tiene un color de acento tomado de la paleta. Se usa en el borde i
      - **Opus (modelo principal):** diseño, planes, revisión final y cualquier tarea con decisiones abiertas.
    - **Cerrar:** `verification-before-completion` con build, tests y capturas, después `requesting-code-review` y por último `finishing-a-development-branch`.
 4. **Receta "cargar una sesión nueva":** pasos exactos desde el audio hasta el push, para que un subagente barato la siga sin preguntar.
-5. **Reglas:** commits en español, ramas por feature, no pushear ni cambiar la configuración de GitHub sin confirmación, respetar los tokens y componentes existentes y revisar `/design/` antes de crear uno nuevo.
+5. **Reglas:** el repo es reutilizable en futuros surftrips (ver la sección de arriba: nada específico del trip en el código), commits en español, ramas por feature, no pushear ni cambiar la configuración de GitHub sin confirmación, respetar los tokens y componentes existentes y revisar `/design/` antes de crear uno nuevo.
 
 El `README.md` queda para humanos: qué es el sitio, el link y cómo correrlo en local. La sección de workflow pasa a `AGENTS.md`.
 
@@ -155,3 +166,4 @@ El `README.md` queda para humanos: qué es el sitio, el link y cómo correrlo en
 - Página de surfista con ficha, foco actual e historial (opción A), sin línea de tiempo de evolución.
 - Dirección visual C, "Board Graphic".
 - Avatares generados mientras no haya fotos.
+- Repo reutilizable para futuros surftrips como regla, sin soporte multi-trip en la v1.
