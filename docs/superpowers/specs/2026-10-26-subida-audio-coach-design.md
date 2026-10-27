@@ -122,8 +122,8 @@ El plan detalla cada paso.
 
 ## Spikes antes del plan
 
-1. **Permiso de Drive.** Ver si con `drive.file` (no sensible, sin verificación) se puede crear un archivo en una carpeta compartida que la app no creó. Si no alcanza, se usa `drive` con la app en modo prueba. La seguridad no cambia, porque solo entran los usuarios de prueba.
-2. **Pedazos de Safari.** Ver si los pedazos de `MediaRecorder` en `audio/mp4` concatenados dan un archivo que se reproduce y se puede transcribir. Con `webm` se sabe que funciona. Si falla en Safari, se usa una grabación sin `timeslice` y en Safari no hay recuperación de cortes (se documenta en la página que conviene grabar con la app del teléfono).
+1. **Permiso de Drive. Resuelto el 26/10:** con `drive.file` se crea el archivo en una carpeta que la app no creó, y la subida reanudable (`308`, `Range` y consulta de estado) funciona desde el navegador. Se usa `drive.file`.
+2. **Pedazos de Safari. Pendiente, se deja para después:** ver si los pedazos de `MediaRecorder` en `audio/mp4` concatenados dan un archivo que se reproduce y se puede transcribir. Con `webm` se sabe que funciona. Si falla en Safari, se usa una grabación sin `timeslice` y en Safari no hay recuperación de cortes (se documenta en la página que conviene grabar con la app del teléfono).
 
 ## Pruebas
 
