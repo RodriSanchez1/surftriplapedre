@@ -14,32 +14,32 @@ interface Props {
 
 const { lang } = Astro.props;
 const base = import.meta.env.BASE_URL;
-const { trip, dias, surfistas, insights } = await loadSite();
-const fechas = `${dayMonth(trip.fechaInicio)} → ${dayMonth(trip.fechaFin)}`;
+const { trip, days, surfers, insights } = await loadSite();
+const dates = `${dayMonth(trip.startDate)} → ${dayMonth(trip.endDate)}`;
 ---
 
-<BaseLayout title={trip.nombre} lang={lang} equipo={trip.equipo}>
+<BaseLayout title={trip.name} lang={lang} team={trip.team}>
   <BoltBand
     size="hero"
-    kicker={trip.equipo}
-    title={trip.nombre}
-    subtitle={`${trip.lugar} · ${fechas} · ${t(lang, 'home.coach')}: ${trip.coach}`}
+    kicker={trip.team}
+    title={trip.name}
+    subtitle={`${trip.location} · ${dates} · ${t(lang, 'home.coach')}: ${trip.coach}`}
   />
 
   <div class="wrap">
     <h2 class="section-title">{t(lang, 'home.calendar')}</h2>
-    <TripCalendar lang={lang} inicio={trip.fechaInicio} fin={trip.fechaFin} zonaHoraria={trip.zonaHoraria} dias={dias} />
+    <TripCalendar lang={lang} startDate={trip.startDate} endDate={trip.endDate} timeZone={trip.timeZone} days={days} />
 
     <h2 class="section-title">{t(lang, 'home.team')}</h2>
     <div class="roster">
       {
-        surfistas.map((s) => (
+        surfers.map((s) => (
           <SurferCard
             id={s.id}
-            nombre={s.data.nombre}
+            name={s.data.name}
             color={s.data.color}
-            href={pathFor(lang, `/surfistas/${s.id}/`, base)}
-            foco={insightsForSurfer(insights, s.id, lang)[0]?.entry.data.foco}
+            href={pathFor(lang, `/surfers/${s.id}/`, base)}
+            focus={insightsForSurfer(insights, s.id, lang)[0]?.entry.data.focus}
           />
         ))
       }
@@ -50,7 +50,7 @@ const fechas = `${dayMonth(trip.fechaInicio)} → ${dayMonth(trip.fechaFin)}`;
 {
   lang === 'es' && (
     <script is:inline define:vars={{ ptHome: pathFor('pt', '/', base) }}>
-      // Compatibilidad con los links viejos del tipo ...?lang=pt
+      // Compatibility with old links like ...?lang=pt
       if (new URLSearchParams(location.search).get('lang') === 'pt') location.replace(ptHome);
     </script>
   )

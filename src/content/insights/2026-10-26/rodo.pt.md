@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-26'
-surfista: rodo
-foco: Soltar a prancha no drop
-focoSecundario: Quadril baixo, tronco ereto, olhar para frente
-frase: Sento e olho para onde vou
+date: '2026-10-26'
+surfer: rodo
+focus: Soltar a prancha no drop
+secondaryFocus: Quadril baixo, tronco ereto, olhar para frente
+cue: Sento e olho para onde vou
 ---
 
 Rodo pegou muitas ondas. O principal freio é um vício no drop: ele se levanta segurando a prancha, sobretudo com a mão direita. Douglas propôs corrigir isso em terra, com drops na areia no aquecimento.

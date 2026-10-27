@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-27'
-surfista: rodri
-foco: Virar olhar e braços para baixo sem travar
-focoSecundario: Quadril embaixo depois do cutback
-frase: Acredita no movimento
+date: '2026-10-27'
+surfer: rodri
+focus: Virar olhar e braços para baixo sem travar
+secondaryFocus: Quadril embaixo depois do cutback
+cue: Acredita no movimento
 ---
 
 Rodri venceu a terceira bateria com 7 pontos (ondas de 3 e 4) e pegou a melhor onda de uma série. Ontem virava antes da hora; hoje acontece o contrário: começa a manobra e trava no meio. A frase de Douglas: "tem que acreditar no movimento".

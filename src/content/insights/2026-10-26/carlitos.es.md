@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-26'
-surfista: carlitos
-foco: Pasar el peso adelante con la mano cuando la tabla se frena
-focoSecundario: Esperar a que pase la turbulencia para pararse
-frase: Upa, sigue
+date: '2026-10-26'
+surfer: carlitos
+focus: Pasar el peso adelante con la mano cuando la tabla se frena
+secondaryFocus: Esperar a que pase la turbulencia para pararse
+cue: Upa, sigue
 ---
 
 Carlitos tiene la base perfecta, que según Douglas "es lo más importante". Hoy se paró bien y ya agarró la idea. El próximo paso es mover el peso para estirar la ola cuando la tabla se frena.

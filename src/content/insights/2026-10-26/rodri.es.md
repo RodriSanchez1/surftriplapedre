@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-26'
-surfista: rodri
-foco: No girar hasta que la punta llegue al lip
-focoSecundario: Brazo de atrás
-frase: De una sola vez
+date: '2026-10-26'
+surfer: rodri
+focus: No girar hasta que la punta llegue al lip
+secondaryFocus: Brazo de atrás
+cue: De una sola vez
 ---
 
 Rodri surfea con velocidad, estilo y la rodilla adentro, y completó dos olas. Le repitieron dos cosas varias veces: gira antes de tiempo y el brazo de atrás queda colgando. Douglas le pidió animarse a probar aunque se caiga, para que las maniobras salgan sólidas.

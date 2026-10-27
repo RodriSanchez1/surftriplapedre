@@ -2,34 +2,34 @@
 import DayCell from './DayCell.astro';
 import { buildCalendar } from '../lib/calendar';
 import { pathFor, type Lang } from '../lib/i18n';
-import type { Dia } from '../lib/content';
+import type { Day } from '../lib/content';
 
 interface Props {
   lang: Lang;
-  inicio: string;
-  fin: string;
-  zonaHoraria: string;
-  dias: Dia[];
+  startDate: string;
+  endDate: string;
+  timeZone: string;
+  days: Day[];
 }
 
-const { lang, inicio, fin, zonaHoraria, dias } = Astro.props;
+const { lang, startDate, endDate, timeZone, days } = Astro.props;
 const base = import.meta.env.BASE_URL;
-const days = buildCalendar(
-  inicio,
-  fin,
-  dias.map((d) => ({ id: d.id, ...d.data })),
+const calendar = buildCalendar(
+  startDate,
+  endDate,
+  days.map((d) => ({ id: d.id, ...d.data })),
 );
 ---
 
-<div class="calendar" data-calendar data-tz={zonaHoraria}>
+<div class="calendar" data-calendar data-tz={timeZone}>
   {
-    days.map((d) => (
+    calendar.map((d) => (
       <DayCell
         lang={lang}
-        fecha={d.fecha}
+        date={d.date}
         weekday={d.weekday}
-        actividad={d.dia?.actividad?.[lang] ?? d.dia?.actividad?.es}
-        href={d.dia?.sesion ? pathFor(lang, `/sesiones/${d.dia.sesion}/`, base) : undefined}
+        activity={d.day?.activity?.[lang] ?? d.day?.activity?.es}
+        href={d.day?.session ? pathFor(lang, `/sessions/${d.day.session}/`, base) : undefined}
       />
     ))
   }
@@ -38,11 +38,11 @@ const days = buildCalendar(
 <script>
   import { dayState, todayIn } from '../lib/calendar';
 
-  // "Hoy" depende de cuándo se mira la página, así que se calcula en el navegador.
+  // "Today" depends on when the page is viewed, so it is computed in the browser.
   for (const cal of document.querySelectorAll<HTMLElement>('[data-calendar]')) {
     const today = todayIn(cal.dataset.tz ?? 'UTC');
-    for (const cell of cal.querySelectorAll<HTMLElement>('[data-fecha]')) {
-      const state = dayState(cell.dataset.fecha ?? '', today);
+    for (const cell of cal.querySelectorAll<HTMLElement>('[data-date]')) {
+      const state = dayState(cell.dataset.date ?? '', today);
       cell.dataset.state = state;
       if (state === 'today') {
         cell.setAttribute('aria-current', 'date');

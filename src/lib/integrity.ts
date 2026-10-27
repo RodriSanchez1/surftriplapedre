@@ -1,42 +1,42 @@
 import { splitLangId } from './localized';
 
 export interface IntegrityInput {
-  trip: { fechaInicio: string; fechaFin: string };
-  surfistaIds: string[];
-  dias: { id: string; sesion?: string }[];
-  sesionIds: string[];
-  insights: { id: string; data: { surfista: string; fecha: string } }[];
+  trip: { startDate: string; endDate: string };
+  surferIds: string[];
+  days: { id: string; session?: string }[];
+  sessionIds: string[];
+  insights: { id: string; data: { surfer: string; date: string } }[];
 }
 
-/** Revisa las referencias entre archivos de contenido. Devuelve un error legible por problema. */
-export function findContentErrors({ trip, surfistaIds, dias, sesionIds, insights }: IntegrityInput): string[] {
+/** Checks the references between content files. Returns one readable error per problem. */
+export function findContentErrors({ trip, surferIds, days, sessionIds, insights }: IntegrityInput): string[] {
   const errors: string[] = [];
-  const surfistas = new Set(surfistaIds);
-  const sesiones = new Set(sesionIds.map((id) => splitLangId(id).base));
+  const surfers = new Set(surferIds);
+  const sessions = new Set(sessionIds.map((id) => splitLangId(id).base));
 
-  for (const dia of dias) {
-    if (dia.id < trip.fechaInicio || dia.id > trip.fechaFin) {
-      errors.push(`dias.yaml: el día ${dia.id} está fuera del trip (${trip.fechaInicio} → ${trip.fechaFin})`);
+  for (const day of days) {
+    if (day.id < trip.startDate || day.id > trip.endDate) {
+      errors.push(`days.yaml: day ${day.id} is outside the trip (${trip.startDate} → ${trip.endDate})`);
     }
-    if (dia.sesion && !sesiones.has(dia.sesion)) {
-      errors.push(`dias.yaml: el día ${dia.id} apunta a la sesión ${dia.sesion}, que no tiene src/content/sesiones/${dia.sesion}.es.md`);
+    if (day.session && !sessions.has(day.session)) {
+      errors.push(`days.yaml: day ${day.id} points to session ${day.session}, which has no src/content/sessions/${day.session}.es.md`);
     }
   }
 
   for (const insight of insights) {
     const { base } = splitLangId(insight.id);
-    const [carpeta, archivo] = base.split('/');
-    if (!surfistas.has(insight.data.surfista)) {
-      errors.push(`insights/${insight.id}.md: el surfista "${insight.data.surfista}" no está en surfistas.yaml`);
+    const [folder, file] = base.split('/');
+    if (!surfers.has(insight.data.surfer)) {
+      errors.push(`insights/${insight.id}.md: surfer "${insight.data.surfer}" is not in surfers.yaml`);
     }
-    if (carpeta !== insight.data.fecha) {
-      errors.push(`insights/${insight.id}.md: la fecha ${insight.data.fecha} no coincide con la carpeta ${carpeta}`);
+    if (folder !== insight.data.date) {
+      errors.push(`insights/${insight.id}.md: date ${insight.data.date} does not match folder ${folder}`);
     }
-    if (archivo !== insight.data.surfista) {
-      errors.push(`insights/${insight.id}.md: el archivo se llama "${archivo}" pero el surfista es "${insight.data.surfista}"`);
+    if (file !== insight.data.surfer) {
+      errors.push(`insights/${insight.id}.md: the file is named "${file}" but the surfer is "${insight.data.surfer}"`);
     }
-    if (!sesiones.has(insight.data.fecha)) {
-      errors.push(`insights/${insight.id}.md: no existe la sesión src/content/sesiones/${insight.data.fecha}.es.md`);
+    if (!sessions.has(insight.data.date)) {
+      errors.push(`insights/${insight.id}.md: session src/content/sessions/${insight.data.date}.es.md does not exist`);
     }
   }
 

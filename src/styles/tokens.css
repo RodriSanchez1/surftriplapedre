@@ -1,10 +1,10 @@
 /*
- * Tokens del design system "Board Graphic".
- * Son del proyecto, no del trip: un trip futuro puede cambiar estos valores sin tocar componentes.
- * Catálogo visual en /design/.
+ * Design system tokens for "Board Graphic".
+ * They belong to the project, not the trip: a future trip can change these values without touching components.
+ * Visual catalog at /design/.
  */
 :root {
-  /* Paleta base */
+  /* Base palette */
   --c-orange: #ff9e1b;
   --c-red: #e4261c;
   --c-yellow: #ffd400;
@@ -13,24 +13,24 @@
   --c-white: #ffffff;
   --c-muted: #5c4a36;
 
-  /* Acentos de surfista (surfistas.yaml → color) */
+  /* Surfer accents (surfers.yaml → color) */
   --c-sky: #1aa7ff;
   --c-green: #2bb34a;
   --c-pink: #ff4f9a;
 
-  /* Tipografía */
+  /* Typography */
   --font-display: 'Bungee Shade', 'Bungee', system-ui, sans-serif;
   --font-head: 'Bungee', system-ui, sans-serif;
   --font-strong: 'Archivo Black', system-ui, sans-serif;
   --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
-  /* Forma */
+  /* Shape */
   --border-w: 3px;
   --border: var(--border-w) solid var(--c-ink);
   --radius: 8px;
   --shadow: 4px 4px 0 var(--c-ink);
 
-  /* Espaciado (escala de 4) */
+  /* Spacing (scale of 4) */
   --s-1: 4px;
   --s-2: 8px;
   --s-3: 12px;

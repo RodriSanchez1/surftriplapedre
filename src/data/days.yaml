@@ -1,0 +1,12 @@
+# One item per day with something loaded. The id is the date, in quotes.
+# Trip days that don't appear here are shown as "Sin plan".
+- id: "2026-10-26"
+  activity:
+    es: Análisis de video con Douglas
+    pt: Análise de vídeo com Douglas
+  session: "2026-10-26"
+- id: "2026-10-27"
+  activity:
+    es: Análisis de video con Douglas
+    pt: Análise de vídeo com Douglas
+  session: "2026-10-27"

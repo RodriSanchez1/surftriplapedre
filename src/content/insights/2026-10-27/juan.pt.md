@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-27'
-surfista: juan
-foco: Peito apontando para o bico da prancha
-focoSecundario: Subir depois de estabilizar, não ficar na base
-frase: A GoPro no bico
+date: '2026-10-27'
+surfer: juan
+focus: Peito apontando para o bico da prancha
+secondaryFocus: Subir depois de estabilizar, não ficar na base
+cue: A GoPro no bico
 ---
 
 Juan veio com o foco no drop e deu para notar. Numa onda rapidíssima, "fiquei pensando no drop e coloquei bem os pés", e Douglas resumiu: "não cai mais, já está tranquilo". Agora o foco passa a ser para onde o corpo aponta.

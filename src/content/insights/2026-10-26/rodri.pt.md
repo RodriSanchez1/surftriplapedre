@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-26'
-surfista: rodri
-foco: Não virar até o bico chegar no lip
-focoSecundario: Braço de trás
-frase: De uma vez só
+date: '2026-10-26'
+surfer: rodri
+focus: Não virar até o bico chegar no lip
+secondaryFocus: Braço de trás
+cue: De uma vez só
 ---
 
 Rodri surfa com velocidade, estilo e o joelho para dentro, e completou duas ondas. Ouviu duas coisas várias vezes: vira antes da hora e o braço de trás fica pendurado. Douglas pediu que ele se arrisque a tentar mesmo caindo, para que as manobras saiam sólidas.

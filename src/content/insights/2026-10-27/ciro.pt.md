@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-27'
-surfista: ciro
-foco: Deixar a prancha correr no drop, sem chacoalhar
-focoSecundario: Quadril embaixo na rasgada; onda cheia, cutback
-frase: Deixa ela correr
+date: '2026-10-27'
+surfer: ciro
+focus: Deixar a prancha correr no drop, sem chacoalhar
+secondaryFocus: Quadril embaixo na rasgada; onda cheia, cutback
+cue: Deixa ela correr
 ---
 
 Ciro venceu duas das três baterias com boas esquerdas, e Douglas elogiou uma onda inteira: "muito lindo, o olhar, os braços, bem técnico". O que ele mais marcou foi um vício novo no drop, que Douglas chamou de urgente.

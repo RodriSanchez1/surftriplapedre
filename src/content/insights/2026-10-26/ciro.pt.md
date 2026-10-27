@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-26'
-surfista: ciro
-foco: Descer até o bottom antes de atacar
-focoSecundario: Virar olhar e braços para sair da batida
-frase: Pensa lá na frente
+date: '2026-10-26'
+surfer: ciro
+focus: Descer até o bottom antes de atacar
+secondaryFocus: Virar olhar e braços para sair da batida
+cue: Pensa lá na frente
 ---
 
 Ciro já manobra (batida e cavada de backside "animal", "muito bonita"). O que o segura é o timing: corta a onda no meio e fica olhando a manobra em vez de sair dela.

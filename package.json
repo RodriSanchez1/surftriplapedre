@@ -8,9 +8,9 @@
     "test": "vitest run",
     "avatars": "node scripts/avatars.mjs",
     "shots": "node scripts/shots.mjs",
-    "import-sesion": "node scripts/import-sesion.mjs",
-    "transcribir": "uv run scripts/transcribir.py",
-    "sesion-auto": "node scripts/sesion-auto.mjs"
+    "import-session": "node scripts/import-session.mjs",
+    "transcribe": "uv run scripts/transcribe.py",
+    "session-auto": "node scripts/session-auto.mjs"
   },
   "type": "module",
   "dependencies": {

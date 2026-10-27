@@ -2,43 +2,43 @@ import { describe, expect, it } from 'vitest';
 import { buildCalendar, clampToTrip, dayMonth, dayState, todayIn, tripDates, weekdayOf } from '../src/lib/calendar';
 
 describe('tripDates', () => {
-  it('incluye inicio y fin y cruza el cambio de mes', () => {
-    const fechas = tripDates('2026-10-24', '2026-11-01');
-    expect(fechas).toHaveLength(9);
-    expect(fechas[0]).toBe('2026-10-24');
-    expect(fechas[7]).toBe('2026-10-31');
-    expect(fechas[8]).toBe('2026-11-01');
+  it('includes start and end and crosses the month change', () => {
+    const dates = tripDates('2026-10-24', '2026-11-01');
+    expect(dates).toHaveLength(9);
+    expect(dates[0]).toBe('2026-10-24');
+    expect(dates[7]).toBe('2026-10-31');
+    expect(dates[8]).toBe('2026-11-01');
   });
-  it('acepta trips de un solo día', () => {
+  it('accepts one-day trips', () => {
     expect(tripDates('2026-10-24', '2026-10-24')).toEqual(['2026-10-24']);
   });
-  it('rechaza rangos al revés', () => {
-    expect(() => tripDates('2026-11-01', '2026-10-24')).toThrow('Rango de fechas inválido');
+  it('rejects reversed ranges', () => {
+    expect(() => tripDates('2026-11-01', '2026-10-24')).toThrow('Invalid date range');
   });
 });
 
-describe('weekdayOf y dayMonth', () => {
-  it('24/10/2026 es sábado', () => {
+describe('weekdayOf and dayMonth', () => {
+  it('24/10/2026 is a Saturday', () => {
     expect(weekdayOf('2026-10-24')).toBe(6);
   });
-  it('formatea día/mes', () => {
+  it('formats day/month', () => {
     expect(dayMonth('2026-11-01')).toBe('01/11');
   });
 });
 
 describe('buildCalendar', () => {
-  it('asocia los días cargados y deja vacíos los demás', () => {
-    const cal = buildCalendar('2026-10-24', '2026-10-26', [{ id: '2026-10-26', sesion: '2026-10-26' }]);
-    expect(cal.map((d) => d.fecha)).toEqual(['2026-10-24', '2026-10-25', '2026-10-26']);
-    expect(cal[0].dia).toBeUndefined();
-    expect(cal[2].dia?.sesion).toBe('2026-10-26');
+  it('links the loaded days and leaves the rest empty', () => {
+    const cal = buildCalendar('2026-10-24', '2026-10-26', [{ id: '2026-10-26', session: '2026-10-26' }]);
+    expect(cal.map((d) => d.date)).toEqual(['2026-10-24', '2026-10-25', '2026-10-26']);
+    expect(cal[0].day).toBeUndefined();
+    expect(cal[2].day?.session).toBe('2026-10-26');
     expect(cal[2].weekday).toBe(1);
   });
 });
 
 describe('todayIn', () => {
-  it('usa la zona horaria pedida y no la UTC', () => {
-    // 02:00 UTC del 27/10 todavía es 26/10 en Montevideo (UTC-3).
+  it('uses the requested time zone, not UTC', () => {
+    // 02:00 UTC on 27/10 is still 26/10 in Montevideo (UTC-3).
     const now = new Date('2026-10-27T02:00:00Z');
     expect(todayIn('America/Montevideo', now)).toBe('2026-10-26');
     expect(todayIn('UTC', now)).toBe('2026-10-27');
@@ -46,7 +46,7 @@ describe('todayIn', () => {
 });
 
 describe('dayState', () => {
-  it('distingue pasado, hoy y futuro', () => {
+  it('tells past, today and future apart', () => {
     expect(dayState('2026-10-25', '2026-10-26')).toBe('past');
     expect(dayState('2026-10-26', '2026-10-26')).toBe('today');
     expect(dayState('2026-10-27', '2026-10-26')).toBe('future');
@@ -54,10 +54,10 @@ describe('dayState', () => {
 });
 
 describe('clampToTrip', () => {
-  it('devuelve hoy si cae dentro del trip', () => {
+  it('returns today if it falls inside the trip', () => {
     expect(clampToTrip('2026-10-24', '2026-11-01', '2026-10-27')).toBe('2026-10-27');
   });
-  it('devuelve el primer o el último día si hoy cae afuera', () => {
+  it('returns the first or last day if today falls outside', () => {
     expect(clampToTrip('2026-10-24', '2026-11-01', '2026-10-01')).toBe('2026-10-24');
     expect(clampToTrip('2026-10-24', '2026-11-01', '2026-12-01')).toBe('2026-11-01');
   });

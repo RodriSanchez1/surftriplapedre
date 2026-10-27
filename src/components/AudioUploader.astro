@@ -1,28 +1,28 @@
 ---
 /**
- * Grabar o subir el audio de una sesión a la carpeta de Drive del trip.
- * La lógica de cliente está en src/lib/audio/pagina.ts.
- * Con `demo` se muestra un estado fijo y el script no lo toca (para /design/).
+ * Record or upload the audio of a session to the trip's Drive folder.
+ * The client logic is in src/lib/audio/page.ts.
+ * With `demo` a fixed state is shown and the script leaves it alone (for /design/).
  */
 import { dayMonth, weekdayOf } from '../lib/calendar';
 import { WEEKDAYS, format, t, type Lang } from '../lib/i18n';
-import type { Estado, Textos } from '../lib/audio/pagina';
+import type { State, Texts } from '../lib/audio/page';
 
 interface Props {
   lang: Lang;
-  fechas: string[];
-  zonaHoraria: string;
-  audio?: { carpetaDrive: string; googleClientId: string; contacto: string };
-  demo?: Estado;
+  dates: string[];
+  timeZone: string;
+  audio?: { driveFolder: string; googleClientId: string; contact: string };
+  demo?: State;
 }
 
-const { lang, fechas, zonaHoraria, audio, demo } = Astro.props;
-const textos: Textos = {
+const { lang, dates, timeZone, audio, demo } = Astro.props;
+const texts: Texts = {
   cut: t(lang, 'audio.cut'),
   pending: t(lang, 'audio.pending'),
   discardConfirm: t(lang, 'audio.discardConfirm'),
   errorUpload: t(lang, 'audio.errorUpload'),
-  errorPermission: format(t(lang, 'audio.errorPermission'), { contacto: audio?.contacto ?? '' }),
+  errorPermission: format(t(lang, 'audio.errorPermission'), { contact: audio?.contact ?? '' }),
   errorLogin: t(lang, 'audio.errorLogin'),
   errorMic: t(lang, 'audio.errorMic'),
   upload: t(lang, 'audio.upload'),
@@ -37,166 +37,166 @@ const textos: Textos = {
     <section
       class="uploader prose"
       data-audio
-      data-estado={demo ?? 'login'}
+      data-state={demo ?? 'login'}
       data-demo={demo}
-      data-carpeta={audio.carpetaDrive}
+      data-folder={audio.driveFolder}
       data-client-id={audio.googleClientId}
-      data-zona={zonaHoraria}
-      data-textos={JSON.stringify(textos)}
+      data-time-zone={timeZone}
+      data-texts={JSON.stringify(texts)}
     >
-      <div data-paso="login">
-        <button type="button" class="btn primary" data-accion="login">
+      <div data-step="login">
+        <button type="button" class="btn primary" data-action="login">
           {t(lang, 'audio.login')}
         </button>
         <p class="help">{t(lang, 'audio.loginHelp')}</p>
       </div>
 
-      <div data-paso="listo">
+      <div data-step="ready">
         <p>
           {t(lang, 'audio.connectedAs')} <strong data-email>{demo ? 'coach@gmail.com' : ''}</strong>
         </p>
-        <label class="campo">
+        <label class="field">
           {t(lang, 'audio.session')}
-          <select data-fecha>
-            {fechas.map((f) => (
-              <option value={f}>
-                {WEEKDAYS[lang][weekdayOf(f)]} {dayMonth(f)}
+          <select data-date>
+            {dates.map((d) => (
+              <option value={d}>
+                {WEEKDAYS[lang][weekdayOf(d)]} {dayMonth(d)}
               </option>
             ))}
           </select>
         </label>
-        <div class="acciones">
-          <button type="button" class="btn record" data-accion="grabar">
+        <div class="actions">
+          <button type="button" class="btn record" data-action="record">
             ● {t(lang, 'audio.record')}
           </button>
           <label class="btn">
             {t(lang, 'audio.pickFile')}
-            <input type="file" accept="audio/*" class="oculto" data-archivo />
+            <input type="file" accept="audio/*" class="visually-hidden" data-file />
           </label>
         </div>
-        <p class="notice warn" data-sin-grabador hidden>
+        <p class="notice warn" data-no-recorder hidden>
           {t(lang, 'audio.noRecorder')}
         </p>
-        <div class="elegido" data-elegido hidden>
-          <strong data-elegido-nombre />
-          <button type="button" class="btn primary" data-accion="subir-archivo">
+        <div class="picked" data-picked hidden>
+          <strong data-picked-name />
+          <button type="button" class="btn primary" data-action="upload-file">
             {t(lang, 'audio.uploadFile')}
           </button>
         </div>
       </div>
 
-      <div data-paso="grabando">
-        <p class="reloj" data-reloj>
+      <div data-step="recording">
+        <p class="clock" data-clock>
           {demo ? '12:34' : '0:00'}
         </p>
-        <div class="nivel">
-          <span data-nivel style={demo ? 'transform: scaleX(0.6)' : undefined} />
+        <div class="level">
+          <span data-level style={demo ? 'transform: scaleX(0.6)' : undefined} />
         </div>
         <p>{t(lang, 'audio.keepOpen')}</p>
-        <p class="notice warn" data-sin-respaldo hidden>
+        <p class="notice warn" data-no-backup hidden>
           {t(lang, 'audio.noBackup')}
         </p>
-        <button type="button" class="btn primary" data-accion="terminar">
+        <button type="button" class="btn primary" data-action="finish">
           ■ {t(lang, 'audio.finish')}
         </button>
       </div>
 
-      <div data-paso="cortada">
-        <p class="notice warn" data-mensaje-corte>
+      <div data-step="cut">
+        <p class="notice warn" data-cut-message>
           {format(t(lang, 'audio.cut'), { min: 23 })}
         </p>
-        <div class="acciones">
-          <button type="button" class="btn record" data-accion="seguir">
+        <div class="actions">
+          <button type="button" class="btn record" data-action="continue">
             ● {t(lang, 'audio.continue')}
           </button>
-          <button type="button" class="btn primary" data-accion="subir-corte">
+          <button type="button" class="btn primary" data-action="upload-cut">
             {t(lang, 'audio.uploadWhatWeHave')}
           </button>
         </div>
       </div>
 
-      <div data-paso="subiendo">
+      <div data-step="uploading">
         <p>
-          {t(lang, 'audio.uploading')} <strong data-subiendo-nombre>{demo ? `${fechas[0]}_1830.webm` : ''}</strong>
+          {t(lang, 'audio.uploading')} <strong data-uploading-name>{demo ? `${dates[0]}_1830.webm` : ''}</strong>
         </p>
-        <progress max="100" value={demo ? 42 : 0} data-progreso />
-        <p class="porcentaje" data-porcentaje>
+        <progress max="100" value={demo ? 42 : 0} data-progress />
+        <p class="percent" data-percent>
           {demo ? '42%' : '0%'}
         </p>
-        <p class="notice warn" data-sin-red hidden>
+        <p class="notice warn" data-offline hidden>
           {t(lang, 'audio.offline')}
         </p>
       </div>
 
-      <div data-paso="hecho">
+      <div data-step="done">
         <p class="notice">✓ {t(lang, 'audio.done')}</p>
-        <button type="button" class="btn" data-accion="otro">
+        <button type="button" class="btn" data-action="another">
           {t(lang, 'audio.another')}
         </button>
       </div>
 
-      <div data-paso="error">
-        <p class="notice error" data-mensaje-error>
+      <div data-step="error">
+        <p class="notice error" data-error-message>
           {t(lang, 'audio.errorUpload')}
         </p>
-        <div class="acciones">
-          <button type="button" class="btn primary" data-accion="reintentar">
+        <div class="actions">
+          <button type="button" class="btn primary" data-action="retry">
             {t(lang, 'audio.retry')}
           </button>
-          <button type="button" class="btn" data-accion="descargar" hidden={!demo}>
+          <button type="button" class="btn" data-action="download" hidden={!demo}>
             {t(lang, 'audio.download')}
           </button>
         </div>
       </div>
 
-      <div data-pendientes />
+      <div data-pending />
     </section>
   )
 }
 
 <script>
-  import { iniciar } from '../lib/audio/pagina';
-  document.querySelectorAll<HTMLElement>('[data-audio]:not([data-demo])').forEach(iniciar);
+  import { init } from '../lib/audio/page';
+  document.querySelectorAll<HTMLElement>('[data-audio]:not([data-demo])').forEach(init);
 </script>
 
 <style>
   .uploader {
     margin: var(--s-5) 0;
   }
-  [data-paso] {
+  [data-step] {
     display: none;
   }
-  /* El primer paso visible no siempre es el primer hijo de .prose. */
-  [data-paso] > :first-child {
+  /* The first visible step is not always the first child of .prose. */
+  [data-step] > :first-child {
     margin-top: 0;
   }
-  .uploader[data-estado='login'] [data-paso='login'],
-  .uploader[data-estado='listo'] [data-paso='listo'],
-  .uploader[data-estado='grabando'] [data-paso='grabando'],
-  .uploader[data-estado='cortada'] [data-paso='cortada'],
-  .uploader[data-estado='subiendo'] [data-paso='subiendo'],
-  .uploader[data-estado='hecho'] [data-paso='hecho'],
-  .uploader[data-estado='error'] [data-paso='error'] {
+  .uploader[data-state='login'] [data-step='login'],
+  .uploader[data-state='ready'] [data-step='ready'],
+  .uploader[data-state='recording'] [data-step='recording'],
+  .uploader[data-state='cut'] [data-step='cut'],
+  .uploader[data-state='uploading'] [data-step='uploading'],
+  .uploader[data-state='done'] [data-step='done'],
+  .uploader[data-state='error'] [data-step='error'] {
     display: block;
   }
-  /* Las grabaciones pendientes solo se ofrecen antes de empezar algo nuevo. */
-  .uploader:not([data-estado='login']):not([data-estado='listo']) [data-pendientes] {
+  /* Pending recordings are only offered before starting something new. */
+  .uploader:not([data-state='login']):not([data-state='ready']) [data-pending] {
     display: none;
   }
-  .acciones,
-  .uploader :global(.acciones) {
+  .actions,
+  .uploader :global(.actions) {
     display: flex;
     flex-wrap: wrap;
     gap: var(--s-3);
     margin: var(--s-4) 0;
   }
-  .uploader :global(.pendiente .acciones) {
+  .uploader :global(.pending-item .actions) {
     margin: var(--s-2) 0 0;
   }
-  .uploader :global(.pendiente p) {
+  .uploader :global(.pending-item p) {
     margin: 0;
   }
-  .campo {
+  .field {
     display: grid;
     gap: var(--s-1);
     font: 13px var(--font-head);
@@ -209,7 +209,7 @@ const textos: Textos = {
     border-radius: var(--radius);
     background: var(--c-white);
   }
-  .oculto {
+  .visually-hidden {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -220,25 +220,25 @@ const textos: Textos = {
     outline: 3px solid var(--c-sky);
     outline-offset: 2px;
   }
-  .elegido {
+  .picked {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--s-3);
   }
-  .reloj {
+  .clock {
     font: 48px/1 var(--font-strong);
     font-variant-numeric: tabular-nums;
     margin: var(--s-3) 0;
   }
-  .nivel {
+  .level {
     height: 14px;
     border: var(--border);
     border-radius: 999px;
     overflow: hidden;
     background: var(--c-white);
   }
-  .nivel span {
+  .level span {
     display: block;
     height: 100%;
     background: var(--c-green);
@@ -246,7 +246,7 @@ const textos: Textos = {
     transform: scaleX(0);
     transition: transform 0.1s linear;
   }
-  .porcentaje {
+  .percent {
     font-family: var(--font-strong);
   }
   .help {

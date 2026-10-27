@@ -1,16 +1,16 @@
 ---
 interface Props {
   id: string;
-  nombre: string;
+  name: string;
   size?: 'sm' | 'md' | 'lg';
 }
 
-const { id, nombre, size = 'md' } = Astro.props;
+const { id, name, size = 'md' } = Astro.props;
 const px = { sm: 40, md: 64, lg: 112 }[size];
 const src = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/avatars/${id}.svg`;
 ---
 
-<img class="avatar" src={src} alt={nombre} width={px} height={px} loading="lazy" />
+<img class="avatar" src={src} alt={name} width={px} height={px} loading="lazy" />
 
 <style>
   .avatar {

@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-27'
-surfista: juan
-foco: Pecho apuntando a la punta de la tabla
-focoSecundario: Subir después de estabilizarse, no quedarse en la base
-frase: La GoPro en la punta
+date: '2026-10-27'
+surfer: juan
+focus: Pecho apuntando a la punta de la tabla
+secondaryFocus: Subir después de estabilizarse, no quedarse en la base
+cue: La GoPro en la punta
 ---
 
 Juan llegó con el foco del drop y se notó. En una ola rapidísima, "estuve pensando en el drop y puse bien los pies", y Douglas lo resumió: "ya no se cae, está tranquilo". Ahora el foco pasa a hacia dónde apunta el cuerpo.

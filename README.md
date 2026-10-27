@@ -1,10 +1,10 @@
 # Surftrip La Pedrera
 
-Sitio del surftrip a La Pedrera (24/10 al 1/11/2026) con el coach Douglas Cominski: calendario del trip, foco de cada surfista y análisis de cada sesión, en español y portugués.
+Site for the surftrip to La Pedrera (Oct 24 to Nov 1, 2026) with coach Douglas Cominski: the trip calendar, each surfer's focus and an analysis of each session, in Spanish and Portuguese.
 
-**Link:** https://rodrisanchez1.github.io/surftriplapedre/ (en portugués: `/pt/`). Se puede ver sin cuenta y no aparece en buscadores.
+**Link:** https://rodrisanchez1.github.io/surftriplapedre/ (Portuguese: `/pt/`). Anyone can view it without an account, and it does not show up in search engines.
 
-## Correrlo en local
+## Run it locally
 
 ```
 nvm use
@@ -12,14 +12,14 @@ npm install
 npm run dev
 ```
 
-Abrir http://localhost:4321/surftriplapedre/. El catálogo del design system está en `/design/`.
+Open http://localhost:4321/surftriplapedre/. The design system catalog is at `/design/`.
 
-## Cómo se trabaja
+## How the work is done
 
-El proyecto se desarrolla con IA. El workflow, las reglas y las recetas (cargar una sesión, agregar un surfista, cambiar el calendario) están en [AGENTS.md](AGENTS.md).
+The project is developed with AI. The workflow, rules and recipes (loading a session, adding a surfer, changing the calendar) are in [AGENTS.md](AGENTS.md).
 
-Cada push a `main` publica el sitio con GitHub Actions.
+Every push to `main` publishes the site with GitHub Actions.
 
-## Privacidad
+## Privacy
 
-Los audios, los videos y las transcripciones completas de las sesiones quedan solo en local y no se suben al repo.
+Audio, video and full session transcripts stay local and are never pushed to the repo.

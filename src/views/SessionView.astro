@@ -12,56 +12,56 @@ import { insightsForSession, pickLang } from '../lib/localized';
 
 interface Props {
   lang: Lang;
-  fecha: string;
+  date: string;
 }
 
-const { lang, fecha } = Astro.props;
+const { lang, date } = Astro.props;
 const base = import.meta.env.BASE_URL;
-const { trip, surfistas, sesiones, insights } = await loadSite();
+const { trip, surfers, sessions, insights } = await loadSite();
 
-const sesion = pickLang(sesiones, fecha, lang);
-if (!sesion) throw new Error(`No existe src/content/sesiones/${fecha}.es.md`);
-const { Content } = await render(sesion.entry);
+const session = pickLang(sessions, date, lang);
+if (!session) throw new Error(`src/content/sessions/${date}.es.md does not exist`);
+const { Content } = await render(session.entry);
 
-const nombres = new Map(surfistas.map((s) => [s.id, s.data.nombre]));
+const names = new Map(surfers.map((s) => [s.id, s.data.name]));
 const items = await Promise.all(
-  insightsForSession(insights, fecha, lang, surfistas.map((s) => s.id)).map(async (l) => ({
+  insightsForSession(insights, date, lang, surfers.map((s) => s.id)).map(async (l) => ({
     ...l,
     Content: (await render(l.entry)).Content,
   })),
 );
 ---
 
-<BaseLayout title={`${t(lang, 'session.title')} ${dayMonth(fecha)} · ${trip.nombre}`} lang={lang} equipo={trip.equipo}>
-  <BoltBand kicker={trip.nombre} title={`${t(lang, 'session.title')} ${dayMonth(fecha)}`} subtitle={sesion.entry.data.titulo} />
+<BaseLayout title={`${t(lang, 'session.title')} ${dayMonth(date)} · ${trip.name}`} lang={lang} team={trip.team}>
+  <BoltBand kicker={trip.name} title={`${t(lang, 'session.title')} ${dayMonth(date)}`} subtitle={session.entry.data.title} />
 
   <div class="wrap">
     <h2 class="section-title">{t(lang, 'session.summary')}</h2>
     <section class="prose">
-      {sesion.fallback && <TranslationBadge />}
+      {session.fallback && <TranslationBadge />}
       <Content />
     </section>
 
     <h2 class="section-title">{t(lang, 'session.plan')}</h2>
     <div class="prose table-wrap">
-      {sesion.entry.data.planNota && <p>{sesion.entry.data.planNota}</p>}
+      {session.entry.data.planNote && <p>{session.entry.data.planNote}</p>}
       <table>
         <thead>
           <tr>
             <th>{t(lang, 'table.surfer')}</th>
             <th>{t(lang, 'focus.main')}</th>
             <th>{t(lang, 'focus.secondary')}</th>
-            <th>{t(lang, 'focus.phrase')}</th>
+            <th>{t(lang, 'focus.cue')}</th>
           </tr>
         </thead>
         <tbody>
           {
             items.map(({ entry }) => (
               <tr>
-                <td><a href={`#${entry.data.surfista}`}>{nombres.get(entry.data.surfista)}</a></td>
-                <td data-k={t(lang, 'focus.main')}>{entry.data.foco}</td>
-                <td data-k={t(lang, 'focus.secondary')}>{entry.data.focoSecundario}</td>
-                <td data-k={t(lang, 'focus.phrase')}>“{entry.data.frase}”</td>
+                <td><a href={`#${entry.data.surfer}`}>{names.get(entry.data.surfer)}</a></td>
+                <td data-k={t(lang, 'focus.main')}>{entry.data.focus}</td>
+                <td data-k={t(lang, 'focus.secondary')}>{entry.data.secondaryFocus}</td>
+                <td data-k={t(lang, 'focus.cue')}>“{entry.data.cue}”</td>
               </tr>
             ))
           }
@@ -70,11 +70,11 @@ const items = await Promise.all(
     </div>
 
     {
-      sesion.entry.data.logistica.length > 0 && (
+      session.entry.data.logistics.length > 0 && (
         <>
           <h2 class="section-title">{t(lang, 'session.logistics')}</h2>
           <ul class="prose">
-            {sesion.entry.data.logistica.map((item) => <li>{item}</li>)}
+            {session.entry.data.logistics.map((item) => <li>{item}</li>)}
           </ul>
         </>
       )
@@ -84,13 +84,13 @@ const items = await Promise.all(
     {
       items.map(({ entry, fallback, Content: Insight }) => (
         <InsightBlock
-          id={entry.data.surfista}
-          heading={nombres.get(entry.data.surfista) ?? entry.data.surfista}
+          id={entry.data.surfer}
+          heading={names.get(entry.data.surfer) ?? entry.data.surfer}
           fallback={fallback}
-          href={pathFor(lang, `/surfistas/${entry.data.surfista}/`, base)}
-          linkText={nombres.get(entry.data.surfista)}
+          href={pathFor(lang, `/surfers/${entry.data.surfer}/`, base)}
+          linkText={names.get(entry.data.surfer)}
         >
-          <Avatar slot="media" id={entry.data.surfista} nombre="" size="sm" />
+          <Avatar slot="media" id={entry.data.surfer} name="" size="sm" />
           <Insight />
         </InsightBlock>
       ))

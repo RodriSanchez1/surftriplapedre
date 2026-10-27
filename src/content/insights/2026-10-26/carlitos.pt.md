@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-26'
-surfista: carlitos
-foco: Passar o peso para frente com a mão quando a prancha perde velocidade
-focoSecundario: Esperar a turbulência passar para se levantar
-frase: Upa, tá indo de novo
+date: '2026-10-26'
+surfer: carlitos
+focus: Passar o peso para frente com a mão quando a prancha perde velocidade
+secondaryFocus: Esperar a turbulência passar para se levantar
+cue: Upa, tá indo de novo
 ---
 
 Carlitos tem a base perfeita, o que segundo Douglas é "o mais importante". Hoje ele se levantou bem e já pegou a ideia. O próximo passo é mexer o peso para esticar a onda quando a prancha perde velocidade.

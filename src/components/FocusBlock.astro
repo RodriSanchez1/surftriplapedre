@@ -3,21 +3,21 @@ import { t, type Lang } from '../lib/i18n';
 
 interface Props {
   lang: Lang;
-  foco: string;
-  focoSecundario: string;
-  frase: string;
+  focus: string;
+  secondaryFocus: string;
+  cue: string;
 }
 
-const { lang, foco, focoSecundario, frase } = Astro.props;
+const { lang, focus, secondaryFocus, cue } = Astro.props;
 ---
 
 <div class="focus">
   <p class="label">{t(lang, 'focus.main')}</p>
-  <p class="main">{foco}</p>
+  <p class="main">{focus}</p>
   <p class="label">{t(lang, 'focus.secondary')}</p>
-  <p class="secondary">{focoSecundario}</p>
-  <p class="label">{t(lang, 'focus.phrase')}</p>
-  <p class="phrase">“{frase}”</p>
+  <p class="secondary">{secondaryFocus}</p>
+  <p class="label">{t(lang, 'focus.cue')}</p>
+  <p class="phrase">“{cue}”</p>
 </div>
 
 <style>

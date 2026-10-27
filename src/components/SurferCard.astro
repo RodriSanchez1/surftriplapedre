@@ -3,19 +3,19 @@ import Avatar from './Avatar.astro';
 
 interface Props {
   id: string;
-  nombre: string;
+  name: string;
   color: string;
   href: string;
-  foco?: string;
+  focus?: string;
 }
 
-const { id, nombre, color, href, foco } = Astro.props;
+const { id, name, color, href, focus } = Astro.props;
 ---
 
 <a class="card" href={href} style={`--accent: var(--c-${color})`}>
-  <Avatar id={id} nombre="" size="md" />
-  <span class="name">{nombre}</span>
-  {foco && <span class="focus">{foco}</span>}
+  <Avatar id={id} name="" size="md" />
+  <span class="name">{name}</span>
+  {focus && <span class="focus">{focus}</span>}
 </a>
 
 <style>

@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-26'
-surfista: juan
-foco: Manos al centro en el drop, pie entre las manos
-focoSecundario: Subir después de la base
-frase: Bajé, llegué a la base, tengo que subir
+date: '2026-10-26'
+surfer: juan
+focus: Manos al centro en el drop, pie entre las manos
+secondaryFocus: Subir después de la base
+cue: Bajé, llegué a la base, tengo que subir
 ---
 
 Su tema del día fue el pie delantero en el drop: le cae atrás y muy cerca del de atrás. Douglas encontró la causa en las manos, y la ola de 48:45 ya salió mejor porque "venía pensando lo del pie".

@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-27'
-surfista: ciro
-foco: Dejar correr la tabla en el drop, sin sacudirla
-focoSecundario: Cadera abajo en la rasgada; ola llena, cutback
-frase: Dejala correr
+date: '2026-10-27'
+surfer: ciro
+focus: Dejar correr la tabla en el drop, sin sacudirla
+secondaryFocus: Cadera abajo en la rasgada; ola llena, cutback
+cue: Dejala correr
 ---
 
 Ciro ganó dos de las tres baterías con buenas izquierdas, y Douglas elogió una ola entera: "muy lindo, la mirada, los brazos, bien técnico". Lo que más le marcó es un vicio nuevo en el drop, que Douglas calificó de urgente.

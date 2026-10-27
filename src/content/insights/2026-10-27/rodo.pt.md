@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-27'
-surfista: rodo
-foco: Remar mais perto de onde a onda começa
-focoSecundario: Pernas firmes na remada e esperar a prancha descer
-frase: Pego o trem na estação
+date: '2026-10-27'
+surfer: rodo
+focus: Remar mais perto de onde a onda começa
+secondaryFocus: Pernas firmes na remada e esperar a prancha descer
+cue: Pego o trem na estação
 ---
 
 Rodo remou bem e esteve em ondas boas, mas várias escaparam porque ele remou de muito atrás. Para a prancha dele, Douglas deu duas ferramentas: se posicionar mais perto do pico e remar com as pernas firmes. De uma das ondas que escaparam, Douglas disse que era "uma das melhores que eu vi".

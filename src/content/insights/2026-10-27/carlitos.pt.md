@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-27'
-surfista: carlitos
-foco: Pernas juntas e firmes na remada
-focoSecundario: Duas ou três remadas a mais antes de subir
-frase: Travei a prancha
+date: '2026-10-27'
+surfer: carlitos
+focus: Pernas juntas e firmes na remada
+secondaryFocus: Duas ou três remadas a mais antes de subir
+cue: Travei a prancha
 ---
 
 Douglas foi direto: "Carlitos não se deu bem hoje, tava difícil pra ele". As ondas buraco e fracas não ajudaram. No fechamento, o próprio Carlitos se deu duas tarefas, e Douglas as reforçou.

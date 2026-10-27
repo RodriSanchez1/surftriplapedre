@@ -1,17 +1,17 @@
-# El roster se muestra en orden alfabético por nombre.
+# The roster is shown in alphabetical order by name.
 # color: red | sky | yellow | green | pink
 - id: juan
-  nombre: Juan
+  name: Juan
   color: red
 - id: ciro
-  nombre: Ciro
+  name: Ciro
   color: sky
 - id: rodo
-  nombre: Rodo
+  name: Rodo
   color: yellow
 - id: carlitos
-  nombre: Carlitos
+  name: Carlitos
   color: green
 - id: rodri
-  nombre: Rodri
+  name: Rodri
   color: pink

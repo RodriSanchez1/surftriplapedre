@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-27'
-surfista: rodo
-foco: Remar más cerca de donde la ola arranca
-focoSecundario: Piernas firmes en la remada y esperar a que la tabla baje
-frase: Me subo al tren en la estación
+date: '2026-10-27'
+surfer: rodo
+focus: Remar más cerca de donde la ola arranca
+secondaryFocus: Piernas firmes en la remada y esperar a que la tabla baje
+cue: Me subo al tren en la estación
 ---
 
 Rodo remó bien y estuvo en olas buenas, pero varias se le escaparon por remar desde muy atrás. Con su tabla, Douglas le dio dos herramientas: ubicarse más cerca del pico y remar con las piernas firmes. En una de las olas que se le fue, Douglas dijo que era "una de las mejores que vi".

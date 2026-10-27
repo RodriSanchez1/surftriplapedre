@@ -1,143 +1,144 @@
 # AGENTS.md
 
-Guía para cualquier agente de IA que trabaje en este repo. `CLAUDE.md` solo importa este archivo.
+Guide for any AI agent working in this repo. `CLAUDE.md` only imports this file.
 
-## Qué es
+## What this is
 
-El sitio del surftrip a La Pedrera (24/10 al 1/11/2026) con el coach Douglas Cominski. Los participantes lo usan para ver qué pasa cada día, en qué tiene que pensar cada uno en el agua y qué dijo Douglas en cada sesión. Está en español y en portugués (Douglas lee en portugués).
+The site for the surftrip to La Pedrera (Oct 24 to Nov 1, 2026) with coach Douglas Cominski. Participants use it to see what happens each day, what each surfer should think about in the water, and what Douglas said in each session. It is in Spanish and Portuguese (Douglas reads Portuguese).
 
-- Publicado en https://rodrisanchez1.github.io/surftriplapedre/ (GitHub Pages, `noindex`).
-- Stack: Astro 7 estático, TypeScript, Vitest y Node 24 (`nvm use`).
+- Published at https://rodrisanchez1.github.io/surftriplapedre/ (GitHub Pages, `noindex`).
+- Stack: static Astro 7, TypeScript, Vitest and Node 24 (`nvm use`).
 
-## Reglas del proyecto
+## Project rules
 
-1. **Reutilizable en futuros surftrips.** Para otro trip se cambian solo datos y contenido, nunca componentes ni páginas. Nombres, fechas, lugar, coach, cantidad de días y nombre del equipo salen de `src/data/` o `src/content/`. Los textos de la interfaz van en `src/lib/i18n.ts`. Si te encontrás escribiendo "La Pedrera", "Douglas" o una fecha en un `.astro` o un `.ts`, está mal.
-2. **Privacidad.** Audios, videos y transcripciones completas (`sesiones/*/transcripcion.md`) nunca se suben al repo. Ya están en `.gitignore`; no los saques de ahí.
-3. **Design system primero.** Antes de crear un componente, revisá `/design/` (`src/pages/design.astro`) y `src/components/`. Usá los tokens de `src/styles/tokens.css` y no escribas colores ni fuentes sueltos. Si creás un componente, agregalo a `/design/`. El texto largo va siempre en `.prose`, sobre papel.
-4. **Nada visible desde afuera sin confirmación.** No hagas push, no abras ni mergees PRs y no cambies la configuración de GitHub sin que el humano lo confirme en esa conversación.
-5. **Git.** Trabajá en ramas `feat/...` o `fix/...`. Commits en español, en imperativo y cortos.
-6. **Verificar antes de decir "listo".** Corré `npm run check && npm test && npm run build`. Si tocaste algo visual, sacá capturas (`npm run shots`) y miralas.
+1. **Reusable for future surftrips.** For another trip you change only data and content, never components or pages. Names, dates, location, coach, number of days and team name come from `src/data/` or `src/content/`. UI strings go in `src/lib/i18n.ts`. If you catch yourself writing "La Pedrera", "Douglas" or a date in an `.astro` or a `.ts`, it is wrong.
+2. **Privacy.** Audio, video and full transcripts (`sessions/*/transcript.md`) are never pushed to the repo. They are already in `.gitignore`; do not take them out.
+3. **Design system first.** Before creating a component, check `/design/` (`src/pages/design.astro`) and `src/components/`. Use the tokens in `src/styles/tokens.css` and do not write loose colors or fonts. If you create a component, add it to `/design/`. Long text always goes in `.prose`, on paper.
+4. **Nothing visible from outside without confirmation.** Do not push, open or merge PRs, or change GitHub settings unless the human confirms it in that conversation.
+5. **Git.** Work on `feat/...` or `fix/...` branches. Commits in English, imperative mood, short.
+6. **Verify before saying "done".** Run `npm run check && npm test && npm run build`. If you touched anything visual, take screenshots (`npm run shots`) and look at them.
+7. **Everything in English.** Code, identifiers, comments, file names, docs and commits are in English. Only participant-facing content is in Spanish/Portuguese: the UI strings (values in `src/lib/i18n.ts`), session summaries and insights. The plans in `docs/superpowers/plans/` are historical and stay in Spanish; do not translate or update them.
 
-## Mapa del repo
+## Repo map
 
 ```
-src/data/trip.yaml            datos del trip (nombre, equipo, lugar, coach, fechas, zona horaria)
-src/data/dias.yaml            días con algo cargado (actividad, spot, horario, sesión)
-src/data/surfistas.yaml       roster: id, nombre, color de acento
-src/content/sesiones/<fecha>.<es|pt>.md           resumen de una sesión con coach
-src/content/insights/<fecha>/<id>.<es|pt>.md      insight de un surfista en una sesión
-src/lib/                      lógica pura con tests (i18n, calendario, fallback de idioma, integridad)
-src/lib/content.ts            carga el contenido y corta el build si hay referencias rotas
-src/lib/audio/                subida del audio del coach a Drive (nombres, subida, almacén, grabador, login, página)
-                              y qué audios de Drive falta procesar (pendientes)
+src/data/trip.yaml            trip data (name, team, location, coach, dates, time zone)
+src/data/days.yaml            days with something loaded (activity, spot, time, session)
+src/data/surfers.yaml         roster: id, name, accent color
+src/content/sessions/<date>.<es|pt>.md           summary of a coach session
+src/content/insights/<date>/<id>.<es|pt>.md      a surfer's insight in a session
+src/lib/                      pure logic with tests (i18n, calendar, language fallback, integrity)
+src/lib/content.ts            loads the content and stops the build on broken references
+src/lib/audio/                upload of the coach's audio to Drive (filenames, upload, store, recorder, login, page)
+                              and which Drive audios still need processing (pending)
 src/components/               design system
-src/views/                    cuerpo de cada página (reciben lang)
-src/pages/  src/pages/pt/     envoltorios de una línea por idioma
-scripts/                      avatars, import-sesion, shots, transcribir.py, sesion-auto
-.claude/skills/procesar-sesion/   skill: de la transcripción a los insights cargados en el sitio
-sesiones/<fecha>/             insumos de cada sesión (insights-es.md, insights-pt.md; audio y transcripciones son locales)
-docs/superpowers/specs/       specs aprobadas
-docs/superpowers/plans/       planes de implementación
+src/views/                    body of each page (they receive lang)
+src/pages/  src/pages/pt/     one-line wrappers per language
+scripts/                      avatars, import-session, shots, transcribe.py, session-auto
+.claude/skills/process-session/   skill: from the transcript to the insights loaded in the site
+sessions/<date>/              inputs for each session (insights-es.md, insights-pt.md; audio and transcripts are local)
+docs/superpowers/specs/       approved specs
+docs/superpowers/plans/       implementation plans (historical, in Spanish)
 ```
 
 ## Workflow
 
-El proyecto se desarrolla con las skills de **superpowers**. Hay dos momentos bien separados.
+The project is developed with the **superpowers** skills. There are two clearly separate moments.
 
-### 1. Definir: ida y vuelta con el humano (modelo principal)
+### 1. Define: back and forth with the human (main model)
 
-1. `brainstorming`: entender qué se quiere, de a una pregunta por vez. Las preguntas visuales se muestran en el companion del navegador. Termina en una spec en `docs/superpowers/specs/AAAA-MM-DD-<tema>-design.md`, aprobada por el humano.
-2. `writing-plans`: plan en `docs/superpowers/plans/AAAA-MM-DD-<tema>.md`, con tareas chicas, código completo y comandos con su resultado esperado. **Cada tarea indica qué modelo la ejecuta.** Si hay dudas sobre una API, conviene validarla con una prueba en el scratchpad antes de escribir el plan.
+1. `brainstorming`: understand what is wanted, one question at a time. Visual questions are shown in the browser companion. It ends in a spec at `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`, approved by the human.
+2. `writing-plans`: plan at `docs/superpowers/plans/YYYY-MM-DD-<topic>.md`, with small tasks, complete code and commands with their expected result. **Each task says which model runs it.** If an API is in doubt, validate it with a test in the scratchpad before writing the plan.
 
-### 2. Ejecutar: subagentes, con el modelo más barato que alcance
+### 2. Execute: subagents, with the cheapest model that is enough
 
-`subagent-driven-development`: un subagente nuevo por tarea, con revisión entre tareas.
+`subagent-driven-development`: a fresh subagent per task, with a review between tasks.
 
-| Modelo | Para qué |
+| Model | What for |
 |---|---|
-| **Haiku** | Tareas mecánicas con instrucciones cerradas: cargar un día en `dias.yaml`, agregar un surfista, copiar contenido ya escrito, crear archivos con contenido dado. |
-| **Sonnet** | Código con instrucciones claras: componentes, páginas, tests, scripts, traducir al portugués y cargar una sesión nueva desde la transcripción. |
-| **Opus (principal)** | Diseño, specs, planes, revisión final, verificación visual y cualquier tarea con decisiones abiertas. |
+| **Haiku** | Mechanical tasks with closed instructions: loading a day in `days.yaml`, adding a surfer, copying content that is already written, creating files with given content. |
+| **Sonnet** | Code with clear instructions: components, pages, tests, scripts, translating to Portuguese and loading a new session from the transcript. |
+| **Opus (main)** | Design, specs, plans, final review, visual verification and any task with open decisions. |
 
-Si un subagente se traba o la tarea resulta tener decisiones abiertas, vuelve al modelo principal: no se improvisa.
+If a subagent gets stuck or the task turns out to have open decisions, it goes back to the main model: no improvising.
 
-### 3. Cerrar
+### 3. Close
 
 `verification-before-completion` → `requesting-code-review` → `finishing-a-development-branch`.
 
-## Recetas
+## Recipes
 
-### Cargar una sesión nueva con coach  ·  Sonnet
+### Load a new coach session  ·  Sonnet
 
-Todo esto lo hace solo `npm run sesion-auto` (ver "Resumen automático"). A mano, con la skill `procesar-sesion` (`/procesar-sesion <fecha>`), que sigue estos pasos:
+`npm run session-auto` does all of this on its own (see "Automatic summary"). By hand, use the `process-session` skill (`/process-session <date>`), which follows these steps:
 
-1. Bajar el audio de la carpeta de Drive del trip (el coach lo sube desde `/subir/`) a `sesiones/<fecha>/` y transcribirlo con `npm run transcribir -- sesiones/<fecha>/<audio> [<parte2> ...]`. Deja `transcripcion-cruda.md`; la skill la ordena en `transcripcion.md`. El audio y las transcripciones son locales y no se commitean.
-2. Escribir `sesiones/<fecha>/insights-es.md` con el mismo formato que `sesiones/2026-10-26/insights-es.md`: `## Resumen`, un `## <Nombre>` por surfista con `**Lo que salió bien**` y `**En qué trabajar**`, y `## Plan para la próxima sesión` con la tabla (Surfista | Foco principal | Foco secundario | Frase para el agua) y la lista de logística. Citar el minuto de cada insight entre paréntesis.
-3. Traducir a `sesiones/<fecha>/insights-pt.md`, con la misma estructura y `## Resumo`.
-4. `npm run import-sesion -- <fecha> "<título ES>" "<título PT>"`
-5. Agregar o actualizar el día en `src/data/dias.yaml` con `sesion: "<fecha>"`.
-6. `npm run check && npm test && npm run build`, y abrir `/sesiones/<fecha>/` en `npm run dev`.
-7. Commit `Sesión <dd/mm>: insights` y pedir confirmación para el push.
+1. Download the audio from the trip's Drive folder (the coach uploads it from `/upload/`) to `sessions/<date>/` and transcribe it with `npm run transcribe -- sessions/<date>/<audio> [<part2> ...]`. This leaves `raw-transcript.md`; the skill organizes it into `transcript.md`. Audio and transcripts are local and are not committed.
+2. Write `sessions/<date>/insights-es.md` in the same format as `sessions/2026-10-26/insights-es.md`: `## Resumen`, one `## <Name>` per surfer with `**Lo que salió bien**` and `**En qué trabajar**`, and `## Plan para la próxima sesión` with the table (Surfista | Foco principal | Foco secundario | Frase para el agua) and the logistics list. Cite the minute of each insight in parentheses. These headings are content format: they stay in Spanish.
+3. Translate to `sessions/<date>/insights-pt.md`, with the same structure and `## Resumo`.
+4. `npm run import-session -- <date> "<ES title>" "<PT title>"`
+5. Add or update the day in `src/data/days.yaml` with `session: "<date>"`.
+6. `npm run check && npm test && npm run build`, and open `/sessions/<date>/` in `npm run dev`.
+7. Commit `Session <dd/mm>: insights` and ask for confirmation to push.
 
-### Resumen automático  ·  humano para conectarlo
+### Automatic summary  ·  human to connect it
 
-`scripts/sesion-auto.mjs` hace todo el camino: lista la carpeta de Drive, baja los audios de cada fecha, los transcribe en local y corre `claude -p "/procesar-sesion <fecha>"`. Deja un commit en `feat/sesion-<fecha>` (creada desde `main`) y vuelve a la rama en la que estaba. Nunca hace push.
+`scripts/session-auto.mjs` does the whole path: it lists the Drive folder, downloads the audio for each date, transcribes it locally and runs `claude -p "/process-session <date>"`. It leaves a commit on `feat/session-<date>` (created from `main`) and goes back to the branch it was on. It never pushes.
 
-- Una fecha se procesa cuando su último audio tiene más de 15 minutos (`--espera`), por si el coach sube otra parte.
-- Si llegan audios nuevos a una fecha ya procesada, avisa y no pisa nada salvo con `--fecha <fecha> --forzar`.
-- `--local` usa los audios que ya están en `sesiones/<fecha>/`, sin Drive. `--sin-claude` solo baja y transcribe. `--listar` muestra el estado.
-- Necesita el árbol de git limpio y que `main` tenga la skill.
-- Deja el detalle en `sesiones/<fecha>/auto.log`.
+- A date is processed when its last audio is more than 15 minutes old (`--wait`), in case the coach uploads another part.
+- If new audio arrives for a date that was already processed, it warns and overwrites nothing unless you use `--date <date> --force`.
+- `--local` uses the audio already in `sessions/<date>/`, without Drive. `--no-claude` only downloads and transcribes. `--list` shows the status.
+- It needs a clean git tree and `main` must have the skill.
+- It leaves the details in `sessions/<date>/auto.log`.
 
-**Transcripción** (`scripts/transcribir.py`): faster-whisper `large-v3` en la GPU, con dependencias declaradas en el script (`uv run` las instala solas; la primera vez baja ~3 GB entre CUDA y el modelo). El coach habla en portugués y los surfistas en español, así que el audio se corta en tramos de voz y el idioma se detecta por tramo, solo entre `es` y `pt`. Los nombres del roster y del coach van como vocabulario. No separa voces: la skill infiere quién habla por el idioma y el contexto.
+**Transcription** (`scripts/transcribe.py`): faster-whisper `large-v3` on the GPU, with dependencies declared in the script (`uv run` installs them by itself; the first time it downloads ~3 GB between CUDA and the model). The coach speaks Portuguese and the surfers speak Spanish, so the audio is cut into voice chunks and the language is detected per chunk, only between `es` and `pt`. The roster and coach names go in as vocabulary. It does not separate voices: the skill infers who is speaking from the language and context.
 
-**Conectarlo** (una sola vez):
+**Connect it** (one time only):
 
-1. Instalar rclone sin sudo: bajar el zip de https://rclone.org/downloads/ y copiar el binario a `~/.local/bin/`.
-2. `rclone config` → remote nuevo llamado `drive`, tipo Google Drive, scope `drive.readonly`, sin `root_folder_id` (lo pone el script). Iniciar sesión con una cuenta que vea la carpeta del trip.
-3. Probar: `npm run sesion-auto -- --listar` tiene que mostrar los audios de la carpeta.
-4. Probar de punta a punta con una fecha: `npm run sesion-auto -- --fecha <fecha>`.
-5. Programarlo cada 10 minutos con `crontab -e` (WSL tiene que estar abierto y cron andando: `sudo service cron start`):
-   `*/10 * * * * cd "<ruta del repo>" && PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/<v24>/bin:$PATH" node scripts/sesion-auto.mjs >> sesiones/cron.log 2>&1`
+1. Install rclone without sudo: download the zip from https://rclone.org/downloads/ and copy the binary to `~/.local/bin/`.
+2. `rclone config` → new remote named `drive`, type Google Drive, scope `drive.readonly`, no `root_folder_id` (the script sets it). Sign in with an account that can see the trip folder.
+3. Test: `npm run session-auto -- --list` must show the audio in the folder.
+4. Test end to end with one date: `npm run session-auto -- --date <date>`.
+5. Schedule it every 10 minutes with `crontab -e` (WSL has to be open and cron running: `sudo service cron start`):
+   `*/10 * * * * cd "<repo path>" && PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/<v24>/bin:$PATH" node scripts/session-auto.mjs >> sessions/cron.log 2>&1`
 
-Variables: `SURFTRIP_RCLONE_REMOTE` (remote, por defecto `drive`), `SURFTRIP_MODELO` (modelo para la skill, por defecto `sonnet`) y `SURFTRIP_RAMA_BASE` (por defecto `main`).
+Variables: `SURFTRIP_RCLONE_REMOTE` (remote, default `drive`), `SURFTRIP_MODEL` (model for the skill, default `sonnet`) and `SURFTRIP_BASE_BRANCH` (default `main`).
 
-### Cargar o cambiar un día del calendario  ·  Haiku
+### Load or change a calendar day  ·  Haiku
 
-En `src/data/dias.yaml`: `id` es la fecha entre comillas, y `actividad` lleva `es` y, si se puede, `pt`. `spot`, `horario` y `sesion` son opcionales. Después, `npm run build`.
+In `src/data/days.yaml`: `id` is the date in quotes, and `activity` has `es` and, if possible, `pt`. `spot`, `time` and `session` are optional. Then `npm run build`.
 
-### Agregar un surfista  ·  Haiku
+### Add a surfer  ·  Haiku
 
-1. Agregar `{ id, nombre, color }` en `src/data/surfistas.yaml`. El `id` va en minúsculas y sin espacios, y `color` es uno de `red | sky | yellow | green | pink`.
-2. `npm run avatars` genera `public/avatars/<id>.svg`. Para usar una foto, reemplazar ese archivo por un SVG o cambiar `Avatar.astro`.
+1. Add `{ id, name, color }` in `src/data/surfers.yaml`. The `id` is lowercase with no spaces, and `color` is one of `red | sky | yellow | green | pink`.
+2. `npm run avatars` generates `public/avatars/<id>.svg`. To use a photo, replace that file with an SVG or change `Avatar.astro`.
 3. `npm run build`.
 
-### Configurar la subida de audio para un trip  ·  humano
+### Set up audio upload for a trip  ·  human
 
-La página `/subir/` sube el audio directo del navegador a una carpeta de Drive (Google Identity Services + Drive API, permiso `drive.file`). No hay servidor ni secretos: el client ID y el ID de la carpeta son públicos.
+The `/upload/` page uploads audio straight from the browser to a Drive folder (Google Identity Services + Drive API, `drive.file` scope). There is no server and no secrets: the client ID and the folder ID are public.
 
-1. Crear una carpeta en Drive y compartirla como **Editor** con la cuenta de Google del coach.
-2. En Google Cloud: un proyecto con la **Google Drive API** habilitada.
-3. Google Auth Platform → Público: tipo **Externo**, en **modo prueba**, con el coach y el organizador como **usuarios de prueba**. Sin esto Google responde `Error 403: access_denied`.
-4. Clientes → ID de cliente OAuth de tipo **Aplicación web**, con orígenes `https://<usuario>.github.io` y `http://localhost:4321`.
-5. En `src/data/trip.yaml`, dentro del trip: `audio: { carpetaDrive, googleClientId, contacto }`. `contacto` es el nombre que aparece cuando una cuenta no tiene acceso.
-6. Nunca commitear el `client_secret_*.json` que baja Google (está en `.gitignore`; el sitio no lo usa).
+1. Create a folder in Drive and share it as **Editor** with the coach's Google account.
+2. In Google Cloud: a project with the **Google Drive API** enabled.
+3. Google Auth Platform → Audience: type **External**, in **testing mode**, with the coach and the organizer as **test users**. Without this Google answers `Error 403: access_denied`.
+4. Clients → OAuth client ID of type **Web application**, with origins `https://<user>.github.io` and `http://localhost:4321`.
+5. In `src/data/trip.yaml`, inside the trip: `audio: { driveFolder, googleClientId, contact }`. `contact` is the name shown when an account has no access.
+6. Never commit the `client_secret_*.json` that Google downloads (it is in `.gitignore`; the site does not use it).
 
-### Preparar el repo para otro surftrip  ·  Sonnet
+### Prepare the repo for another surftrip  ·  Sonnet
 
-Cambiar `src/data/trip.yaml`, vaciar `dias.yaml`, actualizar `surfistas.yaml` y mover el contenido viejo. Si alguna vez se necesitan varios trips publicados a la vez, el camino previsto es `src/content/trips/<trip-id>/` con rutas `/<trip-id>/...`. Eso es otra spec.
+Change `src/data/trip.yaml`, empty `days.yaml`, update `surfers.yaml` and move the old content. If several trips ever need to be published at once, the planned path is `src/content/trips/<trip-id>/` with routes `/<trip-id>/...`. That is a separate spec.
 
-## Comandos
+## Commands
 
 ```
 nvm use                 Node 24
-npm run dev             servidor local en http://localhost:4321/surftriplapedre/
-npm run check           tipos de Astro y TypeScript
-npm test                tests de src/lib
-npm run build           genera dist/ (falla si el contenido tiene referencias rotas)
-npm run avatars         genera avatares que falten
-npm run import-sesion -- <fecha> "<título ES>" "<título PT>"
-npm run transcribir -- <audio> [<audio> ...] [--hasta <seg>]   transcripción local ES/PT
-npm run sesion-auto -- [--listar] [--fecha <fecha>] [--local] [--sin-claude] [--forzar]
-npm run shots -- <url-base> <carpeta> [ruta ...]   capturas en 390 px y 1280 px
+npm run dev             local server at http://localhost:4321/surftriplapedre/
+npm run check           Astro and TypeScript types
+npm test                tests in src/lib
+npm run build           generates dist/ (fails if the content has broken references)
+npm run avatars         generates missing avatars
+npm run import-session -- <date> "<ES title>" "<PT title>"
+npm run transcribe -- <audio> [<audio> ...] [--until <sec>]   local ES/PT transcription
+npm run session-auto -- [--list] [--date <date>] [--local] [--no-claude] [--force]
+npm run shots -- <base-url> <folder> [route ...]   screenshots at 390 px and 1280 px
 ```

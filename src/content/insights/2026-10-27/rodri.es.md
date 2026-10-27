@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-27'
-surfista: rodri
-foco: Girar mirada y brazos hacia abajo sin trabarse
-focoSecundario: Cadera abajo después del cutback
-frase: Creé en el movimiento
+date: '2026-10-27'
+surfer: rodri
+focus: Girar mirada y brazos hacia abajo sin trabarse
+secondaryFocus: Cadera abajo después del cutback
+cue: Creé en el movimiento
 ---
 
 Rodri ganó la tercera batería con 7 puntos (olas de 3 y 4) y tuvo la mejor ola de una serie. Ayer giraba antes de tiempo; hoy le pasa lo contrario: arranca la maniobra y la traba a mitad. La frase de Douglas: "tenés que creer en el movimiento".

@@ -1,7 +1,7 @@
 ---
 /**
- * Catálogo del design system. No está enlazado desde la navegación.
- * Antes de crear un componente nuevo, revisar si ya existe acá. Si se crea uno, agregarlo acá.
+ * Design system catalog. It is not linked from the navigation.
+ * Before creating a new component, check whether it already exists here. If you create one, add it here.
  */
 import BaseLayout from '../components/BaseLayout.astro';
 import BoltBand from '../components/BoltBand.astro';
@@ -16,21 +16,21 @@ import { ACCENTS } from '../content.config';
 
 const colors = [...new Set(['orange', 'red', 'yellow', 'ink', 'paper', 'white', 'muted', ...ACCENTS])];
 const fonts = [
-  ['--font-display', 'Bungee Shade · títulos de página'],
-  ['--font-head', 'Bungee · encabezados y etiquetas'],
-  ['--font-strong', 'Archivo Black · datos destacados'],
-  ['--font-body', 'system-ui · texto corrido'],
+  ['--font-display', 'Bungee Shade · page titles'],
+  ['--font-head', 'Bungee · headings and labels'],
+  ['--font-strong', 'Archivo Black · highlighted data'],
+  ['--font-body', 'system-ui · body text'],
 ];
-const estadosAudio = ['login', 'listo', 'grabando', 'cortada', 'subiendo', 'hecho', 'error'] as const;
-const audioDemo = { carpetaDrive: 'demo', googleClientId: 'demo.apps.googleusercontent.com', contacto: 'el organizador' };
-const fechasDemo = ['2026-01-05', '2026-01-06', '2026-01-07'];
+const audioStates = ['login', 'ready', 'recording', 'cut', 'uploading', 'done', 'error'] as const;
+const audioDemo = { driveFolder: 'demo', googleClientId: 'demo.apps.googleusercontent.com', contact: 'el organizador' };
+const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
 ---
 
-<BaseLayout title="Design system" lang="es" equipo="Design system" langSwitch={false}>
-  <BoltBand kicker="Board Graphic" title="Design system" subtitle="Tokens y componentes del sitio" />
+<BaseLayout title="Design system" lang="es" team="Design system" langSwitch={false}>
+  <BoltBand kicker="Board Graphic" title="Design system" subtitle="Site tokens and components" />
 
   <div class="wrap">
-    <h2 class="section-title">Colores</h2>
+    <h2 class="section-title">Colors</h2>
     <div class="swatches">
       {
         colors.map((c) => (
@@ -42,49 +42,49 @@ const fechasDemo = ['2026-01-05', '2026-01-06', '2026-01-07'];
       }
     </div>
 
-    <h2 class="section-title">Tipografía</h2>
+    <h2 class="section-title">Typography</h2>
     <div class="prose">
       {fonts.map(([v, label]) => <p style={`font-family: var(${v}); font-size: 22px; margin: 8px 0`}>{label}</p>)}
     </div>
 
     <h2 class="section-title">DayCell</h2>
     <div class="row">
-      <DayCell lang="es" fecha="2026-10-25" weekday={0} state="past" actividad="Pasado" />
-      <DayCell lang="es" fecha="2026-10-26" weekday={1} state="today" actividad="Hoy, con sesión" href="#" />
-      <DayCell lang="es" fecha="2026-10-27" weekday={2} state="future" actividad="Futuro con plan" />
-      <DayCell lang="es" fecha="2026-10-28" weekday={3} state="future" />
-      <DayCell lang="es" fecha="2026-10-29" weekday={4} state="future" actividad="Sesión" href="#" />
+      <DayCell lang="es" date="2026-10-25" weekday={0} state="past" activity="Pasado" />
+      <DayCell lang="es" date="2026-10-26" weekday={1} state="today" activity="Hoy, con sesión" href="#" />
+      <DayCell lang="es" date="2026-10-27" weekday={2} state="future" activity="Futuro con plan" />
+      <DayCell lang="es" date="2026-10-28" weekday={3} state="future" />
+      <DayCell lang="es" date="2026-10-29" weekday={4} state="future" activity="Sesión" href="#" />
     </div>
 
-    <h2 class="section-title">SurferCard y Avatar</h2>
+    <h2 class="section-title">SurferCard and Avatar</h2>
     <div class="row">
       {
         ACCENTS.map((color) => (
           <div style="width: 160px">
-            <SurferCard id="juan" nombre={color} color={color} href="#" foco="Foco principal de ejemplo" />
+            <SurferCard id="juan" name={color} color={color} href="#" focus="Foco principal de ejemplo" />
           </div>
         ))
       }
     </div>
     <div class="row">
-      <Avatar id="juan" nombre="Juan" size="sm" />
-      <Avatar id="juan" nombre="Juan" size="md" />
-      <Avatar id="juan" nombre="Juan" size="lg" />
+      <Avatar id="juan" name="Juan" size="sm" />
+      <Avatar id="juan" name="Juan" size="md" />
+      <Avatar id="juan" name="Juan" size="lg" />
     </div>
 
     <h2 class="section-title">FocusBlock</h2>
-    <FocusBlock lang="es" foco="Manos al centro en el drop" focoSecundario="Subir después de la base" frase="Bajé, llegué a la base, tengo que subir" />
+    <FocusBlock lang="es" focus="Manos al centro en el drop" secondaryFocus="Subir después de la base" cue="Bajé, llegué a la base, tengo que subir" />
 
-    <h2 class="section-title">InsightBlock y TranslationBadge</h2>
-    <InsightBlock heading="Con link" href="#" linkText="Ver la sesión completa">
-      <p>Texto del insight sobre papel.</p>
+    <h2 class="section-title">InsightBlock and TranslationBadge</h2>
+    <InsightBlock heading="With link" href="#" linkText="Ver la sesión completa">
+      <p>Insight text on paper.</p>
     </InsightBlock>
-    <InsightBlock heading="Con fallback de traducción" fallback>
-      <p>Se muestra en español porque falta el .pt.md.</p>
+    <InsightBlock heading="With translation fallback" fallback>
+      <p>Shown in Spanish because the .pt.md is missing.</p>
     </InsightBlock>
     <p><TranslationBadge /></p>
 
-    <h2 class="section-title">Botones, avisos y progreso</h2>
+    <h2 class="section-title">Buttons, notices and progress</h2>
     <div class="prose">
       <div class="row">
         <button type="button" class="btn">.btn</button>
@@ -100,15 +100,15 @@ const fechasDemo = ['2026-01-05', '2026-01-06', '2026-01-07'];
 
     <h2 class="section-title">AudioUploader</h2>
     {
-      estadosAudio.map((estado) => (
+      audioStates.map((state) => (
         <>
-          <p class="estado">{estado}</p>
-          <AudioUploader lang="es" fechas={fechasDemo} zonaHoraria="UTC" audio={audioDemo} demo={estado} />
+          <p class="state">{state}</p>
+          <AudioUploader lang="es" dates={demoDates} timeZone="UTC" audio={audioDemo} demo={state} />
         </>
       ))
     }
-    <p class="estado">sin configurar</p>
-    <AudioUploader lang="es" fechas={fechasDemo} zonaHoraria="UTC" />
+    <p class="state">not configured</p>
+    <AudioUploader lang="es" dates={demoDates} timeZone="UTC" />
   </div>
 </BaseLayout>
 
@@ -141,7 +141,7 @@ const fechasDemo = ['2026-01-05', '2026-01-06', '2026-01-07'];
     align-items: flex-start;
     margin-bottom: var(--s-3);
   }
-  .estado {
+  .state {
     font: 13px var(--font-head);
     margin: var(--s-5) 0 0;
   }

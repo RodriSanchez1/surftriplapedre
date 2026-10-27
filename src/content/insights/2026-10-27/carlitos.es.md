@@ -1,9 +1,9 @@
 ---
-fecha: '2026-10-27'
-surfista: carlitos
-foco: Piernas juntas y firmes en la remada
-focoSecundario: Dos o tres remadas más antes de pararse
-frase: Trabé la tabla
+date: '2026-10-27'
+surfer: carlitos
+focus: Piernas juntas y firmes en la remada
+secondaryFocus: Dos o tres remadas más antes de pararse
+cue: Trabé la tabla
 ---
 
 Douglas lo dijo claro: "a Carlitos no le fue bien hoy, estaba difícil para él". Las olas huecas y débiles no ayudaron. Al cierre, el mismo Carlitos se puso dos tareas, y Douglas las reforzó.
