@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isLang, parsePath, pathFor, switchLang, t } from '../src/lib/i18n';
+import { format, isLang, parsePath, pathFor, switchLang, t } from '../src/lib/i18n';
 
 const BASE = '/surftriplapedre';
 
@@ -44,5 +44,11 @@ describe('switchLang', () => {
   it('mantiene la página al cambiar de idioma', () => {
     expect(switchLang('/surftriplapedre/surfistas/juan/', BASE, 'pt')).toBe('/surftriplapedre/pt/surfistas/juan/');
     expect(switchLang('/surftriplapedre/pt/', BASE, 'es')).toBe('/surftriplapedre/');
+  });
+});
+
+describe('format', () => {
+  it('reemplaza las variables y deja las desconocidas', () => {
+    expect(format('a los {min} min, {x}', { min: 23 })).toBe('a los 23 min, {x}');
   });
 });

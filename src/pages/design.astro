@@ -11,6 +11,7 @@ import Avatar from '../components/Avatar.astro';
 import FocusBlock from '../components/FocusBlock.astro';
 import InsightBlock from '../components/InsightBlock.astro';
 import TranslationBadge from '../components/TranslationBadge.astro';
+import AudioUploader from '../components/AudioUploader.astro';
 import { ACCENTS } from '../content.config';
 
 const colors = [...new Set(['orange', 'red', 'yellow', 'ink', 'paper', 'white', 'muted', ...ACCENTS])];
@@ -20,6 +21,9 @@ const fonts = [
   ['--font-strong', 'Archivo Black · datos destacados'],
   ['--font-body', 'system-ui · texto corrido'],
 ];
+const estadosAudio = ['login', 'listo', 'grabando', 'cortada', 'subiendo', 'hecho', 'error'] as const;
+const audioDemo = { carpetaDrive: 'demo', googleClientId: 'demo.apps.googleusercontent.com', contacto: 'el organizador' };
+const fechasDemo = ['2026-01-05', '2026-01-06', '2026-01-07'];
 ---
 
 <BaseLayout title="Design system" lang="es" equipo="Design system" langSwitch={false}>
@@ -79,6 +83,32 @@ const fonts = [
       <p>Se muestra en español porque falta el .pt.md.</p>
     </InsightBlock>
     <p><TranslationBadge /></p>
+
+    <h2 class="section-title">Botones, avisos y progreso</h2>
+    <div class="prose">
+      <div class="row">
+        <button type="button" class="btn">.btn</button>
+        <button type="button" class="btn primary">.btn.primary</button>
+        <button type="button" class="btn record">● .btn.record</button>
+        <button type="button" class="btn" disabled>disabled</button>
+      </div>
+      <p class="notice">.notice</p>
+      <p class="notice warn">.notice.warn</p>
+      <p class="notice error">.notice.error</p>
+      <progress max="100" value="42"></progress>
+    </div>
+
+    <h2 class="section-title">AudioUploader</h2>
+    {
+      estadosAudio.map((estado) => (
+        <>
+          <p class="estado">{estado}</p>
+          <AudioUploader lang="es" fechas={fechasDemo} zonaHoraria="UTC" audio={audioDemo} demo={estado} />
+        </>
+      ))
+    }
+    <p class="estado">sin configurar</p>
+    <AudioUploader lang="es" fechas={fechasDemo} zonaHoraria="UTC" />
   </div>
 </BaseLayout>
 
@@ -110,5 +140,9 @@ const fonts = [
     gap: var(--s-3);
     align-items: flex-start;
     margin-bottom: var(--s-3);
+  }
+  .estado {
+    font: 13px var(--font-head);
+    margin: var(--s-5) 0 0;
   }
 </style>

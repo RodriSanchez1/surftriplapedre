@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCalendar, dayMonth, dayState, todayIn, tripDates, weekdayOf } from '../src/lib/calendar';
+import { buildCalendar, clampToTrip, dayMonth, dayState, todayIn, tripDates, weekdayOf } from '../src/lib/calendar';
 
 describe('tripDates', () => {
   it('incluye inicio y fin y cruza el cambio de mes', () => {
@@ -50,5 +50,15 @@ describe('dayState', () => {
     expect(dayState('2026-10-25', '2026-10-26')).toBe('past');
     expect(dayState('2026-10-26', '2026-10-26')).toBe('today');
     expect(dayState('2026-10-27', '2026-10-26')).toBe('future');
+  });
+});
+
+describe('clampToTrip', () => {
+  it('devuelve hoy si cae dentro del trip', () => {
+    expect(clampToTrip('2026-10-24', '2026-11-01', '2026-10-27')).toBe('2026-10-27');
+  });
+  it('devuelve el primer o el último día si hoy cae afuera', () => {
+    expect(clampToTrip('2026-10-24', '2026-11-01', '2026-10-01')).toBe('2026-10-24');
+    expect(clampToTrip('2026-10-24', '2026-11-01', '2026-12-01')).toBe('2026-11-01');
   });
 });

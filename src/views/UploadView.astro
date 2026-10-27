@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import BoltBand from '../components/BoltBand.astro';
+import AudioUploader from '../components/AudioUploader.astro';
+import { loadSite } from '../lib/content';
+import { tripDates } from '../lib/calendar';
+import { t, type Lang } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const { trip } = await loadSite();
+---
+
+<BaseLayout title={`${t(lang, 'audio.title')} · ${trip.nombre}`} lang={lang} equipo={trip.equipo}>
+  <BoltBand kicker={trip.equipo} title={t(lang, 'audio.title')} subtitle={t(lang, 'audio.intro')} />
+  <div class="wrap">
+    <AudioUploader
+      lang={lang}
+      fechas={tripDates(trip.fechaInicio, trip.fechaFin)}
+      zonaHoraria={trip.zonaHoraria}
+      audio={trip.audio}
+    />
+  </div>
+</BaseLayout>

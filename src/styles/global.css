@@ -121,6 +121,81 @@ td:first-child {
   }
 }
 
+/* hidden gana siempre, aunque la clase tenga display (p. ej. .btn). */
+[hidden] {
+  display: none !important;
+}
+
+/* Botones. .primary para la acción principal; .record para grabar. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  font: 15px/1.2 var(--font-head);
+  color: var(--c-ink);
+  background: var(--c-white);
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--s-3) var(--s-4);
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--c-ink);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn.primary {
+  background: var(--c-yellow);
+}
+.btn.record {
+  background: var(--c-red);
+  color: var(--c-white);
+  font-size: 20px;
+  padding: var(--s-4) var(--s-5);
+}
+
+/* Aviso corto sobre papel. .warn para advertencias, .error para errores. */
+.notice {
+  background: var(--c-paper);
+  border: var(--border);
+  border-left-width: 10px;
+  border-left-color: var(--c-sky);
+  border-radius: var(--radius);
+  padding: var(--s-3) var(--s-4);
+  margin: var(--s-3) 0;
+}
+.notice.warn {
+  border-left-color: var(--c-yellow);
+}
+.notice.error {
+  border-left-color: var(--c-red);
+}
+
+progress {
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  border: var(--border);
+  border-radius: 999px;
+  background: var(--c-white);
+  overflow: hidden;
+}
+progress::-webkit-progress-bar {
+  background: var(--c-white);
+}
+progress::-webkit-progress-value {
+  background: var(--c-green);
+}
+progress::-moz-progress-bar {
+  background: var(--c-green);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;

@@ -52,3 +52,10 @@ export function dayState(fecha: IsoDate, today: IsoDate): DayState {
   if (fecha === today) return 'today';
   return fecha < today ? 'past' : 'future';
 }
+
+/** La fecha del trip más cercana a hoy: hoy si cae dentro, si no el primer o el último día. */
+export function clampToTrip(inicio: IsoDate, fin: IsoDate, today: IsoDate): IsoDate {
+  if (today < inicio) return inicio;
+  if (today > fin) return fin;
+  return today;
+}

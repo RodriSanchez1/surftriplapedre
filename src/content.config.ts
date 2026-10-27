@@ -20,6 +20,14 @@ const trip = defineCollection({
     fechaInicio: isoDate,
     fechaFin: isoDate,
     zonaHoraria: z.string(),
+    /** Subida del audio del coach a Drive (ver AGENTS.md). Opcional: sin esto, /subir/ avisa que no está configurada. */
+    audio: z
+      .object({
+        carpetaDrive: z.string().min(1),
+        googleClientId: z.string().endsWith('.apps.googleusercontent.com'),
+        contacto: z.string().min(1),
+      })
+      .optional(),
   }),
 });
 

@@ -28,6 +28,7 @@ src/content/sesiones/<fecha>.<es|pt>.md           resumen de una sesión con coa
 src/content/insights/<fecha>/<id>.<es|pt>.md      insight de un surfista en una sesión
 src/lib/                      lógica pura con tests (i18n, calendario, fallback de idioma, integridad)
 src/lib/content.ts            carga el contenido y corta el build si hay referencias rotas
+src/lib/audio/                subida del audio del coach a Drive (nombres, subida, almacén, grabador, login, página)
 src/components/               design system
 src/views/                    cuerpo de cada página (reciben lang)
 src/pages/  src/pages/pt/     envoltorios de una línea por idioma
@@ -66,7 +67,7 @@ Si un subagente se traba o la tarea resulta tener decisiones abiertas, vuelve al
 
 ### Cargar una sesión nueva con coach  ·  Sonnet
 
-1. Transcribir el audio (fuera del repo) y guardar la transcripción en `sesiones/<fecha>/transcripcion.md`. Es local y no se commitea.
+1. Bajar el audio de la carpeta de Drive del trip (el coach lo sube desde `/subir/`) a `sesiones/<fecha>/`. Transcribirlo (fuera del repo) y guardar la transcripción en `sesiones/<fecha>/transcripcion.md`. El audio y la transcripción son locales y no se commitean.
 2. Escribir `sesiones/<fecha>/insights-es.md` con el mismo formato que `sesiones/2026-10-26/insights-es.md`: `## Resumen`, un `## <Nombre>` por surfista con `**Lo que salió bien**` y `**En qué trabajar**`, y `## Plan para la próxima sesión` con la tabla (Surfista | Foco principal | Foco secundario | Frase para el agua) y la lista de logística. Citar el minuto de cada insight entre paréntesis.
 3. Traducir a `sesiones/<fecha>/insights-pt.md`, con la misma estructura y `## Resumo`.
 4. `npm run import-sesion -- <fecha> "<título ES>" "<título PT>"`
@@ -83,6 +84,17 @@ En `src/data/dias.yaml`: `id` es la fecha entre comillas, y `actividad` lleva `e
 1. Agregar `{ id, nombre, color }` en `src/data/surfistas.yaml`. El `id` va en minúsculas y sin espacios, y `color` es uno de `red | sky | yellow | green | pink`.
 2. `npm run avatars` genera `public/avatars/<id>.svg`. Para usar una foto, reemplazar ese archivo por un SVG o cambiar `Avatar.astro`.
 3. `npm run build`.
+
+### Configurar la subida de audio para un trip  ·  humano
+
+La página `/subir/` sube el audio directo del navegador a una carpeta de Drive (Google Identity Services + Drive API, permiso `drive.file`). No hay servidor ni secretos: el client ID y el ID de la carpeta son públicos.
+
+1. Crear una carpeta en Drive y compartirla como **Editor** con la cuenta de Google del coach.
+2. En Google Cloud: un proyecto con la **Google Drive API** habilitada.
+3. Google Auth Platform → Público: tipo **Externo**, en **modo prueba**, con el coach y el organizador como **usuarios de prueba**. Sin esto Google responde `Error 403: access_denied`.
+4. Clientes → ID de cliente OAuth de tipo **Aplicación web**, con orígenes `https://<usuario>.github.io` y `http://localhost:4321`.
+5. En `src/data/trip.yaml`, dentro del trip: `audio: { carpetaDrive, googleClientId, contacto }`. `contacto` es el nombre que aparece cuando una cuenta no tiene acceso.
+6. Nunca commitear el `client_secret_*.json` que baja Google (está en `.gitignore`; el sitio no lo usa).
 
 ### Preparar el repo para otro surftrip  ·  Sonnet
 

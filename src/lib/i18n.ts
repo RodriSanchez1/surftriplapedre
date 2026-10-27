@@ -24,6 +24,37 @@ const es = {
   'surfer.seeSession': 'Ver la sesión completa',
   'translation.pending': 'Tradução pendente',
   'table.surfer': 'Surfista',
+  'audio.title': 'Subir audio de la sesión',
+  'audio.intro': 'Grabá la charla o subí un audio. Va directo a la carpeta de Drive del trip.',
+  'audio.notConfigured': 'La subida de audio no está configurada para este trip.',
+  'audio.login': 'Entrar con Google',
+  'audio.loginHelp': 'La primera vez Google avisa que la app no está verificada: tocá "Continuar".',
+  'audio.connectedAs': 'Conectado como',
+  'audio.session': 'Sesión',
+  'audio.record': 'Grabar',
+  'audio.pickFile': 'Elegir un archivo',
+  'audio.uploadFile': 'Subir este archivo',
+  'audio.noRecorder': 'Este navegador no puede grabar. Podés subir un archivo grabado con otra app.',
+  'audio.keepOpen': 'Dejá esta pantalla abierta mientras grabás.',
+  'audio.noBackup': 'No se puede guardar en este dispositivo: si se cierra la página, se pierde la grabación.',
+  'audio.finish': 'Terminar y subir',
+  'audio.cut': 'La grabación se cortó a los {min} min. Lo grabado está a salvo.',
+  'audio.continue': 'Seguir grabando',
+  'audio.uploadWhatWeHave': 'Subir lo que hay',
+  'audio.pending': 'Tenés una grabación sin subir ({min} min, sesión del {fecha}).',
+  'audio.upload': 'Subir',
+  'audio.discard': 'Descartar',
+  'audio.discardConfirm': '¿Seguro? La grabación se borra de este dispositivo y no se puede recuperar.',
+  'audio.uploading': 'Subiendo',
+  'audio.offline': 'Sin conexión: la subida sigue sola cuando vuelva.',
+  'audio.done': 'Listo, el audio está en Drive.',
+  'audio.another': 'Subir otro',
+  'audio.retry': 'Reintentar',
+  'audio.download': 'Descargar el audio',
+  'audio.errorUpload': 'No se pudo subir el audio. Si era una grabación, sigue guardada en este dispositivo.',
+  'audio.errorPermission': 'Tu cuenta no tiene acceso a la carpeta. Pedile a {contacto} que te la comparta.',
+  'audio.errorLogin': 'No se pudo entrar con Google. Probá de nuevo.',
+  'audio.errorMic': 'No hay permiso para usar el micrófono. Habilitalo en el navegador (el candado al lado de la dirección) o subí un archivo.',
 } as const;
 
 export type UiKey = keyof typeof es;
@@ -50,6 +81,37 @@ const pt: Record<UiKey, string> = {
   'surfer.seeSession': 'Ver a sessão completa',
   'translation.pending': 'Tradução pendente',
   'table.surfer': 'Surfista',
+  'audio.title': 'Enviar áudio da sessão',
+  'audio.intro': 'Grave a conversa ou envie um áudio. Vai direto para a pasta do Drive da viagem.',
+  'audio.notConfigured': 'O envio de áudio não está configurado para esta viagem.',
+  'audio.login': 'Entrar com Google',
+  'audio.loginHelp': 'Na primeira vez o Google avisa que o app não foi verificado: toque em "Continuar".',
+  'audio.connectedAs': 'Conectado como',
+  'audio.session': 'Sessão',
+  'audio.record': 'Gravar',
+  'audio.pickFile': 'Escolher um arquivo',
+  'audio.uploadFile': 'Enviar este arquivo',
+  'audio.noRecorder': 'Este navegador não consegue gravar. Você pode enviar um arquivo gravado com outro app.',
+  'audio.keepOpen': 'Deixe esta tela aberta enquanto grava.',
+  'audio.noBackup': 'Não dá para salvar neste dispositivo: se a página fechar, a gravação se perde.',
+  'audio.finish': 'Terminar e enviar',
+  'audio.cut': 'A gravação foi interrompida aos {min} min. O que foi gravado está salvo.',
+  'audio.continue': 'Continuar gravando',
+  'audio.uploadWhatWeHave': 'Enviar o que tem',
+  'audio.pending': 'Você tem uma gravação não enviada ({min} min, sessão de {fecha}).',
+  'audio.upload': 'Enviar',
+  'audio.discard': 'Descartar',
+  'audio.discardConfirm': 'Tem certeza? A gravação será apagada deste dispositivo e não poderá ser recuperada.',
+  'audio.uploading': 'Enviando',
+  'audio.offline': 'Sem conexão: o envio continua sozinho quando voltar.',
+  'audio.done': 'Pronto, o áudio está no Drive.',
+  'audio.another': 'Enviar outro',
+  'audio.retry': 'Tentar de novo',
+  'audio.download': 'Baixar o áudio',
+  'audio.errorUpload': 'Não foi possível enviar o áudio. Se era uma gravação, continua salva neste dispositivo.',
+  'audio.errorPermission': 'Sua conta não tem acesso à pasta. Peça para {contacto} compartilhá-la com você.',
+  'audio.errorLogin': 'Não foi possível entrar com o Google. Tente de novo.',
+  'audio.errorMic': 'Sem permissão para usar o microfone. Ative no navegador (o cadeado ao lado do endereço) ou envie um arquivo.',
 };
 
 const ui: Record<Lang, Record<UiKey, string>> = { es, pt };
@@ -91,4 +153,9 @@ export function parsePath(pathname: string, base: string): { lang: Lang; path: s
 /** La misma página en otro idioma. */
 export function switchLang(pathname: string, base: string, target: Lang): string {
   return pathFor(target, parsePath(pathname, base).path, base);
+}
+
+/** Reemplaza {nombre} por su valor: format('a los {min} min', { min: 3 }) → 'a los 3 min'. */
+export function format(template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key: string) => (key in vars ? String(vars[key]) : match));
 }
