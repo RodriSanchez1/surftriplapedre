@@ -7,6 +7,8 @@
   startDate: "2026-10-24"
   endDate: "2026-11-01"
   timeZone: America/Montevideo
+  # Surf spots offered in the upload form (the coach can also type another one).
+  spots: [Playa del Barco, El Desplayado, Punta Rubia, La Paloma, Punta del Diablo, La Moza]
   audio:
     driveFolder: "1s5JI8SXVTDVy4lsbbRx5eq-0nJFEB7rK"
     googleClientId: "143809128182-fft8fv29p0gjpm7g0ulp4b86tmi9c1vh.apps.googleusercontent.com"

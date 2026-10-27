@@ -6,10 +6,12 @@ export interface IntegrityInput {
   days: { id: string; session?: string }[];
   sessionIds: string[];
   insights: { id: string; data: { surfer: string; date: string } }[];
+  /** `session` is the content id, e.g. '2026-10-26.es'. */
+  footage: { session: string; footage: { date: string; surfers: string[] }[] }[];
 }
 
 /** Checks the references between content files. Returns one readable error per problem. */
-export function findContentErrors({ trip, surferIds, days, sessionIds, insights }: IntegrityInput): string[] {
+export function findContentErrors({ trip, surferIds, days, sessionIds, insights, footage }: IntegrityInput): string[] {
   const errors: string[] = [];
   const surfers = new Set(surferIds);
   const sessions = new Set(sessionIds.map((id) => splitLangId(id).base));
@@ -37,6 +39,17 @@ export function findContentErrors({ trip, surferIds, days, sessionIds, insights 
     }
     if (!sessions.has(insight.data.date)) {
       errors.push(`insights/${insight.id}.md: session src/content/sessions/${insight.data.date}.es.md does not exist`);
+    }
+  }
+
+  for (const { session, footage: cards } of footage) {
+    for (const card of cards) {
+      for (const surfer of card.surfers) {
+        if (!surfers.has(surfer)) errors.push(`sessions/${session}.md: footage surfer "${surfer}" is not in surfers.yaml`);
+      }
+      if (card.date < trip.startDate || card.date > trip.endDate) {
+        errors.push(`sessions/${session}.md: footage date ${card.date} is outside the trip (${trip.startDate} → ${trip.endDate})`);
+      }
     }
   }
 

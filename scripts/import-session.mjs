@@ -7,8 +7,11 @@
 //   ## <Name from surfers.yaml>         → the surfer's insight; **Bold** lines become ### Bold
 //   ## Plan ... | Plano ...             → first paragraph = planNote, table = focus/secondaryFocus/cue,
 //                                         final list = logistics
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+//
+// If sessions/<date>/*.meta.json exist, their footage goes into the session frontmatter.
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dump, load } from 'js-yaml';
+import { mergeFootage, parseMeta } from '../src/lib/footage.ts';
 
 const [date, ...titles] = process.argv.slice(2);
 if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '') || titles.length !== 2) {
@@ -49,6 +52,19 @@ function parsePlan(body) {
   return { note, foci, logistics };
 }
 
+const metaDir = `sessions/${date}`;
+const metaFiles = existsSync(metaDir) ? readdirSync(metaDir).filter((f) => f.endsWith('.meta.json')).sort() : [];
+const metas = metaFiles.flatMap((f) => {
+  const path = `${metaDir}/${f}`;
+  const meta = parseMeta(readFileSync(path, 'utf8'));
+  if (!meta) console.log(`- ${path} is not a valid meta file, skipping`);
+  return meta ? [meta] : [];
+});
+const footage = mergeFootage(
+  metas.map((m) => m.footage),
+  surfers.map((s) => s.id),
+);
+
 ['es', 'pt'].forEach((lang, i) => {
   const src = `sessions/${date}/insights-${lang}.md`;
   if (!existsSync(src)) {
@@ -63,7 +79,7 @@ function parsePlan(body) {
 
   mkdirSync('src/content/sessions', { recursive: true });
   const sessionOut = `src/content/sessions/${date}.${lang}.md`;
-  writeFileSync(sessionOut, frontmatter({ date, title: titles[i], planNote: note, logistics }, summary.body));
+  writeFileSync(sessionOut, frontmatter({ date, title: titles[i], planNote: note, logistics, ...(footage.length ? { footage } : {}) }, summary.body));
   console.log(`+ ${sessionOut}`);
 
   for (const sec of secs) {
