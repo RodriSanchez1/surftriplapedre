@@ -1,0 +1,99 @@
+---
+import { render } from 'astro:content';
+import BaseLayout from '../components/BaseLayout.astro';
+import BoltBand from '../components/BoltBand.astro';
+import InsightBlock from '../components/InsightBlock.astro';
+import TranslationBadge from '../components/TranslationBadge.astro';
+import Avatar from '../components/Avatar.astro';
+import { loadSite } from '../lib/content';
+import { dayMonth } from '../lib/calendar';
+import { pathFor, t, type Lang } from '../lib/i18n';
+import { insightsForSession, pickLang } from '../lib/localized';
+
+interface Props {
+  lang: Lang;
+  fecha: string;
+}
+
+const { lang, fecha } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const { trip, surfistas, sesiones, insights } = await loadSite();
+
+const sesion = pickLang(sesiones, fecha, lang);
+if (!sesion) throw new Error(`No existe src/content/sesiones/${fecha}.es.md`);
+const { Content } = await render(sesion.entry);
+
+const nombres = new Map(surfistas.map((s) => [s.id, s.data.nombre]));
+const items = await Promise.all(
+  insightsForSession(insights, fecha, lang, surfistas.map((s) => s.id)).map(async (l) => ({
+    ...l,
+    Content: (await render(l.entry)).Content,
+  })),
+);
+---
+
+<BaseLayout title={`${t(lang, 'session.title')} ${dayMonth(fecha)} · ${trip.nombre}`} lang={lang} equipo={trip.equipo}>
+  <BoltBand kicker={trip.nombre} title={`${t(lang, 'session.title')} ${dayMonth(fecha)}`} subtitle={sesion.entry.data.titulo} />
+
+  <div class="wrap">
+    <h2 class="section-title">{t(lang, 'session.summary')}</h2>
+    <section class="prose">
+      {sesion.fallback && <TranslationBadge />}
+      <Content />
+    </section>
+
+    <h2 class="section-title">{t(lang, 'session.plan')}</h2>
+    <div class="prose table-wrap">
+      {sesion.entry.data.planNota && <p>{sesion.entry.data.planNota}</p>}
+      <table>
+        <thead>
+          <tr>
+            <th>{t(lang, 'table.surfer')}</th>
+            <th>{t(lang, 'focus.main')}</th>
+            <th>{t(lang, 'focus.secondary')}</th>
+            <th>{t(lang, 'focus.phrase')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            items.map(({ entry }) => (
+              <tr>
+                <td><a href={`#${entry.data.surfista}`}>{nombres.get(entry.data.surfista)}</a></td>
+                <td data-k={t(lang, 'focus.main')}>{entry.data.foco}</td>
+                <td data-k={t(lang, 'focus.secondary')}>{entry.data.focoSecundario}</td>
+                <td data-k={t(lang, 'focus.phrase')}>“{entry.data.frase}”</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+
+    {
+      sesion.entry.data.logistica.length > 0 && (
+        <>
+          <h2 class="section-title">{t(lang, 'session.logistics')}</h2>
+          <ul class="prose">
+            {sesion.entry.data.logistica.map((item) => <li>{item}</li>)}
+          </ul>
+        </>
+      )
+    }
+
+    <h2 class="section-title">{t(lang, 'session.surfers')}</h2>
+    {
+      items.map(({ entry, fallback, Content: Insight }) => (
+        <InsightBlock
+          id={entry.data.surfista}
+          heading={nombres.get(entry.data.surfista) ?? entry.data.surfista}
+          fallback={fallback}
+          href={pathFor(lang, `/surfistas/${entry.data.surfista}/`, base)}
+          linkText={nombres.get(entry.data.surfista)}
+        >
+          <Avatar slot="media" id={entry.data.surfista} nombre="" size="sm" />
+          <Insight />
+        </InsightBlock>
+      ))
+    }
+  </div>
+</BaseLayout>

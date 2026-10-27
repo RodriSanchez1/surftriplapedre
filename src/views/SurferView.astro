@@ -1,0 +1,62 @@
+---
+import { render } from 'astro:content';
+import BaseLayout from '../components/BaseLayout.astro';
+import BoltBand from '../components/BoltBand.astro';
+import Avatar from '../components/Avatar.astro';
+import FocusBlock from '../components/FocusBlock.astro';
+import InsightBlock from '../components/InsightBlock.astro';
+import { loadSite } from '../lib/content';
+import { dayMonth } from '../lib/calendar';
+import { pathFor, t, type Lang } from '../lib/i18n';
+import { insightsForSurfer } from '../lib/localized';
+
+interface Props {
+  lang: Lang;
+  id: string;
+}
+
+const { lang, id } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const { trip, surfistas, insights } = await loadSite();
+
+const surfista = surfistas.find((s) => s.id === id);
+if (!surfista) throw new Error(`El surfista "${id}" no está en surfistas.yaml`);
+
+const items = await Promise.all(
+  insightsForSurfer(insights, id, lang).map(async (l) => ({ ...l, Content: (await render(l.entry)).Content })),
+);
+const actual = items[0]?.entry.data;
+---
+
+<BaseLayout title={`${surfista.data.nombre} · ${trip.nombre}`} lang={lang} equipo={trip.equipo}>
+  <BoltBand kicker={trip.equipo} title={surfista.data.nombre}>
+    <div slot="media" style={`--accent: var(--c-${surfista.data.color})`}>
+      <Avatar id={id} nombre="" size="lg" />
+    </div>
+  </BoltBand>
+
+  <div class="wrap">
+    <h2 class="section-title">{t(lang, 'surfer.current')}</h2>
+    {
+      actual ? (
+        <FocusBlock lang={lang} foco={actual.foco} focoSecundario={actual.focoSecundario} frase={actual.frase} />
+      ) : (
+        <p class="prose">{t(lang, 'surfer.none')}</p>
+      )
+    }
+
+    {items.length > 0 && <h2 class="section-title">{t(lang, 'surfer.history')}</h2>}
+    {
+      items.map(({ entry, fallback, Content }) => (
+        <InsightBlock
+          heading={`${t(lang, 'session.title')} ${dayMonth(entry.data.fecha)}`}
+          fallback={fallback}
+          href={pathFor(lang, `/sesiones/${entry.data.fecha}/`, base)}
+          linkText={t(lang, 'surfer.seeSession')}
+        >
+          <Content />
+        </InsightBlock>
+      ))
+    }
+  </div>
+</BaseLayout>
