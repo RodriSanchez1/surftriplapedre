@@ -18,3 +18,8 @@ sesiones/*/transcripcion.md
 
 # Metadatos de Windows (WSL)
 *:Zone.Identifier
+
+# Astro / Node
+node_modules/
+dist/
+.astro/
