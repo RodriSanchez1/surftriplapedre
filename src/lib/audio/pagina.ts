@@ -232,6 +232,7 @@ export function iniciar(raiz: HTMLElement): void {
         locales.delete(g.id);
       }
       actual = null;
+      await pintarPendientes();
       mostrar('hecho');
     } catch (e) {
       const paraDescargar = await Promise.all(partes.map(async (g) => ({ blob: await blobDe(g), nombre: nombreDe(g) })));

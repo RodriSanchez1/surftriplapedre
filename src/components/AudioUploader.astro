@@ -166,6 +166,10 @@ const textos: Textos = {
   [data-paso] {
     display: none;
   }
+  /* El primer paso visible no siempre es el primer hijo de .prose. */
+  [data-paso] > :first-child {
+    margin-top: 0;
+  }
   .uploader[data-estado='login'] [data-paso='login'],
   .uploader[data-estado='listo'] [data-paso='listo'],
   .uploader[data-estado='grabando'] [data-paso='grabando'],
