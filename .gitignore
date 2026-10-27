@@ -1,0 +1,11 @@
+# Audios y videos crudos de las sesiones (pesados y privados)
+*.m4a
+*.mp3
+*.wav
+*.mp4
+*.mov
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
