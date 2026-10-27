@@ -14,7 +14,7 @@ const { id, name, color, href, focus } = Astro.props;
 const Tag = href ? 'a' : 'div';
 ---
 
-<Tag class="card" href={href} style={`--accent: var(--c-${color})`}>
+<Tag class:list={['card', { pressable: href }]} href={href} style={`--accent: var(--c-${color})`}>
   <span class="band" aria-hidden="true"></span>
   <span class="body">
     <Avatar id={id} name="" size="md" />
@@ -33,21 +33,6 @@ const Tag = href ? 'a' : 'div';
     border-radius: 10px;
     overflow: hidden;
     text-decoration: none;
-  }
-  /* Raised like every other link in the system (session days, buttons). */
-  a.card {
-    box-shadow: var(--shadow);
-    transition:
-      transform 0.12s,
-      box-shadow 0.12s;
-  }
-  a.card:hover {
-    transform: translate(-2px, -2px);
-    box-shadow: 6px 6px 0 var(--c-ink);
-  }
-  a.card:active {
-    transform: translate(2px, 2px);
-    box-shadow: 2px 2px 0 var(--c-ink);
   }
   /* The surfer's color, cut on the hero's bolt angle. */
   .band {

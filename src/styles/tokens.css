@@ -28,7 +28,15 @@
   --border-w: 3px;
   --border: var(--border-w) solid var(--c-ink);
   --radius: 8px;
-  --shadow: 4px 4px 0 var(--c-ink);
+  --shadow-d: 4px;
+  --shadow: var(--shadow-d) var(--shadow-d) 0 var(--c-ink);
+
+  /* Pressing (.pressable): hover lifts a raised surface by half its shadow and the shadow grows by the same,
+     so its foot stays put; pressing pushes it in by the same amount. Change --shadow-d and all of it follows. */
+  --lift: calc(var(--shadow-d) / 2);
+  --shadow-hover: calc(var(--shadow-d) + var(--lift)) calc(var(--shadow-d) + var(--lift)) 0 var(--c-ink);
+  --shadow-press: calc(var(--shadow-d) - var(--lift)) calc(var(--shadow-d) - var(--lift)) 0 var(--c-ink);
+  --press-time: 0.12s;
 
   /* Spacing (scale of 4) */
   --s-1: 4px;

@@ -26,6 +26,33 @@ a {
   text-decoration-thickness: 3px;
   text-underline-offset: 3px;
 }
+/* Text links: the underline takes the text color on hover. */
+a:hover {
+  text-decoration-color: currentColor;
+}
+
+/*
+ * Raised surfaces you can press: buttons, session days, surfer cards.
+ * One pattern everywhere, with the proportions in tokens.css (--shadow-d, --lift).
+ * data-demo forces a state on /design/.
+ */
+.btn,
+.pressable {
+  box-shadow: var(--shadow);
+  transition:
+    transform var(--press-time) ease-out,
+    box-shadow var(--press-time) ease-out;
+}
+:is(.btn, .pressable):where(:not(:disabled)):hover,
+:is(.btn, .pressable)[data-demo='hover'] {
+  transform: translate(calc(-1 * var(--lift)), calc(-1 * var(--lift)));
+  box-shadow: var(--shadow-hover);
+}
+:is(.btn, .pressable):where(:not(:disabled)):active,
+:is(.btn, .pressable)[data-demo='press'] {
+  transform: translate(var(--lift), var(--lift));
+  box-shadow: var(--shadow-press);
+}
 
 :focus-visible {
   outline: 3px solid var(--c-sky);
@@ -147,14 +174,9 @@ td:first-child {
   background: var(--c-white);
   border: var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   padding: var(--s-3) var(--s-4);
   cursor: pointer;
   text-decoration: none;
-}
-.btn:active {
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0 var(--c-ink);
 }
 .btn:disabled {
   opacity: 0.5;

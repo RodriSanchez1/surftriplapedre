@@ -22,7 +22,7 @@ const Tag = href ? 'a' : 'div';
 const [, month, day] = date.split('-');
 ---
 
-<Tag class:list={['day', { session: href }]} href={href} data-date={date} data-state={state}>
+<Tag class:list={['day', { session: href, pressable: href }]} href={href} data-date={date} data-state={state}>
   <span class="top">
     <span class="wd">{WEEKDAYS[lang][weekday]}</span>
     <span class="today">{t(lang, 'day.today')}</span>
@@ -50,18 +50,6 @@ const [, month, day] = date.split('-');
   }
   .session {
     background: var(--c-white);
-    box-shadow: var(--shadow);
-    transition:
-      transform 0.12s,
-      box-shadow 0.12s;
-  }
-  a.day:hover {
-    transform: translate(-2px, -2px);
-    box-shadow: 6px 6px 0 var(--c-ink);
-  }
-  a.day:active {
-    transform: translate(2px, 2px);
-    box-shadow: 2px 2px 0 var(--c-ink);
   }
 
   .top {
