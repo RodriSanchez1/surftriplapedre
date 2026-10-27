@@ -4,6 +4,8 @@ import { findContentErrors, type IntegrityInput } from '../src/lib/integrity';
 const valid = (): IntegrityInput => ({
   trip: { startDate: '2026-10-24', endDate: '2026-11-01' },
   surferIds: ['juan', 'ciro'],
+  coachIds: ['douglas'],
+  coachProfileIds: ['douglas.es', 'douglas.pt'],
   days: [{ id: '2026-10-26', session: '2026-10-26' }, { id: '2026-10-27' }],
   sessionIds: ['2026-10-26.es', '2026-10-26.pt'],
   insights: [{ id: '2026-10-26/juan.es', data: { surfer: 'juan', date: '2026-10-26' } }],
@@ -44,5 +46,11 @@ describe('findContentErrors', () => {
     const input = valid();
     input.insights[0].data.surfer = 'ciro';
     expect(findContentErrors(input)).toEqual([expect.stringContaining('is named "juan" but the surfer is "ciro"')]);
+  });
+
+  it('detects a coach profile for a coach that does not exist', () => {
+    const input = valid();
+    input.coachProfileIds.push('maria.es');
+    expect(findContentErrors(input)).toEqual([expect.stringContaining('coach "maria" is not in coaches.yaml')]);
   });
 });
