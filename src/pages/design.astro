@@ -16,10 +16,10 @@ import { ACCENTS } from '../content.config';
 
 const colors = [...new Set(['orange', 'red', 'yellow', 'ink', 'paper', 'white', 'muted', ...ACCENTS])];
 const fonts = [
-  ['--font-display', 'Bungee Shade · títulos de página'],
-  ['--font-head', 'Bungee · encabezados y etiquetas'],
-  ['--font-strong', 'Archivo Black · datos destacados'],
-  ['--font-body', 'system-ui · texto corrido'],
+  ['--font-display', 'Bungee Shade · page titles'],
+  ['--font-head', 'Bungee · headings and labels'],
+  ['--font-strong', 'Archivo Black · highlighted data'],
+  ['--font-body', 'system-ui · body text'],
 ];
 const audioStates = ['login', 'ready', 'recording', 'cut', 'uploading', 'done', 'error'] as const;
 const audioDemo = { driveFolder: 'demo', googleClientId: 'demo.apps.googleusercontent.com', contact: 'el organizador' };
@@ -27,10 +27,10 @@ const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
 ---
 
 <BaseLayout title="Design system" lang="es" team="Design system" langSwitch={false}>
-  <BoltBand kicker="Board Graphic" title="Design system" subtitle="Tokens y componentes del sitio" />
+  <BoltBand kicker="Board Graphic" title="Design system" subtitle="Site tokens and components" />
 
   <div class="wrap">
-    <h2 class="section-title">Colores</h2>
+    <h2 class="section-title">Colors</h2>
     <div class="swatches">
       {
         colors.map((c) => (
@@ -42,7 +42,7 @@ const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
       }
     </div>
 
-    <h2 class="section-title">Tipografía</h2>
+    <h2 class="section-title">Typography</h2>
     <div class="prose">
       {fonts.map(([v, label]) => <p style={`font-family: var(${v}); font-size: 22px; margin: 8px 0`}>{label}</p>)}
     </div>
@@ -56,7 +56,7 @@ const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
       <DayCell lang="es" date="2026-10-29" weekday={4} state="future" activity="Sesión" href="#" />
     </div>
 
-    <h2 class="section-title">SurferCard y Avatar</h2>
+    <h2 class="section-title">SurferCard and Avatar</h2>
     <div class="row">
       {
         ACCENTS.map((color) => (
@@ -75,16 +75,16 @@ const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
     <h2 class="section-title">FocusBlock</h2>
     <FocusBlock lang="es" focus="Manos al centro en el drop" secondaryFocus="Subir después de la base" cue="Bajé, llegué a la base, tengo que subir" />
 
-    <h2 class="section-title">InsightBlock y TranslationBadge</h2>
-    <InsightBlock heading="Con link" href="#" linkText="Ver la sesión completa">
-      <p>Texto del insight sobre papel.</p>
+    <h2 class="section-title">InsightBlock and TranslationBadge</h2>
+    <InsightBlock heading="With link" href="#" linkText="Ver la sesión completa">
+      <p>Insight text on paper.</p>
     </InsightBlock>
-    <InsightBlock heading="Con fallback de traducción" fallback>
-      <p>Se muestra en español porque falta el .pt.md.</p>
+    <InsightBlock heading="With translation fallback" fallback>
+      <p>Shown in Spanish because the .pt.md is missing.</p>
     </InsightBlock>
     <p><TranslationBadge /></p>
 
-    <h2 class="section-title">Botones, avisos y progreso</h2>
+    <h2 class="section-title">Buttons, notices and progress</h2>
     <div class="prose">
       <div class="row">
         <button type="button" class="btn">.btn</button>
@@ -107,7 +107,7 @@ const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
         </>
       ))
     }
-    <p class="state">sin configurar</p>
+    <p class="state">not configured</p>
     <AudioUploader lang="es" dates={demoDates} timeZone="UTC" />
   </div>
 </BaseLayout>

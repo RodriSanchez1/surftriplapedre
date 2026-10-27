@@ -1,4 +1,4 @@
-name: Sitio
+name: Site
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run check
-      - name: Build y artefacto para Pages
+      - name: Build and Pages artifact
         uses: withastro/action@v6
         with:
           node-version: 24
