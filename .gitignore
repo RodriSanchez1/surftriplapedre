@@ -9,3 +9,6 @@
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Transcripciones completas (privadas, solo locales)
+sesiones/*/transcripcion.md
