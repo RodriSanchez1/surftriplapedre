@@ -25,6 +25,7 @@ The site for the surftrip to La Pedrera (Oct 24 to Nov 1, 2026) with coach Dougl
 src/data/trip.yaml            trip data (name, team, location, coach, dates, time zone)
 src/data/days.yaml            days with something loaded (activity, spot, time, session)
 src/data/surfers.yaml         roster: id, name, accent color
+src/data/coaches.yaml         coaches shown under the team: id, name, accent color
 src/content/sessions/<date>.<es|pt>.md           summary of a coach session
 src/content/insights/<date>/<id>.<es|pt>.md      a surfer's insight in a session
 src/lib/                      pure logic with tests (i18n, calendar, language fallback, integrity)
@@ -111,6 +112,12 @@ In `src/data/days.yaml`: `id` is the date in quotes, and `activity` has `es` and
 
 1. Add `{ id, name, color }` in `src/data/surfers.yaml`. The `id` is lowercase with no spaces, and `color` is one of `red | sky | yellow | green | pink`.
 2. `npm run avatars` generates `public/avatars/<id>.svg`. To use a photo, replace that file with an SVG or change `Avatar.astro`.
+3. `npm run build`.
+
+### Add a coach  ·  Haiku
+
+1. Add `{ id, name, color }` in `src/data/coaches.yaml` (same rules as a surfer). Coaches are shown on the home page under the team, without a page of their own.
+2. `npm run avatars` generates `public/avatars/<id>.svg` (it covers surfers and coaches, so a coach `id` must not repeat a surfer's).
 3. `npm run build`.
 
 ### Set up audio upload for a trip  ·  human

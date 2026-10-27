@@ -8,10 +8,11 @@ export type Day = CollectionEntry<'days'>;
 
 /** Loads all the site's content and fails the build if there are broken references. */
 export async function loadSite() {
-  const [trips, days, surfers, sessions, insights] = await Promise.all([
+  const [trips, days, surfers, coaches, sessions, insights] = await Promise.all([
     getCollection('trip'),
     getCollection('days'),
     getCollection('surfers'),
+    getCollection('coaches'),
     getCollection('sessions'),
     getCollection('insights'),
   ]);
@@ -28,8 +29,9 @@ export async function loadSite() {
   if (errors.length) throw new Error(`Invalid content:\n- ${errors.join('\n- ')}`);
 
   surfers.sort((a, b) => a.data.name.localeCompare(b.data.name, 'es'));
+  coaches.sort((a, b) => a.data.name.localeCompare(b.data.name, 'es'));
 
-  return { trip, days, surfers, sessions, insights };
+  return { trip, days, surfers, coaches, sessions, insights };
 }
 
 /** One page per session (in each language, falling back to Spanish). */
