@@ -187,7 +187,7 @@ describe('mergeFootage', () => {
   });
   it('sorts by day, time and spot', () => {
     const merged = mergeFootage([
-      [card({ date: '2026-10-27' }), card({ time: 'afternoon' }), card({ spot: 'El Desplayado' })],
+      [card({ date: '2026-10-27' }), card({ time: 'afternoon' }), card(), card({ spot: 'El Desplayado' })],
     ]);
     expect(merged.map((f) => `${f.date} ${f.time} ${f.spot}`)).toEqual([
       '2026-10-26 morning El Desplayado',

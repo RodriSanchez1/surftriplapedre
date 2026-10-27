@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extensionFor, extensionOfFile, fileName, groupOf, timeIn } from '../src/lib/audio/filenames';
+import { extensionFor, extensionOfFile, fileName, groupOf, metaName, timeIn } from '../src/lib/audio/filenames';
 
 describe('extensionFor', () => {
   it('uses the known extension of the type, without parameters', () => {
@@ -37,5 +37,11 @@ describe('fileName', () => {
     expect(group).toBe('2026-10-27_1830');
     expect(fileName(group, 1, 'webm')).toBe('2026-10-27_1830.webm');
     expect(fileName(group, 2, 'webm')).toBe('2026-10-27_1830_part2.webm');
+  });
+});
+
+describe('metaName', () => {
+  it('uses the group and .meta.json', () => {
+    expect(metaName('2026-10-27_1830')).toBe('2026-10-27_1830.meta.json');
   });
 });
