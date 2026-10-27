@@ -160,7 +160,7 @@ function generarInsights(fecha) {
       '--permission-mode', 'acceptEdits',
       '--allowedTools',
       'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Skill',
-      'Bash(npm run *)', 'Bash(uv run scripts/transcribir.py *)',
+      'Bash(npm run *)', 'Bash(npm test*)', 'Bash(uv run scripts/transcribir.py *)',
       'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git add *)', 'Bash(git commit *)',
       'Bash(ls *)', 'Bash(wc *)',
     ], { capturar: true });

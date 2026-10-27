@@ -99,7 +99,9 @@ npm run sesion-auto -- --fecha 2026-10-27 [--local] [--sin-claude] [--forzar]
 ## Pruebas
 
 - Vitest para `pendientes.ts`: nombres válidos e inválidos, orden de partes, agrupado por fecha, espera, procesadas y archivos nuevos en fechas ya procesadas.
-- `transcribir.py` se probó en el scratchpad con un audio de prueba ES + PT armado a mano: la detección por tramo tiene que dar los dos idiomas.
+- `transcribir.py` se probó el 27/10 con un audio de 2:10 en dos partes, armado con tramos alternados de español y portugués: con `small` en la GPU tardó 11 s y cada tramo salió en su idioma. `decode_audio` de faster-whisper 1.2.1 falla con PyAV 19, así que el audio se lee como PCM de ffmpeg. Se filtran las alucinaciones típicas ("Legendas por…").
+- La skill se probó con Sonnet en un worktree descartable, con la transcripción del 26/10 y los ejemplos recortados a un solo surfista. Generó los cinco surfistas en ES y PT, con un resultado muy parecido al aprobado, pasó el build y commiteó sin la transcripción.
+- `sesion-auto.mjs` se probó con un `claude` falso: crea la rama, vuelve a la original, detecta audios nuevos y falla si Claude no commitea.
 - `sesion-auto.mjs --listar` sin rclone configurado tiene que dar un error claro.
 - `npm run check && npm test && npm run build`.
 
