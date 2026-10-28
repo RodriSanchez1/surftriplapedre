@@ -26,6 +26,18 @@ describe('toMeta and parseMeta', () => {
       footage: [card(), { date: '2026-10-26', time: 'afternoon', surfers: ['juan', 'ciro'] }],
     });
   });
+  it('keeps the audio times and drops invalid ones', () => {
+    const audio = {
+      '2026-10-27_1830.webm': { start: '2026-10-27T21:30:12.100Z' },
+      '2026-10-27_1830_part2.webm': { start: 'yesterday' },
+      'talk.m4a': { modified: '2026-10-27T22:10:00.000Z' },
+    };
+    expect(parseMeta(toMeta('2026-10-27', [], audio))!.audio).toEqual({
+      '2026-10-27_1830.webm': { start: '2026-10-27T21:30:12.100Z' },
+      'talk.m4a': { modified: '2026-10-27T22:10:00.000Z' },
+    });
+    expect(parseMeta(toMeta('2026-10-27', []))).not.toHaveProperty('audio');
+  });
   it('trims the spot and drops it when empty', () => {
     expect(JSON.parse(toMeta('2026-10-27', [card({ spot: '  ' })])).footage[0]).not.toHaveProperty('spot');
     expect(parseMeta(toMeta('2026-10-27', [card({ spot: ' La Moza ' })]))!.footage[0].spot).toBe('La Moza');
