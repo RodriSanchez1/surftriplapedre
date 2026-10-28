@@ -9,7 +9,7 @@ import { googleAccount, loadGoogle, LoginError } from '../audio/google';
 import { send, PermissionError, type Dependencies } from '../audio/upload';
 import { clock, DEFAULT_FPS, length, position, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
-import { canPickFolder, canRead, pickFolder, videosIn } from './folder';
+import { canPickFolder, canRead, isVideo, pickFolder, videosIn } from './folder';
 import {
   addEvent,
   captureId,
@@ -34,7 +34,8 @@ export interface Texts {
   captureSaved: string;
   deleteCapture: string;
   deleteCaptureConfirm: string;
-  unsent: string;
+  finishCount: string;
+  sessionLocked: string;
   restored: string;
   discardConfirm: string;
   nothing: string;
@@ -92,9 +93,19 @@ export function init(root: HTMLElement): void {
   const video = $<HTMLVideoElement>('[data-video]');
   const stage = $('[data-stage]');
   const seek = $<HTMLInputElement>('[data-seek]');
-  const readout = $('[data-readout]');
+  const readoutPos = $('[data-pos]');
+  const readoutWave = $('[data-wave]');
   const shots = $('[data-shots]');
   const message = $('[data-message]');
+  const messageBox = $('[data-message-box]');
+  const retryButton = $('[data-action="retry"]');
+  const shotsBox = $('[data-shots-box]');
+  const viewer = $('[data-viewer]');
+  const interactive = [...root.querySelectorAll<HTMLElement>('.rail, .transport, .capture')];
+  const clipsPanel = $('[data-clip-list]').closest<HTMLElement>('.clips')!;
+  const filesInput = $<HTMLInputElement>('[data-files]');
+  /** A phone: the clip list is a drawer over the picture instead of a column. */
+  const compact = matchMedia('(max-width: 760px), (orientation: landscape) and (max-height: 500px)');
   const sketch = new Sketch($<HTMLCanvasElement>('[data-sketch]'));
 
   let store: ReviewStore | null = null;
@@ -110,13 +121,30 @@ export function init(root: HTMLElement): void {
 
   // --- Messages and state ---
 
+  /** What the picture area shows: nothing to play yet, a clip loading, the clip, or one that does not play. */
+  type View = 'empty' | 'loading' | 'ready' | 'error';
+  function setView(view: View) {
+    root.dataset.view = view;
+    // Greyed out by CSS; inert keeps the keyboard and screen readers out of them too.
+    for (const el of interactive) el.inert = view !== 'ready';
+    $('[data-next-clip]').hidden = clips.length < 2;
+  }
+
+  /** Messages float over the picture; the quick ones fade after 4 s, the others stay until dismissed. */
   let messageTimer = 0;
   function say(text: string, kind: 'ok' | 'warn' | 'error' = 'ok', sticky = false) {
     clearTimeout(messageTimer);
     message.textContent = text;
-    message.className = `notice ${kind === 'ok' ? '' : kind}`;
-    message.hidden = !text;
-    if (!sticky && text) messageTimer = window.setTimeout(() => (message.hidden = true), 4000);
+    messageBox.className = `notice ${kind === 'ok' ? '' : kind}`;
+    messageBox.hidden = !text;
+    retryButton.hidden = true;
+    if (!sticky && text) messageTimer = window.setTimeout(() => (messageBox.hidden = true), 4000);
+  }
+
+  function paintShots() {
+    const n = shots.children.length;
+    shotsBox.hidden = !n;
+    $('[data-shots-count]').textContent = String(n);
   }
 
   function captureEvents() {
@@ -124,9 +152,17 @@ export function init(root: HTMLElement): void {
   }
 
   function paintStatus() {
-    const pending = captureEvents().filter((e) => !draft?.uploaded.includes(e.file)).length;
-    $('[data-unsent]').textContent = pending ? format(texts.unsent, { n: pending }) : '';
+    const captures = captureEvents().length;
+    // Nothing to upload until there is a capture.
+    const finishButton = root.querySelector<HTMLElement>('[data-action="finish"]');
+    if (finishButton) {
+      finishButton.hidden = !captures;
+      $('[data-finish-label]').textContent = format(texts.finishCount, { n: captures });
+    }
     dateSelect.disabled = !!draft;
+    const why = draft ? texts.sessionLocked : '';
+    dateSelect.title = why;
+    dateSelect.closest('label')!.title = why;
     $('[data-action="discard"]').hidden = !draft;
     for (const c of clips) c.item.classList.toggle('has-capture', captureEvents().some((e) => e.clip === c.file.name));
   }
@@ -179,7 +215,13 @@ export function init(root: HTMLElement): void {
     current = null;
     list.replaceChildren();
     root.dataset.hasClips = files.length ? 'true' : 'false';
-    if (!files.length) return say(texts.noVideos, 'warn');
+    const note = $('[data-empty-note]');
+    note.hidden = !!files.length;
+    note.textContent = texts.noVideos;
+    video.removeAttribute('src');
+    video.load();
+    setView(files.length ? 'loading' : 'empty');
+    if (!files.length) return;
 
     const read = await Promise.all(
       files.map(async (file) => {
@@ -201,8 +243,6 @@ export function init(root: HTMLElement): void {
     });
     list.replaceChildren(...clips.map((c) => c.item));
     paintStatus();
-    // The hero takes the top of the screen: bring the player up.
-    root.scrollIntoView({ behavior: 'smooth', block: 'start' });
     void open(clips[0], false);
     void thumbnails(clips);
   }
@@ -238,29 +278,40 @@ export function init(root: HTMLElement): void {
   }
 
   async function open(entry: Entry, log = true) {
-    if (current === entry && video.src) return;
+    if (current === entry && root.dataset.view === 'ready') return;
     current = entry;
     for (const c of clips) c.item.classList.toggle('active', c === entry);
     entry.item.scrollIntoView({ block: 'nearest' });
+    // On a phone the list is a drawer: picking a clip puts it away.
+    if (compact.matches) root.dataset.list = 'closed';
     sketch.clear();
+    // The picture area stays in place; it only shows what is going on.
+    setView('loading');
     video.src = entry.url;
-    root.dataset.loaded = 'false';
     try {
       await once(video, 'loadedmetadata', 15000);
     } catch {
+      if (current !== entry) return;
       entry.error = true;
       paintItem(entry);
-      return say(texts.unplayable, 'error', true);
+      return setView('error');
     }
     if (current !== entry) return;
-    message.hidden = true;
     entry.duration = video.duration;
     paintItem(entry);
     stage.style.setProperty('--ar', String(video.videoWidth / video.videoHeight || 16 / 9));
     seek.max = String(video.duration);
-    root.dataset.loaded = 'true';
+    setView('ready');
     paintTime();
     if (log) ensureOpened();
+  }
+
+  /** From a clip that does not play to the next one that might. */
+  function nextClip() {
+    if (!current || clips.length < 2) return;
+    const i = clips.indexOf(current);
+    const others = clips.map((_, k) => clips[(i + 1 + k) % clips.length]).filter((c) => c !== current);
+    void open(others.find((c) => !c.error) ?? others[0]);
   }
 
   /** Opening a clip by keyboard or on load counts as showing it only when it is played or drawn on. */
@@ -297,7 +348,8 @@ export function init(root: HTMLElement): void {
   function paintTime() {
     if (!current) return;
     seek.value = String(video.currentTime);
-    readout.textContent = `${position(video.currentTime)} · ${waveTime(current, video.currentTime)}`;
+    readoutPos.textContent = position(video.currentTime);
+    readoutWave.textContent = waveTime(current, video.currentTime);
   }
 
   // --- Drawing ---
@@ -343,8 +395,9 @@ export function init(root: HTMLElement): void {
     remove.dataset.action = 'delete-capture';
     remove.dataset.file = file;
     figure.append(img, remove);
-    shots.append(figure);
-    shots.closest<HTMLElement>('[data-shots-box]')!.hidden = false;
+    // Newest first.
+    shots.prepend(figure);
+    paintShots();
   }
 
   async function saveCapture() {
@@ -379,7 +432,7 @@ export function init(root: HTMLElement): void {
     const s = store;
     if (s) writes = writes.then(() => s.removeCapture(file)).catch((e) => console.error(e));
     shots.querySelector(`[data-file="${CSS.escape(file)}"]`)?.remove();
-    shots.closest<HTMLElement>('[data-shots-box]')!.hidden = !shots.children.length;
+    paintShots();
     paintStatus();
   }
 
@@ -436,7 +489,7 @@ export function init(root: HTMLElement): void {
       draft = null;
       blobs.clear();
       shots.replaceChildren();
-      shots.closest<HTMLElement>('[data-shots-box]')!.hidden = true;
+      paintShots();
       $('[data-restored]').hidden = true;
       say(texts.done, 'ok', true);
     } catch (e) {
@@ -446,7 +499,7 @@ export function init(root: HTMLElement): void {
         'error',
         true,
       );
-      $('[data-action="retry"]').hidden = false;
+      retryButton.hidden = false;
     } finally {
       uploading = false;
       root.dataset.uploading = 'false';
@@ -461,7 +514,7 @@ export function init(root: HTMLElement): void {
     draft = null;
     blobs.clear();
     shots.replaceChildren();
-    shots.closest<HTMLElement>('[data-shots-box]')!.hidden = true;
+    paintShots();
     $('[data-restored]').hidden = true;
     paintStatus();
   }
@@ -498,9 +551,11 @@ export function init(root: HTMLElement): void {
         const blob = await store.capture(e.file);
         if (blob) addShot(e.file, e.id, blob);
       }
-      const restored = $('[data-restored]');
-      restored.textContent = format(texts.restored, { date: dayMonth(d.log.talkDate), n: captureEvents().length });
-      restored.hidden = false;
+      $('[data-restored-text]').textContent = format(texts.restored, {
+        date: dayMonth(d.log.talkDate),
+        n: captureEvents().length,
+      });
+      $('[data-restored]').hidden = false;
     }
     paintStatus();
     const handle = await store.folder();
@@ -513,6 +568,22 @@ export function init(root: HTMLElement): void {
       button.hidden = false;
     }
   }
+
+  // --- Immersive: only the picture, the tools and the controls ---
+
+  /** Hides the site header, the top bar and the clip list. Real fullscreen too, where the browser has it (not iPhone). */
+  function setImmersive(on: boolean) {
+    root.toggleAttribute('data-immersive', on);
+    document.body.toggleAttribute('data-immersive', on);
+    root.querySelector('[data-action="fullscreen"]')!.setAttribute('aria-pressed', String(on));
+    const page = document.documentElement;
+    if (on && !document.fullscreenElement && page.requestFullscreen) void page.requestFullscreen().catch(() => {});
+    if (!on && document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+  }
+  // The browser's own way out of fullscreen (Esc) leaves immersive too.
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && root.hasAttribute('data-immersive')) setImmersive(false);
+  });
 
   // --- Events ---
 
@@ -566,8 +637,19 @@ export function init(root: HTMLElement): void {
   const actions: Record<string, (b: HTMLElement) => void> = {
     'pick-folder': () => void chooseFolder(),
     reopen: () => void reopen(),
+    // Open or closed by what is on screen (CSS decides the default for the screen size).
     'toggle-list': () => {
-      root.dataset.list = root.dataset.list === 'closed' ? 'open' : 'closed';
+      root.dataset.list = getComputedStyle(clipsPanel).display === 'none' ? 'open' : 'closed';
+    },
+    'toggle-record': (b) => {
+      const open = root.dataset.record !== 'open';
+      root.dataset.record = open ? 'open' : 'closed';
+      b.setAttribute('aria-expanded', String(open));
+    },
+    pick: () => (canPickFolder() ? void chooseFolder() : filesInput.click()),
+    'next-clip': () => nextClip(),
+    dismiss: (b) => {
+      b.closest<HTMLElement>('.notice')!.hidden = true;
     },
     play: () => toggle(),
     'prev-frame': () => step(-1),
@@ -577,11 +659,7 @@ export function init(root: HTMLElement): void {
       video.defaultPlaybackRate = Number(b.dataset.rate);
       video.playbackRate = Number(b.dataset.rate);
     },
-    fullscreen: () => {
-      const viewer = $('[data-viewer]');
-      if (document.fullscreenElement) void document.exitFullscreen();
-      else void viewer.requestFullscreen?.();
-    },
+    fullscreen: () => setImmersive(!root.hasAttribute('data-immersive')),
     tool: (b) => setTool(b.dataset.tool as Tool),
     color: (b) => setColor(b.dataset.color!),
     undo: () => sketch.undo(),
@@ -608,13 +686,40 @@ export function init(root: HTMLElement): void {
     if (e.detail > 0) b.blur();
   });
 
-  $<HTMLInputElement>('[data-files]').addEventListener('change', (e) => {
+  filesInput.addEventListener('change', (e) => {
     const input = e.target as HTMLInputElement;
     void loadFiles([...(input.files ?? [])]);
   });
 
+  // Drop video files on the picture.
+  viewer.addEventListener('dragover', (e) => {
+    if (![...(e.dataTransfer?.types ?? [])].includes('Files')) return;
+    e.preventDefault();
+    viewer.toggleAttribute('data-dragging', true);
+  });
+  viewer.addEventListener('dragleave', () => viewer.removeAttribute('data-dragging'));
+  viewer.addEventListener('drop', (e) => {
+    e.preventDefault();
+    viewer.removeAttribute('data-dragging');
+    const dropped = [...(e.dataTransfer?.files ?? [])];
+    if (dropped.length) void loadFiles(dropped.filter((f) => isVideo(f.name)));
+  });
+
+  // A tap outside puts away the recording popover and, on a phone, the clip drawer.
+  document.addEventListener('pointerdown', (e) => {
+    const target = e.target as Element;
+    if (root.dataset.record === 'open' && !target.closest('[data-record-pop], [data-action="toggle-record"]')) {
+      root.dataset.record = 'closed';
+      root.querySelector('[data-action="toggle-record"]')!.setAttribute('aria-expanded', 'false');
+    }
+    if (compact.matches && root.dataset.list === 'open' && !target.closest('.clips, [data-action="toggle-list"]')) {
+      root.dataset.list = 'closed';
+    }
+  });
+
   document.addEventListener('keydown', (e) => {
     const target = e.target as HTMLElement;
+    if (e.key === 'Escape' && root.hasAttribute('data-immersive')) return setImmersive(false);
     if (target.closest('input:not([type="range"]), select, textarea, [contenteditable], [data-audio]')) return;
     if (e.altKey || e.metaKey) return;
     if (e.ctrlKey) {
@@ -664,7 +769,9 @@ export function init(root: HTMLElement): void {
   if (!canPickFolder()) {
     $('[data-action="pick-folder"]').hidden = true;
     $('[data-pick-files]').hidden = false;
+    $('[data-pick-label]').textContent = $('[data-action="pick"]').dataset.labelFiles!;
   }
+  setView('empty');
   setColor(sketch.color);
   if (account) loadGoogle().catch(() => {});
   openReviewStore()

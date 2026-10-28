@@ -191,10 +191,12 @@ const demoSurfers = [
     <AudioUploader lang="es" dates={demoDates} timeZone="UTC" />
 
     <h2 class="section-title">VideoReview</h2>
-    <p class="state">clip open, arrow tool, recording audio, three captures</p>
+    <p class="state">app screen with a fixed-height frame here: clip open, arrow tool, recording audio, three captures</p>
   </div>
   <div class="wide-demo">
-    <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo />
+    <div class="review-frame">
+      <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo />
+    </div>
   </div>
 </BaseLayout>
 
@@ -203,6 +205,13 @@ const demoSurfers = [
     max-width: 1280px;
     margin: 0 auto;
     padding: 0 var(--s-4);
+  }
+  /* The review screen fills its parent; on this page the parent has a fixed height instead of 100dvh. */
+  .review-frame {
+    height: 46rem;
+    background: var(--c-orange);
+    border: var(--border);
+    border-radius: var(--radius);
   }
   .swatches {
     display: grid;
