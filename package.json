@@ -10,7 +10,8 @@
     "shots": "node scripts/shots.mjs",
     "import-session": "node scripts/import-session.mjs",
     "transcribe": "uv run scripts/transcribe.py",
-    "session-auto": "node scripts/session-auto.mjs"
+    "session-auto": "node scripts/session-auto.mjs",
+    "review-timeline": "node scripts/review-timeline.mjs"
   },
   "type": "module",
   "dependencies": {
