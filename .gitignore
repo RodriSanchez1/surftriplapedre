@@ -21,6 +21,9 @@ sessions/*/raw-transcript.*
 sessions/*/processed.json
 sessions/*/auto.log
 sessions/*/*.meta.json
+sessions/*/*.review.json
+sessions/*/*.jpg
+sessions/*/review-timeline.md
 sessions/.session-auto.lock
 sessions/cron.log
 
