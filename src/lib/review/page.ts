@@ -31,7 +31,9 @@ export interface Texts {
   noVideos: string;
   unplayable: string;
   approx: string;
-  captureSaved: string;
+  captureTagged: string;
+  captureUntagged: string;
+  openCapture: string;
   deleteCapture: string;
   deleteCaptureConfirm: string;
   finishCount: string;
@@ -101,11 +103,14 @@ export function init(root: HTMLElement): void {
   const retryButton = $('[data-action="retry"]');
   const shotsBox = $('[data-shots-box]');
   const viewer = $('[data-viewer]');
+  const locked = () => [...root.querySelectorAll<HTMLButtonElement>('[data-lock]')];
   const interactive = [...root.querySelectorAll<HTMLElement>('.rail, .transport, .capture')];
   const clipsPanel = $('[data-clip-list]').closest<HTMLElement>('.clips')!;
   const filesInput = $<HTMLInputElement>('[data-files]');
   /** A phone: the clip list is a drawer over the picture instead of a column. */
   const compact = matchMedia('(max-width: 760px), (orientation: landscape) and (max-height: 500px)');
+  /** A phone on its side: the picture is short, so nothing may cover it. */
+  const landscape = matchMedia('(orientation: landscape) and (max-height: 500px)');
   const sketch = new Sketch($<HTMLCanvasElement>('[data-sketch]'));
 
   let store: ReviewStore | null = null;
@@ -157,7 +162,7 @@ export function init(root: HTMLElement): void {
     const finishButton = root.querySelector<HTMLElement>('[data-action="finish"]');
     if (finishButton) {
       finishButton.hidden = !captures;
-      $('[data-finish-label]').textContent = format(texts.finishCount, { n: captures });
+      if (!uploading) paintFinish(format(texts.finishCount, { n: captures }), String(captures));
     }
     dateSelect.disabled = !!draft;
     const why = draft ? texts.sessionLocked : '';
@@ -165,6 +170,18 @@ export function init(root: HTMLElement): void {
     dateSelect.closest('label')!.title = why;
     $('[data-action="discard"]').hidden = !draft;
     for (const c of clips) c.item.classList.toggle('has-capture', captureEvents().some((e) => e.clip === c.file.name));
+  }
+
+  /** The text of the upload button: the long form, and the short one a narrow phone shows next to the icon. */
+  function paintFinish(long: string, short: string) {
+    $('[data-finish-label]').textContent = long;
+    $('[data-finish-short]').textContent = short;
+  }
+
+  /** While an upload runs, nothing that changes the draft can be touched. */
+  function lock(on: boolean) {
+    root.dataset.uploading = String(on);
+    for (const b of locked()) b.disabled = on;
   }
 
   /** Queues a write of the draft. If IndexedDB fails, everything stays in memory. */
@@ -285,6 +302,8 @@ export function init(root: HTMLElement): void {
     // On a phone the list is a drawer: picking a clip puts it away.
     if (compact.matches) root.dataset.list = 'closed';
     sketch.clear();
+    // A new clip is probably another surfer's wave.
+    for (const c of chips()) c.checked = false;
     // The picture area stays in place; it only shows what is going on.
     setView('loading');
     video.src = entry.url;
@@ -348,6 +367,7 @@ export function init(root: HTMLElement): void {
   function paintTime() {
     if (!current) return;
     seek.value = String(video.currentTime);
+    seek.style.setProperty('--played', `${video.duration ? (video.currentTime / video.duration) * 100 : 0}%`);
     readoutPos.textContent = position(video.currentTime);
     readoutWave.textContent = waveTime(current, video.currentTime);
   }
@@ -366,10 +386,13 @@ export function init(root: HTMLElement): void {
     }
   }
 
+  /** The colour button shows the colour in use. */
   function setColor(color: string) {
     sketch.color = color;
-    for (const b of root.querySelectorAll<HTMLElement>('[data-color]')) {
-      b.setAttribute('aria-pressed', String(b.dataset.color === color));
+    for (const b of root.querySelectorAll<HTMLElement>('[data-action="color"]')) {
+      const all = JSON.parse(b.dataset.colors!) as { value: string; token: string }[];
+      b.dataset.color = color;
+      b.style.setProperty('--swatch', all.find((c) => c.value === color)?.token ?? color);
     }
   }
 
@@ -379,13 +402,49 @@ export function init(root: HTMLElement): void {
     return [...root.querySelectorAll<HTMLInputElement>('[data-surfer]')];
   }
 
-  function addShot(file: string, id: string, blob: Blob) {
+  /** Name and avatar of each tagged surfer, from the roster chips on the page. */
+  function surfersOf(ids: string[]) {
+    return ids.map((id) => {
+      const label = chips().find((c) => c.value === id)?.closest('label');
+      return {
+        name: label?.querySelector('.pick-name')?.textContent?.trim() || id,
+        avatar: label?.querySelector<HTMLImageElement>('.avatar') ?? null,
+      };
+    });
+  }
+
+  function addShot(file: string, id: string, blob: Blob, surferIds: string[]) {
+    const who = surfersOf(surferIds);
+    const names = who.map((w) => w.name).join(', ');
     const figure = document.createElement('figure');
     figure.className = 'shot';
     figure.dataset.file = file;
+    const view = document.createElement('button');
+    view.type = 'button';
+    view.className = 'shot-open';
+    view.dataset.action = 'open-capture';
+    view.dataset.file = file;
+    const label = names ? `${texts.openCapture}: ${names}` : texts.openCapture;
+    view.title = label;
+    view.setAttribute('aria-label', label);
     const img = document.createElement('img');
     img.src = URL.createObjectURL(blob);
-    img.alt = id;
+    img.alt = names ? `${id}: ${names}` : id;
+    view.append(img);
+    figure.append(view);
+    if (who.length) {
+      const tags = document.createElement('span');
+      tags.className = 'shot-tags';
+      tags.setAttribute('aria-hidden', 'true');
+      for (const w of who) {
+        if (!w.avatar) continue;
+        const avatar = w.avatar.cloneNode() as HTMLImageElement;
+        avatar.removeAttribute('loading');
+        avatar.alt = '';
+        tags.append(avatar);
+      }
+      figure.append(tags);
+    }
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'shot-remove';
@@ -394,10 +453,19 @@ export function init(root: HTMLElement): void {
     remove.setAttribute('aria-label', texts.deleteCapture);
     remove.dataset.action = 'delete-capture';
     remove.dataset.file = file;
-    figure.append(img, remove);
+    remove.dataset.lock = '';
+    figure.append(remove);
     // Newest first.
     shots.prepend(figure);
     paintShots();
+  }
+
+  /** Confirms a capture on the 📷 counter, which is always in view (a toast would cover a short picture). */
+  function pulseShots() {
+    const head = $('[data-shots-head]');
+    head.classList.remove('pulse');
+    void head.offsetWidth;
+    head.classList.add('pulse');
   }
 
   async function saveCapture() {
@@ -412,20 +480,25 @@ export function init(root: HTMLElement): void {
     blobs.set(file, blob);
     const s = store;
     if (s) writes = writes.then(() => s.saveCapture(file, blob)).catch((e) => console.error(e));
+    // The tags stay until changed or until another clip opens: several captures of one wave are common.
+    const tagged = chips().filter((c) => c.checked).map((c) => c.value);
     record({
       type: 'capture',
       t: Math.round(video.currentTime * 1000) / 1000,
       id,
       file,
-      surfers: chips().filter((c) => c.checked).map((c) => c.value),
+      surfers: tagged,
     });
-    addShot(file, id, blob);
-    for (const c of chips()) c.checked = false;
-    say(format(texts.captureSaved, { n }));
+    addShot(file, id, blob, tagged);
+    pulseShots();
+    if (!landscape.matches) {
+      const names = surfersOf(tagged).map((w) => w.name).join(', ');
+      say(tagged.length ? format(texts.captureTagged, { n, names }) : format(texts.captureUntagged, { n }), tagged.length ? 'ok' : 'warn');
+    }
   }
 
   async function deleteCapture(file: string) {
-    if (!draft || !confirm(texts.deleteCaptureConfirm)) return;
+    if (!draft || uploading || !confirm(texts.deleteCaptureConfirm)) return;
     draft.log = { ...draft.log, events: draft.log.events.filter((e) => !(e.type === 'capture' && e.file === file)) };
     blobs.delete(file);
     persist();
@@ -436,20 +509,37 @@ export function init(root: HTMLElement): void {
     paintStatus();
   }
 
+  /** Goes to the clip and the moment of a capture. */
+  async function openCapture(file: string) {
+    const event = captureEvents().find((e) => e.file === file);
+    const entry = clips.find((c) => c.file.name === event?.clip);
+    if (!event || !entry || uploading) return;
+    video.pause();
+    await open(entry);
+    if (current === entry && root.dataset.view === 'ready') video.currentTime = event.t;
+  }
+
   // --- Upload ---
 
   async function blobOf(file: string): Promise<Blob | undefined> {
     return blobs.get(file) ?? (await store?.capture(file).catch(() => undefined));
   }
 
+  /** "Subiendo 2 de 4…" in the toast and inside the upload button. */
+  function progress(i: number, n: number) {
+    const text = format(texts.uploading, { i, n });
+    say(text, 'ok', true);
+    paintFinish(text, `${i}/${n}`);
+  }
+
   async function finish() {
     const d = draft;
     if (!d || !d.log.events.length) return say(texts.nothing, 'warn');
-    if (!deps || !folderId) return;
+    if (!deps || !folderId || uploading) return;
     // Ask for the token now, while the tap still counts as a gesture (Google may open a popup).
     account!.token().catch(() => {});
     uploading = true;
-    root.dataset.uploading = 'true';
+    lock(true);
     video.pause();
     const files = captureEvents().map((e) => e.file);
     const total = files.length + 1;
@@ -457,7 +547,7 @@ export function init(root: HTMLElement): void {
       await writes;
       for (const [i, file] of files.entries()) {
         if (d.uploaded.includes(file)) continue;
-        say(format(texts.uploading, { i: i + 1, n: total }), 'ok', true);
+        progress(i + 1, total);
         const blob = await blobOf(file);
         if (!blob) continue; // lost with the device storage: the log still says it existed
         await send(deps, {
@@ -472,7 +562,7 @@ export function init(root: HTMLElement): void {
         d.uploaded.push(file);
         persist();
       }
-      say(format(texts.uploading, { i: total, n: total }), 'ok', true);
+      progress(total, total);
       const name = reviewName(d.log.group);
       const blob = new Blob([toJson(d.log)], { type: 'application/json' });
       await send(deps, {
@@ -502,13 +592,13 @@ export function init(root: HTMLElement): void {
       retryButton.hidden = false;
     } finally {
       uploading = false;
-      root.dataset.uploading = 'false';
+      lock(false);
       paintStatus();
     }
   }
 
   async function discard() {
-    if (!confirm(texts.discardConfirm)) return;
+    if (uploading || !confirm(texts.discardConfirm)) return;
     await writes;
     await store?.clear();
     draft = null;
@@ -549,7 +639,7 @@ export function init(root: HTMLElement): void {
       dateSelect.value = d.log.talkDate;
       for (const e of captureEvents()) {
         const blob = await store.capture(e.file);
-        if (blob) addShot(e.file, e.id, blob);
+        if (blob) addShot(e.file, e.id, blob, e.surfers);
       }
       $('[data-restored-text]').textContent = format(texts.restored, {
         date: dayMonth(d.log.talkDate),
@@ -611,6 +701,7 @@ export function init(root: HTMLElement): void {
     for (const b of root.querySelectorAll<HTMLElement>('[data-rate]')) {
       b.setAttribute('aria-pressed', String(Number(b.dataset.rate) === video.playbackRate));
     }
+    $('[data-rate-label]').textContent = `${video.playbackRate}×`;
     // Loading a clip resets the rate to the default, and setting the default fires it too: only real changes count.
     if (video.readyState === 0 || video.playbackRate === lastRate) return;
     lastRate = video.playbackRate;
@@ -629,8 +720,21 @@ export function init(root: HTMLElement): void {
     video.currentTime = Number(seek.value);
   });
 
+  /** The tap that puts away a popover or the drawer must not also play the clip (and wipe the drawing). */
+  let swallowTap = false;
+  let swallowTimer = 0;
+  function swallowNextTap() {
+    swallowTap = true;
+    clearTimeout(swallowTimer);
+    swallowTimer = window.setTimeout(() => (swallowTap = false), 500);
+  }
+
   // Without a tool, a click on the picture plays or pauses.
   stage.addEventListener('click', (e) => {
+    if (swallowTap) {
+      swallowTap = false;
+      return;
+    }
     if (!sketch.tool && (e.target as Element).matches('[data-sketch], video')) toggle();
   });
 
@@ -659,9 +763,21 @@ export function init(root: HTMLElement): void {
       video.defaultPlaybackRate = Number(b.dataset.rate);
       video.playbackRate = Number(b.dataset.rate);
     },
+    // 1× → 0.5× → 0.25× → 1×, for the narrow screens where three buttons do not fit.
+    'cycle-rate': (b) => {
+      const speeds = (b.dataset.rates ?? '1').split(' ').map(Number);
+      const next = speeds[(speeds.indexOf(video.playbackRate) + 1) % speeds.length];
+      video.defaultPlaybackRate = next;
+      video.playbackRate = next;
+    },
     fullscreen: () => setImmersive(!root.hasAttribute('data-immersive')),
     tool: (b) => setTool(b.dataset.tool as Tool),
-    color: (b) => setColor(b.dataset.color!),
+    // One button that steps through the colours (the list is in the markup).
+    color: (b) => {
+      const all = JSON.parse(b.dataset.colors!) as { value: string; token: string }[];
+      const next = all[(all.findIndex((c) => c.value === sketch.color) + 1) % all.length];
+      setColor(next.value);
+    },
     undo: () => sketch.undo(),
     clear: () => sketch.clear(),
     pin: (b) => {
@@ -669,6 +785,7 @@ export function init(root: HTMLElement): void {
       b.setAttribute('aria-pressed', String(pinned));
     },
     capture: () => void saveCapture(),
+    'open-capture': (b) => void openCapture(b.dataset.file!),
     'delete-capture': (b) => void deleteCapture(b.dataset.file!),
     finish: () => void finish(),
     retry: (b) => {
@@ -680,7 +797,8 @@ export function init(root: HTMLElement): void {
 
   root.addEventListener('click', (e) => {
     const b = (e.target as Element).closest<HTMLElement>('[data-action]');
-    if (!b || !root.contains(b)) return;
+    // The audio panel has buttons named like ours (finish, retry) and handles them itself.
+    if (!b || !root.contains(b) || b.closest('[data-audio]')) return;
     actions[b.dataset.action!]?.(b);
     // A clicked button keeps the focus; the space bar would press it again instead of playing.
     if (e.detail > 0) b.blur();
@@ -711,9 +829,11 @@ export function init(root: HTMLElement): void {
     if (root.dataset.record === 'open' && !target.closest('[data-record-pop], [data-action="toggle-record"]')) {
       root.dataset.record = 'closed';
       root.querySelector('[data-action="toggle-record"]')!.setAttribute('aria-expanded', 'false');
+      swallowNextTap();
     }
     if (compact.matches && root.dataset.list === 'open' && !target.closest('.clips, [data-action="toggle-list"]')) {
       root.dataset.list = 'closed';
+      swallowNextTap();
     }
   });
 
@@ -769,7 +889,7 @@ export function init(root: HTMLElement): void {
   if (!canPickFolder()) {
     $('[data-action="pick-folder"]').hidden = true;
     $('[data-pick-files]').hidden = false;
-    $('[data-pick-label]').textContent = $('[data-action="pick"]').dataset.labelFiles!;
+    for (const el of root.querySelectorAll('[data-pick-label]')) el.textContent = $('[data-action="pick"]').dataset.labelFiles!;
   }
   setView('empty');
   setColor(sketch.color);

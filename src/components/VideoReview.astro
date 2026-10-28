@@ -27,7 +27,9 @@ const texts: Texts = {
   noVideos: t(lang, 'review.noVideos'),
   unplayable: t(lang, 'review.unplayable'),
   approx: t(lang, 'review.approx'),
-  captureSaved: t(lang, 'review.captureSaved'),
+  captureTagged: t(lang, 'review.captureTagged'),
+  captureUntagged: t(lang, 'review.captureUntagged'),
+  openCapture: t(lang, 'review.openCapture'),
   deleteCapture: t(lang, 'review.deleteCapture'),
   deleteCaptureConfirm: t(lang, 'review.deleteCaptureConfirm'),
   finishCount: t(lang, 'review.finishCount'),
@@ -46,6 +48,7 @@ const colors = [
   { value: '#e4261c', token: 'var(--c-red)' },
   { value: '#ffffff', token: 'var(--c-white)' },
 ];
+const speeds = [0.25, 0.5, 1];
 const tools = [
   { id: 'pen', icon: '✎', label: t(lang, 'review.pen') },
   { id: 'arrow', icon: '➚', label: t(lang, 'review.arrow') },
@@ -90,10 +93,10 @@ const demoClips = [
         }
       </select>
     </label>
-    <button type="button" class="btn" data-action="pick-folder" title={t(lang, 'review.pickFolder')}>
+    <button type="button" class="btn bar-pick" data-action="pick-folder" title={t(lang, 'review.pickFolder')}>
       <span aria-hidden="true">📁</span><span class="label">{t(lang, 'review.pickFolder')}</span>
     </button>
-    <label class="btn" data-pick-files title={t(lang, 'review.pickFiles')} hidden>
+    <label class="btn bar-pick" data-pick-files title={t(lang, 'review.pickFiles')} hidden>
       <span aria-hidden="true">🎞</span><span class="label">{t(lang, 'review.pickFiles')}</span>
       <input type="file" multiple accept="video/*,.mp4,.mov,.m4v" class="visually-hidden" data-files />
     </label>
@@ -109,13 +112,15 @@ const demoClips = [
     >
       <span aria-hidden="true">🎙</span><span class="rec-dot" aria-hidden="true"></span><span class="rec-label">{t(lang, 'review.recording')}</span>
     </button>
-    <button type="button" class="btn" data-action="discard" title={t(lang, 'review.discard')} aria-label={t(lang, 'review.discard')} hidden={!demo}>
+    <button type="button" class="btn" data-action="discard" data-lock title={t(lang, 'review.discard')} aria-label={t(lang, 'review.discard')} hidden={!demo}>
       <span aria-hidden="true">🗑</span><span class="label wide-only" aria-hidden="true">{t(lang, 'review.discard')}</span>
     </button>
     {
       audio && (
-        <button type="button" class="btn primary" data-action="finish" title={t(lang, 'review.finish')} hidden={!demo}>
-          <span aria-hidden="true">⬆</span><span data-finish-label>{demo ? format(t(lang, 'review.finishCount'), { n: 3 }) : ''}</span>
+        <button type="button" class="btn primary" data-action="finish" data-lock title={t(lang, 'review.finish')} hidden={!demo}>
+          <span aria-hidden="true">⬆</span>
+          <span class="finish-long" data-finish-label>{demo ? format(t(lang, 'review.finishCount'), { n: 3 }) : ''}</span>
+          <span class="finish-short" data-finish-short>{demo ? 3 : ''}</span>
         </button>
       )
     }
@@ -152,6 +157,15 @@ const demoClips = [
         </span>
       </li>
     </template>
+    <button
+      type="button"
+      class="btn drawer-pick"
+      data-action="pick"
+      data-label-folder={t(lang, 'review.pickFolder')}
+      data-label-files={t(lang, 'review.pickFiles')}
+    >
+      📁 <span data-pick-label>{t(lang, 'review.pickFolder')}</span>
+    </button>
     <p class="keys help">{t(lang, 'review.keys')}</p>
   </aside>
 
@@ -173,23 +187,21 @@ const demoClips = [
         ))
       }
       <button type="button" class="tool" data-action="undo" title={t(lang, 'review.undo')} aria-label={t(lang, 'review.undo')}>↶</button>
-      <button type="button" class="tool" data-action="clear" title={t(lang, 'review.clear')} aria-label={t(lang, 'review.clear')}>🗑</button>
+      <button type="button" class="tool" data-action="clear" title={t(lang, 'review.clear')} aria-label={t(lang, 'review.clear')}>⌫</button>
       <button type="button" class="tool" data-action="pin" title={t(lang, 'review.pin')} aria-label={t(lang, 'review.pin')} aria-pressed="false">📌</button>
     </div>
-    <div class="colors" role="group" aria-label={t(lang, 'review.color')}>
-      {
-        colors.map((c, i) => (
-          <button
-            type="button"
-            class="swatch"
-            data-action="color"
-            data-color={c.value}
-            style={`--swatch: ${c.token}`}
-            aria-label={`${t(lang, 'review.color')} ${i + 1}`}
-            aria-pressed={demo && i === 0 ? 'true' : 'false'}
-          />
-        ))
-      }
+    <div class="colors">
+      <button
+        type="button"
+        class="swatch"
+        data-action="color"
+        data-color={colors[0].value}
+        data-colors={JSON.stringify(colors)}
+        style={`--swatch: ${colors[0].token}`}
+        title={t(lang, 'review.color')}
+        aria-label={t(lang, 'review.color')}
+      >
+      </button>
     </div>
   </div>
 
@@ -241,7 +253,7 @@ const demoClips = [
         <button type="button" class="dismiss" data-action="dismiss" aria-label={t(lang, 'review.dismiss')} title={t(lang, 'review.dismiss')}>✕</button>
       </div>
       <div class="notice" data-message-box hidden={!demo}>
-        <span data-message>{demo ? format(t(lang, 'review.captureSaved'), { n: 3 }) : ''}</span>
+        <span data-message>{demo ? format(t(lang, 'review.captureTagged'), { n: 3, names: surfers[0]?.name ?? '' }) : ''}</span>
         <button type="button" class="btn small" data-action="retry" hidden>{t(lang, 'review.retry')}</button>
         <button type="button" class="dismiss" data-action="dismiss" aria-label={t(lang, 'review.dismiss')} title={t(lang, 'review.dismiss')}>✕</button>
       </div>
@@ -257,19 +269,22 @@ const demoClips = [
       <button type="button" class="btn small" data-action="next-frame" title={t(lang, 'review.nextFrame')} aria-label={t(lang, 'review.nextFrame')}>▶|</button>
     </div>
     <div class="t-seek">
-      <input type="range" class="seek" min="0" max={demo ? '31' : '0'} step="any" value={demo ? '13.4' : '0'} data-seek aria-label={t(lang, 'review.timeline')} />
+      <input type="range" class="seek" min="0" max={demo ? '31' : '0'} step="any" value={demo ? '13.4' : '0'} style={demo ? '--played: 43%' : undefined} data-seek aria-label={t(lang, 'review.timeline')} />
       <span class="readout"><span data-pos>{demo ? '0:13.40' : ''}</span><span class="wave"> · <span data-wave>{demo ? '10:42:18' : ''}</span></span></span>
     </div>
     <div class="t-opts">
       <span class="rates" role="group" aria-label={t(lang, 'review.speed')}>
         {
-          [0.25, 0.5, 1].map((r) => (
+          speeds.map((r) => (
             <button type="button" class="btn small" data-action="rate" data-rate={r} aria-pressed={(demo ? r === 0.5 : r === 1) ? 'true' : 'false'}>
               {r}×
             </button>
           ))
         }
       </span>
+      <button type="button" class="btn small rate-cycle" data-action="cycle-rate" data-rates={[1, 0.5, 0.25].join(' ')}>
+        <span class="visually-hidden">{t(lang, 'review.speed')}</span><span data-rate-label>{demo ? '0.5×' : '1×'}</span>
+      </button>
       <button type="button" class="btn small" data-action="fullscreen" title={t(lang, 'review.fullscreen')} aria-label={t(lang, 'review.fullscreen')}>⛶</button>
     </div>
   </div>
@@ -288,10 +303,11 @@ const demoClips = [
           ))
         }
       </span>
-      <button type="button" class="btn primary" data-action="capture">📸 <span>{t(lang, 'review.saveCapture')}</span></button>
+      <button type="button" class="btn primary" data-action="capture" data-lock title={t(lang, 'review.saveCapture')}>
+        <span aria-hidden="true">📸</span> <span class="capture-label">{t(lang, 'review.saveCapture')}</span></button>
     </div>
     <div class="shots-box" data-shots-box hidden={!demo}>
-      <span class="shots-head" title={t(lang, 'review.captures')}>
+      <span class="shots-head" data-shots-head title={t(lang, 'review.captures')}>
         <span class="visually-hidden">{t(lang, 'review.captures')}</span>
         <span aria-hidden="true">📷</span>
         <b class="count" data-shots-count>{demo ? 3 : 0}</b>
@@ -299,9 +315,16 @@ const demoClips = [
       <div class="shots" data-shots>
         {
           demo &&
-            [1, 2, 3].map(() => (
+            [1, 2, 3].map((n) => (
               <figure class="shot">
-                <span class="demo-thumb" />
+                <span class="shot-open">
+                  <span class="demo-thumb" />
+                </span>
+                {n === 1 && surfers[0] && (
+                  <span class="shot-tags" aria-hidden="true">
+                    <Avatar id={surfers[0].id} name="" size="sm" />
+                  </span>
+                )}
                 <button type="button" class="shot-remove">✕</button>
               </figure>
             ))
@@ -371,16 +394,20 @@ const demoClips = [
   .spacer {
     flex: 1;
   }
+  /* Narrow screens: the date box shrinks instead of covering the buttons next to it. */
   .field {
     display: flex;
     align-items: center;
     gap: var(--s-2);
     font: 13px var(--font-head);
+    flex: 0 1 8rem;
     min-width: 0;
   }
   select {
     font: 16px var(--font-body);
     min-height: var(--hit);
+    width: 100%;
+    min-width: 0;
     max-width: 9rem;
     padding: var(--s-1) var(--s-2);
     border: var(--border);
@@ -402,6 +429,25 @@ const demoClips = [
   }
   [data-has-clips='false'] [data-action='toggle-list'] {
     display: none;
+  }
+  /* With clips loaded, the drawer has the folder button: the bar needs the room. */
+  [data-has-clips='true'] .bar > .bar-pick {
+    display: none;
+  }
+  .drawer-pick {
+    flex: none;
+    margin-top: var(--s-2);
+    min-height: var(--hit);
+  }
+  .finish-short {
+    font: 14px var(--font-strong);
+  }
+  .finish-long {
+    display: none;
+  }
+  [data-uploading='true'] [data-action='finish']:disabled {
+    opacity: 1;
+    cursor: progress;
   }
 
   /* Audio recording: a button in the bar with a popover; the uploader inside stays mounted. */
@@ -560,40 +606,29 @@ const demoClips = [
   }
   .tools,
   .colors {
-    display: flex;
-    flex-direction: inherit;
-    gap: var(--s-1);
-    flex: 1;
-    justify-content: space-between;
-  }
-  .colors {
-    flex: 0.5;
-    margin-left: var(--s-2);
-    padding-left: var(--s-2);
-    border-left: 2px solid var(--c-ink);
+    display: contents;
   }
   .tool,
   .swatch {
     flex: 1 1 0;
     min-width: 0;
-    max-width: 52px;
     height: var(--hit);
     display: grid;
     place-items: center;
     cursor: pointer;
-  }
-  .tool {
-    font-size: 20px;
     background: var(--c-white);
     border: 2px solid var(--c-ink);
     border-radius: 6px;
   }
+  .tool {
+    padding: 0;
+    font-size: 20px;
+  }
   .tool[aria-pressed='true'] {
     background: var(--c-yellow);
   }
+  /* One button for the colour: it shows the colour in use and each tap goes to the next. */
   .swatch {
-    border: 0;
-    background: none;
     padding: 0;
   }
   .swatch::before {
@@ -603,10 +638,6 @@ const demoClips = [
     border-radius: 50%;
     border: 2px solid var(--c-ink);
     background: var(--swatch);
-  }
-  .swatch[aria-pressed='true']::before {
-    outline: 3px solid var(--c-ink);
-    outline-offset: 2px;
   }
 
   /* The picture. It fills its cell; the frame inside has the clip's own proportions. */
@@ -776,8 +807,7 @@ const demoClips = [
     justify-self: end;
   }
   .t-step,
-  .t-opts,
-  .rates {
+  .t-opts {
     display: flex;
     align-items: center;
     gap: var(--s-1);
@@ -801,11 +831,62 @@ const demoClips = [
   [data-playing='true'] .when-playing {
     display: inline;
   }
+  /* A track with the played part filled and a knob, on the orange page, all of it at the touch size. */
   .seek {
+    --track: 12px;
+    --knob: 28px;
     flex: 1;
     min-width: 0;
-    height: 32px;
-    accent-color: var(--c-orange);
+    height: var(--hit);
+    margin: 0;
+    background: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .seek::-webkit-slider-runnable-track {
+    height: var(--track);
+    box-sizing: border-box;
+    border: 2px solid var(--c-ink);
+    border-radius: 999px;
+    background: linear-gradient(to right, var(--c-red) var(--played, 0%), var(--c-white) var(--played, 0%));
+  }
+  .seek::-moz-range-track {
+    height: var(--track);
+    box-sizing: border-box;
+    border: 2px solid var(--c-ink);
+    border-radius: 999px;
+    background: linear-gradient(to right, var(--c-red) var(--played, 0%), var(--c-white) var(--played, 0%));
+  }
+  .seek::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: var(--knob);
+    height: var(--knob);
+    box-sizing: border-box;
+    margin-top: calc((var(--track) - var(--knob)) / 2);
+    border: 3px solid var(--c-ink);
+    border-radius: 50%;
+    background: var(--c-yellow);
+  }
+  .seek::-moz-range-thumb {
+    width: var(--knob);
+    height: var(--knob);
+    box-sizing: border-box;
+    border: 3px solid var(--c-ink);
+    border-radius: 50%;
+    background: var(--c-yellow);
+  }
+  .seek:focus-visible {
+    outline: 3px solid var(--c-sky);
+    outline-offset: 2px;
+    border-radius: 999px;
+  }
+  /* Three speeds fit on a laptop; elsewhere one button steps through them. */
+  .rates {
+    display: none;
+  }
+  .rate-cycle {
+    min-width: 4.5rem;
   }
   .readout {
     font: 14px var(--font-strong);
@@ -838,7 +919,12 @@ const demoClips = [
   .capture > .btn {
     flex: none;
     min-height: var(--hit);
+    min-width: 3.5rem;
     padding-block: var(--s-1);
+  }
+  /* The roster row takes what the button leaves; on a narrow phone the button is only the camera. */
+  .capture-label {
+    display: none;
   }
   .whose {
     display: none;
@@ -908,13 +994,28 @@ const demoClips = [
     background: var(--c-ink);
     border-radius: 999px;
   }
+  .shots-head.pulse .count {
+    animation: pulse 0.6s;
+  }
+  @keyframes pulse {
+    30% {
+      transform: scale(1.6);
+      background: var(--c-red);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .shots-head.pulse .count {
+      animation: none;
+    }
+  }
+  /* Room above and to the right so the delete buttons stay inside the strip. */
   .shots {
     display: flex;
-    gap: var(--s-2);
+    gap: var(--s-3);
     flex: 1;
     min-width: 0;
     overflow-x: auto;
-    padding: 2px;
+    padding: 10px 10px 2px 2px;
   }
   .shots :global(.shot) {
     position: relative;
@@ -922,6 +1023,15 @@ const demoClips = [
     margin: 0;
     height: 56px;
     aspect-ratio: 16 / 9;
+  }
+  .shots :global(.shot-open) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
   }
   .shots :global(.shot img),
   .shots .demo-thumb {
@@ -934,8 +1044,8 @@ const demoClips = [
   }
   .shots :global(.shot-remove) {
     position: absolute;
-    top: -6px;
-    right: -6px;
+    top: -8px;
+    right: -8px;
     width: 24px;
     height: 24px;
     padding: 0;
@@ -944,6 +1054,26 @@ const demoClips = [
     border: 2px solid var(--c-ink);
     background: var(--c-white);
     cursor: pointer;
+  }
+  /* The button looks small but its touch area is a full --hit square. */
+  .shots :global(.shot-remove)::before {
+    content: '';
+    position: absolute;
+    inset: calc((var(--hit) - 100%) / -2);
+  }
+  /* Who the wave was: small avatars on the corner of the capture. */
+  .shots :global(.shot-tags) {
+    position: absolute;
+    left: 3px;
+    bottom: 3px;
+    display: flex;
+    pointer-events: none;
+  }
+  .shots :global(.shot-tags .avatar) {
+    width: 22px;
+    height: 22px;
+    border-width: 2px;
+    margin-right: -6px;
   }
 
   /* Only for /design/ */
@@ -985,6 +1115,15 @@ const demoClips = [
     .whose {
       display: block;
     }
+    .capture-label {
+      display: inline;
+    }
+    .finish-long {
+      display: inline;
+    }
+    .finish-short {
+      display: none;
+    }
   }
   /* Room for words in the bar (not on a phone on its side: it is wide but short). */
   @media (min-width: 600px) and (min-height: 501px) {
@@ -1018,6 +1157,26 @@ const demoClips = [
     .dock {
       margin-bottom: 0;
     }
+    .field {
+      flex: none;
+    }
+    select {
+      width: auto;
+    }
+    [data-has-clips='true'] .bar > .bar-pick {
+      display: inline-flex;
+    }
+    .drawer-pick {
+      display: none;
+    }
+    .rates {
+      display: flex;
+      align-items: center;
+      gap: var(--s-1);
+    }
+    .rate-cycle {
+      display: none;
+    }
     .rail {
       margin-right: var(--s-3);
       flex-direction: column;
@@ -1028,12 +1187,14 @@ const demoClips = [
     }
     .tools,
     .colors {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s-1);
       flex: none;
     }
     .colors {
       margin: var(--s-1) 0 0;
       padding: var(--s-2) 0 0;
-      border-left: 0;
       border-top: 2px solid var(--c-ink);
     }
     .tool,
@@ -1102,7 +1263,6 @@ const demoClips = [
         'rail bar dock'
         'rail viewer dock'
         'rail transport dock';
-      --hit: 40px;
     }
     .rail {
       display: grid;
@@ -1137,9 +1297,6 @@ const demoClips = [
     .wave {
       display: none;
     }
-    .btn.small {
-      min-width: 36px;
-    }
     .dock {
       display: flex;
       flex-direction: column;
@@ -1171,7 +1328,9 @@ const demoClips = [
     .shots-box {
       flex: 1;
       min-height: 0;
-      align-items: flex-start;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
     }
     .shots {
       flex-wrap: wrap;
@@ -1180,8 +1339,24 @@ const demoClips = [
       max-height: 100%;
       align-content: flex-start;
     }
+    .shots {
+      gap: var(--s-3);
+      padding: 8px 8px 2px 2px;
+    }
     .shots :global(.shot) {
       height: 36px;
+    }
+    .shots :global(.shot-remove) {
+      top: -6px;
+      right: -6px;
+      width: 20px;
+      height: 20px;
+    }
+    .shots :global(.shot-tags .avatar) {
+      width: 16px;
+      height: 16px;
+      border-width: 1px;
+      margin-right: -4px;
     }
     .clips {
       max-height: 100%;
@@ -1191,5 +1366,3 @@ const demoClips = [
     }
   }
 </style>
-'''
-open('/tmp/style.txt','w').write(open('/tmp/style.txt').read())
