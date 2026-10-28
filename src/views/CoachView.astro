@@ -24,7 +24,7 @@ const { Content } = await render(profile.entry);
 ---
 
 <BaseLayout title={`${coach.data.name} · ${trip.name}`} lang={lang} team={trip.team}>
-  <BoltBand kicker={trip.team} title={coach.data.name} subtitle={profile.entry.data.tagline ?? t(lang, 'home.coach')}>
+  <BoltBand title={coach.data.name} subtitle={profile.entry.data.tagline ?? t(lang, 'home.coach')}>
     <div slot="media" style={`--accent: var(--c-${coach.data.color})`}>
       <Avatar id={id} name="" size="lg" />
     </div>
