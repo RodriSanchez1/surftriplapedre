@@ -5,6 +5,8 @@
  */
 
 export const UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable';
+export const FILES_URL = 'https://www.googleapis.com/drive/v3/files';
+export const FOLDER_MIME = 'application/vnd.google-apps.folder';
 /** Size of each chunk. Drive asks for multiples of 256 KiB. */
 export const CHUNK_SIZE = 8 * 1024 * 1024;
 /** Consecutive transient errors before giving up. */
@@ -49,24 +51,28 @@ export function bytesReceived(range: string | null): number {
   return match ? Number(match[1]) + 1 : 0;
 }
 
-/** Creates the upload session and returns its URL. */
-export async function createSession(deps: Dependencies, file: UploadFile): Promise<string> {
+/** fetch with the token; on 401 it asks for a new one and tries once more. 403 or 404 is a permission error. */
+async function authorized(deps: Dependencies, url: string, init: RequestInit = {}): Promise<Response> {
   const request = async (force: boolean) =>
-    deps.fetch(UPLOAD_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${await deps.token(force)}`,
-        'Content-Type': 'application/json; charset=UTF-8',
-        'X-Upload-Content-Type': file.mime,
-        'X-Upload-Content-Length': String(file.size),
-      },
-      body: JSON.stringify({ name: file.name, parents: [file.folder], mimeType: file.mime }),
-    });
-
+    deps.fetch(url, { ...init, headers: { ...init.headers, Authorization: `Bearer ${await deps.token(force)}` } });
   let res = await request(false);
   if (res.status === 401) res = await request(true);
   if (res.status === 403 || res.status === 404) throw new PermissionError(`Drive responded ${res.status}`);
-  if (!res.ok) throw new UploadError(`Drive responded ${res.status} when creating the session`);
+  if (!res.ok) throw new UploadError(`Drive responded ${res.status}`);
+  return res;
+}
+
+/** Creates the upload session and returns its URL. */
+export async function createSession(deps: Dependencies, file: UploadFile): Promise<string> {
+  const res = await authorized(deps, UPLOAD_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=UTF-8',
+      'X-Upload-Content-Type': file.mime,
+      'X-Upload-Content-Length': String(file.size),
+    },
+    body: JSON.stringify({ name: file.name, parents: [file.folder], mimeType: file.mime }),
+  });
   const url = res.headers.get('Location');
   if (!url) throw new UploadError('Drive did not return the session URL');
   return url;
@@ -75,6 +81,22 @@ export async function createSession(deps: Dependencies, file: UploadFile): Promi
 /** Checks that the account can create files in the folder. The session is left unused and no file is created. */
 export async function verifyAccess(deps: Dependencies, folder: string): Promise<void> {
   await createSession(deps, { name: 'verification.txt', mime: 'text/plain', size: 1, folder });
+}
+
+const quote = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+
+/** Finds the folder called `name` inside `parent`, or creates it. Returns its ID. */
+export async function folderIn(deps: Dependencies, parent: string, name: string): Promise<string> {
+  const q = `name = ${quote(name)} and ${quote(parent)} in parents and mimeType = '${FOLDER_MIME}' and trashed = false`;
+  const found = await authorized(deps, `${FILES_URL}?${new URLSearchParams({ q, fields: 'files(id)', orderBy: 'createdTime' })}`);
+  const { files = [] } = (await found.json()) as { files?: { id: string }[] };
+  if (files[0]) return files[0].id;
+  const created = await authorized(deps, `${FILES_URL}?fields=id`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+    body: JSON.stringify({ name, mimeType: FOLDER_MIME, parents: [parent] }),
+  });
+  return ((await created.json()) as { id: string }).id;
 }
 
 function fail(res: Response): never {

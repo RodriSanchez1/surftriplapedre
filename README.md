@@ -2,7 +2,7 @@
 
 Site for the surftrip to La Pedrera (Oct 24 to Nov 1, 2026) with coach Douglas Cominski: the trip calendar, each surfer's focus and an analysis of each session, in Spanish and Portuguese.
 
-**Link:** https://rodrisanchez1.github.io/surftriplapedre/ (Portuguese: `/pt/`). Anyone can view it without an account, and it does not show up in search engines.
+**Link:** https://lapedrera.erkscode.com/ (Portuguese: `/pt/`). Anyone can view it without an account, and it does not show up in search engines.
 
 ## Run it locally
 
@@ -12,7 +12,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:4321/surftriplapedre/. The design system catalog is at `/design/`.
+Open http://localhost:4321/. The design system catalog is at `/design/`.
 
 ## How the work is done
 

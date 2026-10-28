@@ -8,6 +8,7 @@ import BoltBand from '../components/BoltBand.astro';
 import Bolt from '../components/Bolt.astro';
 import DayCell from '../components/DayCell.astro';
 import SurferCard from '../components/SurferCard.astro';
+import ToolLink from '../components/ToolLink.astro';
 import Avatar from '../components/Avatar.astro';
 import FocusBlock from '../components/FocusBlock.astro';
 import CaptureGrid from '../components/CaptureGrid.astro';
@@ -65,6 +66,10 @@ const demoSurfers = [
           </div>
         ))
       }
+      <div class="swatch">
+        <span class="ring-sample" />
+        <code>--focus-ring</code>
+      </div>
     </div>
 
     <h2 class="section-title">Typography</h2>
@@ -124,6 +129,11 @@ const demoSurfers = [
       <Avatar id="juan" name="Juan" size="sm" />
       <Avatar id="juan" name="Juan" size="md" />
       <Avatar id="juan" name="Juan" size="lg" />
+    </div>
+
+    <h2 class="section-title">ToolLink</h2>
+    <div style="max-width: 420px">
+      <ToolLink href="#" icon="🎬" title="Análisis de video" text="Una herramienta del coach, con una línea que dice para qué sirve." />
     </div>
 
     <h2 class="section-title">FocusBlock</h2>
@@ -212,10 +222,20 @@ const demoSurfers = [
     <AudioUploader lang="es" dates={demoDates} timeZone="UTC" />
 
     <h2 class="section-title">VideoReview</h2>
-    <p class="state">clip open, arrow tool, recording audio, three captures</p>
+    <p class="state">app screen with a fixed-height frame here: clip open, arrow tool, recording audio, three captures</p>
   </div>
   <div class="wide-demo">
-    <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo />
+    <div class="review-frame">
+      <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo />
+    </div>
+  </div>
+  <div class="wrap">
+    <p class="state">login: covers the screen until the coach signs in with a Google account that can see the trip's folder</p>
+  </div>
+  <div class="wide-demo">
+    <div class="review-frame short">
+      <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo="login" />
+    </div>
   </div>
 </BaseLayout>
 
@@ -224,6 +244,16 @@ const demoSurfers = [
     max-width: 1280px;
     margin: 0 auto;
     padding: 0 var(--s-4);
+  }
+  /* The review screen fills its parent; on this page the parent has a fixed height instead of 100dvh. */
+  .review-frame {
+    height: 46rem;
+    background: var(--c-orange);
+    border: var(--border);
+    border-radius: var(--radius);
+  }
+  .review-frame.short {
+    height: 24rem;
   }
   .swatches {
     display: grid;
@@ -240,6 +270,13 @@ const demoSurfers = [
     display: block;
     height: 56px;
     border-bottom: var(--border);
+  }
+  /* Keyboard focus ring as the app screens draw it: on the orange page, offset from the control. */
+  .swatch span.ring-sample {
+    background: var(--c-orange)
+      linear-gradient(var(--c-white), var(--c-white)) center / calc(100% - 56px) calc(100% - 28px) no-repeat;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: -11px;
   }
   .swatch code {
     display: block;

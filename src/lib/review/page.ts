@@ -5,11 +5,11 @@
  */
 import { clampToTrip, dayMonth, todayIn } from '../calendar';
 import { format } from '../i18n';
-import { googleAccount, loadGoogle, LoginError } from '../audio/google';
-import { send, PermissionError, type Dependencies } from '../audio/upload';
-import { clock, DEFAULT_FPS, length, position, sortClips, stepFrame, type Clip } from './clips';
+import { googleAccount, loadGoogle, LoginError, SIGNED_IN } from '../audio/google';
+import { folderIn, send, verifyAccess, PermissionError, type Dependencies } from '../audio/upload';
+import { clock, DEFAULT_FPS, length, middleEllipsis, position, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
-import { canPickFolder, canRead, pickFolder, videosIn } from './folder';
+import { canPickFolder, canRead, isVideo, pickFolder, videosIn } from './folder';
 import {
   addEvent,
   captureId,
@@ -31,10 +31,13 @@ export interface Texts {
   noVideos: string;
   unplayable: string;
   approx: string;
-  captureSaved: string;
+  captureTagged: string;
+  captureUntagged: string;
+  openCapture: string;
   deleteCapture: string;
   deleteCaptureConfirm: string;
-  unsent: string;
+  finishCount: string;
+  sessionLocked: string;
   restored: string;
   discardConfirm: string;
   nothing: string;
@@ -54,6 +57,9 @@ interface Entry extends Clip {
   error: boolean;
   item: HTMLElement;
 }
+
+/** Characters of a file name shown in the clip list before the middle is cut. */
+const NAME_MAX = 14;
 
 /** Waits for a media event, or fails after `ms`. */
 function once(el: HTMLMediaElement, event: string, ms = 8000): Promise<void> {
@@ -87,14 +93,31 @@ export function init(root: HTMLElement): void {
   };
 
   const dateSelect = $<HTMLSelectElement>('[data-date]');
+  const field = $('[data-field]');
+  const lockIcon = $('[data-lock-icon]');
+  const lockWhy = $('[data-lock-why]');
+  const announce = $('[data-announce]');
   const list = $('[data-clip-list]');
   const itemTemplate = $<HTMLTemplateElement>('[data-clip-template]');
   const video = $<HTMLVideoElement>('[data-video]');
   const stage = $('[data-stage]');
   const seek = $<HTMLInputElement>('[data-seek]');
-  const readout = $('[data-readout]');
+  const readoutPos = $('[data-pos]');
+  const readoutWave = $('[data-wave]');
   const shots = $('[data-shots]');
   const message = $('[data-message]');
+  const messageBox = $('[data-message-box]');
+  const retryButton = $('[data-action="retry"]');
+  const shotsBox = $('[data-shots-box]');
+  const viewer = $('[data-viewer]');
+  const locked = () => [...root.querySelectorAll<HTMLButtonElement>('[data-lock]')];
+  const interactive = [...root.querySelectorAll<HTMLElement>('.rail, .transport, .capture')];
+  const clipsPanel = $('[data-clip-list]').closest<HTMLElement>('.clips')!;
+  const filesInput = $<HTMLInputElement>('[data-files]');
+  /** A phone: the clip list is a drawer over the picture instead of a column. */
+  const compact = matchMedia('(max-width: 760px), (orientation: landscape) and (max-height: 500px)');
+  /** A phone on its side: the picture is short, so nothing may cover it. */
+  const landscape = matchMedia('(orientation: landscape) and (max-height: 500px)');
   const sketch = new Sketch($<HTMLCanvasElement>('[data-sketch]'));
 
   let store: ReviewStore | null = null;
@@ -110,13 +133,30 @@ export function init(root: HTMLElement): void {
 
   // --- Messages and state ---
 
+  /** What the picture area shows: nothing to play yet, a clip loading, the clip, or one that does not play. */
+  type View = 'empty' | 'loading' | 'ready' | 'error';
+  function setView(view: View) {
+    root.dataset.view = view;
+    // Greyed out by CSS; inert keeps the keyboard and screen readers out of them too.
+    for (const el of interactive) el.inert = view !== 'ready';
+    $('[data-next-clip]').hidden = clips.length < 2;
+  }
+
+  /** Messages float over the picture; the quick ones fade after 4 s, the others stay until dismissed. */
   let messageTimer = 0;
   function say(text: string, kind: 'ok' | 'warn' | 'error' = 'ok', sticky = false) {
     clearTimeout(messageTimer);
     message.textContent = text;
-    message.className = `notice ${kind === 'ok' ? '' : kind}`;
-    message.hidden = !text;
-    if (!sticky && text) messageTimer = window.setTimeout(() => (message.hidden = true), 4000);
+    messageBox.className = `notice ${kind === 'ok' ? '' : kind}`;
+    messageBox.hidden = !text;
+    retryButton.hidden = true;
+    if (!sticky && text) messageTimer = window.setTimeout(() => (messageBox.hidden = true), 4000);
+  }
+
+  function paintShots() {
+    const n = shots.children.length;
+    shotsBox.hidden = !n;
+    $('[data-shots-count]').textContent = String(n);
   }
 
   function captureEvents() {
@@ -124,11 +164,37 @@ export function init(root: HTMLElement): void {
   }
 
   function paintStatus() {
-    const pending = captureEvents().filter((e) => !draft?.uploaded.includes(e.file)).length;
-    $('[data-unsent]').textContent = pending ? format(texts.unsent, { n: pending }) : '';
+    const captures = captureEvents().length;
+    // Nothing to upload until there is a capture.
+    const finishButton = root.querySelector<HTMLElement>('[data-action="finish"]');
+    if (finishButton) {
+      finishButton.hidden = !captures;
+      if (!uploading) paintFinish(format(texts.finishCount, { n: captures }), String(captures));
+    }
     dateSelect.disabled = !!draft;
+    const why = draft ? texts.sessionLocked : '';
+    // The reason is for touch and screen readers too, not only a tooltip.
+    dateSelect.title = why;
+    field.title = why;
+    field.toggleAttribute('data-locked', !!draft);
+    lockIcon.hidden = !draft;
+    lockWhy.textContent = why;
     $('[data-action="discard"]').hidden = !draft;
     for (const c of clips) c.item.classList.toggle('has-capture', captureEvents().some((e) => e.clip === c.file.name));
+  }
+
+  /** The text of the upload button: the long form, and the short one a narrow phone shows next to the icon. */
+  function paintFinish(long: string, short: string) {
+    $('[data-finish-label]').textContent = long;
+    $('[data-finish-short]').textContent = short;
+    // The long text is hidden on a phone: without this the button would be announced as just a number.
+    root.querySelector('[data-action="finish"]')?.setAttribute('aria-label', long);
+  }
+
+  /** While an upload runs, nothing that changes the draft can be touched. */
+  function lock(on: boolean) {
+    root.dataset.uploading = String(on);
+    for (const b of locked()) b.disabled = on;
   }
 
   /** Queues a write of the draft. If IndexedDB fails, everything stays in memory. */
@@ -167,9 +233,14 @@ export function init(root: HTMLElement): void {
     const el = entry.item;
     el.querySelector('[data-clip-time]')!.textContent =
       `${entry.filmedAtSource === 'file-date' ? '≈' : ''}${clock(timeZone, entry.filmedAt, false)}`;
-    el.querySelector('[data-clip-name]')!.textContent = entry.file.name;
     el.querySelector('[data-clip-length]')!.textContent = entry.duration ? length(entry.duration) : '';
-    el.title = entry.error ? texts.unplayable : entry.filmedAtSource === 'file-date' ? texts.approx : '';
+    const note = entry.error ? texts.unplayable : entry.filmedAtSource === 'file-date' ? texts.approx : '';
+    // The visible name is cut in the middle; screen readers get the whole name and the note as text.
+    el.querySelector('[data-clip-name]')!.textContent = middleEllipsis(entry.file.name, NAME_MAX);
+    el.querySelector('[data-clip-full]')!.textContent = entry.file.name;
+    el.querySelector('[data-clip-note]')!.textContent = note;
+    const button = el.querySelector<HTMLButtonElement>('[data-clip-button]')!;
+    button.title = note ? `${entry.file.name}\n${note}` : entry.file.name;
     el.classList.toggle('broken', entry.error);
   }
 
@@ -179,7 +250,13 @@ export function init(root: HTMLElement): void {
     current = null;
     list.replaceChildren();
     root.dataset.hasClips = files.length ? 'true' : 'false';
-    if (!files.length) return say(texts.noVideos, 'warn');
+    const note = $('[data-empty-note]');
+    note.hidden = !!files.length;
+    note.textContent = texts.noVideos;
+    video.removeAttribute('src');
+    video.load();
+    setView(files.length ? 'loading' : 'empty');
+    if (!files.length) return;
 
     const read = await Promise.all(
       files.map(async (file) => {
@@ -195,14 +272,16 @@ export function init(root: HTMLElement): void {
     clips = sortClips(read).map((clip) => {
       const item = itemTemplate.content.firstElementChild!.cloneNode(true) as HTMLElement;
       const entry: Entry = { ...clip, url: URL.createObjectURL(clip.file), duration: null, error: false, item };
-      item.addEventListener('click', () => void open(entry));
+      item.addEventListener('click', (e) => {
+        void open(entry);
+        // A mouse click keeps the focus on the button, and the space bar would press it again instead of playing.
+        if (e.detail > 0) item.querySelector('button')?.blur();
+      });
       paintItem(entry);
       return entry;
     });
     list.replaceChildren(...clips.map((c) => c.item));
     paintStatus();
-    // The hero takes the top of the screen: bring the player up.
-    root.scrollIntoView({ behavior: 'smooth', block: 'start' });
     void open(clips[0], false);
     void thumbnails(clips);
   }
@@ -238,29 +317,47 @@ export function init(root: HTMLElement): void {
   }
 
   async function open(entry: Entry, log = true) {
-    if (current === entry && video.src) return;
+    if (current === entry && root.dataset.view === 'ready') return;
     current = entry;
-    for (const c of clips) c.item.classList.toggle('active', c === entry);
+    for (const c of clips) {
+      c.item.classList.toggle('active', c === entry);
+      const button = c.item.querySelector('button')!;
+      if (c === entry) button.setAttribute('aria-current', 'true');
+      else button.removeAttribute('aria-current');
+    }
     entry.item.scrollIntoView({ block: 'nearest' });
+    // On a phone the list is a drawer: picking a clip puts it away.
+    if (compact.matches) root.dataset.list = 'closed';
     sketch.clear();
+    // A new clip is probably another surfer's wave.
+    for (const c of chips()) c.checked = false;
+    // The picture area stays in place; it only shows what is going on.
+    setView('loading');
     video.src = entry.url;
-    root.dataset.loaded = 'false';
     try {
       await once(video, 'loadedmetadata', 15000);
     } catch {
+      if (current !== entry) return;
       entry.error = true;
       paintItem(entry);
-      return say(texts.unplayable, 'error', true);
+      return setView('error');
     }
     if (current !== entry) return;
-    message.hidden = true;
     entry.duration = video.duration;
     paintItem(entry);
     stage.style.setProperty('--ar', String(video.videoWidth / video.videoHeight || 16 / 9));
     seek.max = String(video.duration);
-    root.dataset.loaded = 'true';
+    setView('ready');
     paintTime();
     if (log) ensureOpened();
+  }
+
+  /** From a clip that does not play to the next one that might. */
+  function nextClip() {
+    if (!current || clips.length < 2) return;
+    const i = clips.indexOf(current);
+    const others = clips.map((_, k) => clips[(i + 1 + k) % clips.length]).filter((c) => c !== current);
+    void open(others.find((c) => !c.error) ?? others[0]);
   }
 
   /** Opening a clip by keyboard or on load counts as showing it only when it is played or drawn on. */
@@ -297,7 +394,10 @@ export function init(root: HTMLElement): void {
   function paintTime() {
     if (!current) return;
     seek.value = String(video.currentTime);
-    readout.textContent = `${position(video.currentTime)} · ${waveTime(current, video.currentTime)}`;
+    seek.setAttribute('aria-valuetext', position(video.currentTime));
+    seek.style.setProperty('--played', `${video.duration ? (video.currentTime / video.duration) * 100 : 0}%`);
+    readoutPos.textContent = position(video.currentTime);
+    readoutWave.textContent = waveTime(current, video.currentTime);
   }
 
   // --- Drawing ---
@@ -314,10 +414,13 @@ export function init(root: HTMLElement): void {
     }
   }
 
+  /** The colour button shows the colour in use. */
   function setColor(color: string) {
     sketch.color = color;
-    for (const b of root.querySelectorAll<HTMLElement>('[data-color]')) {
-      b.setAttribute('aria-pressed', String(b.dataset.color === color));
+    for (const b of root.querySelectorAll<HTMLElement>('[data-action="color"]')) {
+      const all = JSON.parse(b.dataset.colors!) as { value: string; token: string }[];
+      b.dataset.color = color;
+      b.style.setProperty('--swatch', all.find((c) => c.value === color)?.token ?? color);
     }
   }
 
@@ -327,13 +430,49 @@ export function init(root: HTMLElement): void {
     return [...root.querySelectorAll<HTMLInputElement>('[data-surfer]')];
   }
 
-  function addShot(file: string, id: string, blob: Blob) {
+  /** Name and avatar of each tagged surfer, from the roster chips on the page. */
+  function surfersOf(ids: string[]) {
+    return ids.map((id) => {
+      const label = chips().find((c) => c.value === id)?.closest('label');
+      return {
+        name: label?.querySelector('.pick-name')?.textContent?.trim() || id,
+        avatar: label?.querySelector<HTMLImageElement>('.avatar') ?? null,
+      };
+    });
+  }
+
+  function addShot(file: string, id: string, blob: Blob, surferIds: string[]) {
+    const who = surfersOf(surferIds);
+    const names = who.map((w) => w.name).join(', ');
     const figure = document.createElement('figure');
     figure.className = 'shot';
     figure.dataset.file = file;
+    const view = document.createElement('button');
+    view.type = 'button';
+    view.className = 'shot-open';
+    view.dataset.action = 'open-capture';
+    view.dataset.file = file;
+    const label = names ? `${texts.openCapture}: ${names}` : texts.openCapture;
+    view.title = label;
+    view.setAttribute('aria-label', label);
     const img = document.createElement('img');
     img.src = URL.createObjectURL(blob);
-    img.alt = id;
+    img.alt = names ? `${id}: ${names}` : id;
+    view.append(img);
+    figure.append(view);
+    if (who.length) {
+      const tags = document.createElement('span');
+      tags.className = 'shot-tags';
+      tags.setAttribute('aria-hidden', 'true');
+      for (const w of who) {
+        if (!w.avatar) continue;
+        const avatar = w.avatar.cloneNode() as HTMLImageElement;
+        avatar.removeAttribute('loading');
+        avatar.alt = '';
+        tags.append(avatar);
+      }
+      figure.append(tags);
+    }
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'shot-remove';
@@ -342,9 +481,19 @@ export function init(root: HTMLElement): void {
     remove.setAttribute('aria-label', texts.deleteCapture);
     remove.dataset.action = 'delete-capture';
     remove.dataset.file = file;
-    figure.append(img, remove);
-    shots.append(figure);
-    shots.closest<HTMLElement>('[data-shots-box]')!.hidden = false;
+    remove.dataset.lock = '';
+    figure.append(remove);
+    // Newest first.
+    shots.prepend(figure);
+    paintShots();
+  }
+
+  /** Confirms a capture on the 📷 counter, which is always in view (a toast would cover a short picture). */
+  function pulseShots() {
+    const head = $('[data-shots-head]');
+    head.classList.remove('pulse');
+    void head.offsetWidth;
+    head.classList.add('pulse');
   }
 
   async function saveCapture() {
@@ -359,28 +508,44 @@ export function init(root: HTMLElement): void {
     blobs.set(file, blob);
     const s = store;
     if (s) writes = writes.then(() => s.saveCapture(file, blob)).catch((e) => console.error(e));
+    // The tags stay until changed or until another clip opens: several captures of one wave are common.
+    const tagged = chips().filter((c) => c.checked).map((c) => c.value);
     record({
       type: 'capture',
       t: Math.round(video.currentTime * 1000) / 1000,
       id,
       file,
-      surfers: chips().filter((c) => c.checked).map((c) => c.value),
+      surfers: tagged,
     });
-    addShot(file, id, blob);
-    for (const c of chips()) c.checked = false;
-    say(format(texts.captureSaved, { n }));
+    addShot(file, id, blob, tagged);
+    pulseShots();
+    const names = surfersOf(tagged).map((w) => w.name).join(', ');
+    const text = tagged.length ? format(texts.captureTagged, { n, names }) : format(texts.captureUntagged, { n });
+    // A short picture is not covered by a toast: the counter pulses and screen readers hear a hidden message.
+    if (landscape.matches) announce.textContent = text;
+    else say(text, tagged.length ? 'ok' : 'warn');
   }
 
   async function deleteCapture(file: string) {
-    if (!draft || !confirm(texts.deleteCaptureConfirm)) return;
+    if (!draft || uploading || !confirm(texts.deleteCaptureConfirm)) return;
     draft.log = { ...draft.log, events: draft.log.events.filter((e) => !(e.type === 'capture' && e.file === file)) };
     blobs.delete(file);
     persist();
     const s = store;
     if (s) writes = writes.then(() => s.removeCapture(file)).catch((e) => console.error(e));
     shots.querySelector(`[data-file="${CSS.escape(file)}"]`)?.remove();
-    shots.closest<HTMLElement>('[data-shots-box]')!.hidden = !shots.children.length;
+    paintShots();
     paintStatus();
+  }
+
+  /** Goes to the clip and the moment of a capture. */
+  async function openCapture(file: string) {
+    const event = captureEvents().find((e) => e.file === file);
+    const entry = clips.find((c) => c.file.name === event?.clip);
+    if (!event || !entry || uploading) return;
+    video.pause();
+    await open(entry);
+    if (current === entry && root.dataset.view === 'ready') video.currentTime = event.t;
   }
 
   // --- Upload ---
@@ -389,26 +554,35 @@ export function init(root: HTMLElement): void {
     return blobs.get(file) ?? (await store?.capture(file).catch(() => undefined));
   }
 
+  /** "Subiendo 2 de 4…" in the toast and inside the upload button. */
+  function progress(i: number, n: number) {
+    const text = format(texts.uploading, { i, n });
+    say(text, 'ok', true);
+    paintFinish(text, `${i}/${n}`);
+  }
+
   async function finish() {
     const d = draft;
     if (!d || !d.log.events.length) return say(texts.nothing, 'warn');
-    if (!deps || !folderId) return;
+    if (!deps || !folderId || uploading) return;
     // Ask for the token now, while the tap still counts as a gesture (Google may open a popup).
     account!.token().catch(() => {});
     uploading = true;
-    root.dataset.uploading = 'true';
+    lock(true);
     video.pause();
     const files = captureEvents().map((e) => e.file);
     const total = files.length + 1;
     try {
       await writes;
+      // Each review gets its own folder, named like its files. A retry finds the one it already made.
+      const folder = await folderIn(deps, folderId, d.log.group);
       for (const [i, file] of files.entries()) {
         if (d.uploaded.includes(file)) continue;
-        say(format(texts.uploading, { i: i + 1, n: total }), 'ok', true);
+        progress(i + 1, total);
         const blob = await blobOf(file);
         if (!blob) continue; // lost with the device storage: the log still says it existed
         await send(deps, {
-          file: { name: file, mime: 'image/jpeg', size: blob.size, folder: folderId },
+          file: { name: file, mime: 'image/jpeg', size: blob.size, folder },
           blob,
           url: d.sessions[file],
           onSessionCreated: (url) => {
@@ -419,11 +593,11 @@ export function init(root: HTMLElement): void {
         d.uploaded.push(file);
         persist();
       }
-      say(format(texts.uploading, { i: total, n: total }), 'ok', true);
+      progress(total, total);
       const name = reviewName(d.log.group);
       const blob = new Blob([toJson(d.log)], { type: 'application/json' });
       await send(deps, {
-        file: { name, mime: 'application/json', size: blob.size, folder: folderId },
+        file: { name, mime: 'application/json', size: blob.size, folder },
         blob,
         url: d.sessions[name],
         onSessionCreated: (url) => {
@@ -436,7 +610,7 @@ export function init(root: HTMLElement): void {
       draft = null;
       blobs.clear();
       shots.replaceChildren();
-      shots.closest<HTMLElement>('[data-shots-box]')!.hidden = true;
+      paintShots();
       $('[data-restored]').hidden = true;
       say(texts.done, 'ok', true);
     } catch (e) {
@@ -446,24 +620,42 @@ export function init(root: HTMLElement): void {
         'error',
         true,
       );
-      $('[data-action="retry"]').hidden = false;
+      retryButton.hidden = false;
     } finally {
       uploading = false;
-      root.dataset.uploading = 'false';
+      lock(false);
       paintStatus();
     }
   }
 
   async function discard() {
-    if (!confirm(texts.discardConfirm)) return;
+    if (uploading || !confirm(texts.discardConfirm)) return;
     await writes;
     await store?.clear();
     draft = null;
     blobs.clear();
     shots.replaceChildren();
-    shots.closest<HTMLElement>('[data-shots-box]')!.hidden = true;
+    paintShots();
     $('[data-restored]').hidden = true;
     paintStatus();
+  }
+
+  // --- Login: the review is only for accounts with access to the trip's folder ---
+
+  async function signIn() {
+    const error = $('[data-gate-error]');
+    error.hidden = true;
+    try {
+      await account!.token();
+      await verifyAccess(deps!, folderId!);
+      root.dataset.signedIn = 'true';
+      // The recording panel shares the account: it signs in without another tap.
+      dispatchEvent(new Event(SIGNED_IN));
+    } catch (e) {
+      console.error(e);
+      error.textContent = e instanceof PermissionError ? texts.errorPermission : texts.errorLogin;
+      error.hidden = false;
+    }
   }
 
   // --- Folder ---
@@ -496,11 +688,13 @@ export function init(root: HTMLElement): void {
       dateSelect.value = d.log.talkDate;
       for (const e of captureEvents()) {
         const blob = await store.capture(e.file);
-        if (blob) addShot(e.file, e.id, blob);
+        if (blob) addShot(e.file, e.id, blob, e.surfers);
       }
-      const restored = $('[data-restored]');
-      restored.textContent = format(texts.restored, { date: dayMonth(d.log.talkDate), n: captureEvents().length });
-      restored.hidden = false;
+      $('[data-restored-text]').textContent = format(texts.restored, {
+        date: dayMonth(d.log.talkDate),
+        n: captureEvents().length,
+      });
+      $('[data-restored]').hidden = false;
     }
     paintStatus();
     const handle = await store.folder();
@@ -513,6 +707,22 @@ export function init(root: HTMLElement): void {
       button.hidden = false;
     }
   }
+
+  // --- Immersive: only the picture, the tools and the controls ---
+
+  /** Hides the site header, the top bar and the clip list. Real fullscreen too, where the browser has it (not iPhone). */
+  function setImmersive(on: boolean) {
+    root.toggleAttribute('data-immersive', on);
+    document.body.toggleAttribute('data-immersive', on);
+    root.querySelector('[data-action="fullscreen"]')!.setAttribute('aria-pressed', String(on));
+    const page = document.documentElement;
+    if (on && !document.fullscreenElement && page.requestFullscreen) void page.requestFullscreen().catch(() => {});
+    if (!on && document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+  }
+  // The browser's own way out of fullscreen (Esc) leaves immersive too.
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && root.hasAttribute('data-immersive')) setImmersive(false);
+  });
 
   // --- Events ---
 
@@ -540,6 +750,7 @@ export function init(root: HTMLElement): void {
     for (const b of root.querySelectorAll<HTMLElement>('[data-rate]')) {
       b.setAttribute('aria-pressed', String(Number(b.dataset.rate) === video.playbackRate));
     }
+    $('[data-rate-label]').textContent = `${video.playbackRate}×`;
     // Loading a clip resets the rate to the default, and setting the default fires it too: only real changes count.
     if (video.readyState === 0 || video.playbackRate === lastRate) return;
     lastRate = video.playbackRate;
@@ -558,16 +769,62 @@ export function init(root: HTMLElement): void {
     video.currentTime = Number(seek.value);
   });
 
+  /** The tap that puts away a popover or the drawer must not also play the clip (and wipe the drawing). */
+  let swallowTap = false;
+  let swallowTimer = 0;
+  function swallowNextTap() {
+    swallowTap = true;
+    clearTimeout(swallowTimer);
+    swallowTimer = window.setTimeout(() => (swallowTap = false), 500);
+  }
+
   // Without a tool, a click on the picture plays or pauses.
   stage.addEventListener('click', (e) => {
+    if (swallowTap) {
+      swallowTap = false;
+      return;
+    }
     if (!sketch.tool && (e.target as Element).matches('[data-sketch], video')) toggle();
   });
+
+  const recordPop = $('[data-record-pop]');
+  const recordToggle = $('[data-action="toggle-record"]');
+  const listToggle = $('[data-action="toggle-list"]');
+
+  function setRecord(open: boolean) {
+    root.dataset.record = open ? 'open' : 'closed';
+    recordToggle.setAttribute('aria-expanded', String(open));
+  }
+
+  /** The toggle says whether the clip list is showing (the CSS decides that, so it is read back). */
+  function paintList() {
+    listToggle.setAttribute('aria-expanded', String(getComputedStyle(clipsPanel).display !== 'none'));
+  }
+
+  function focusFirstIn(container: HTMLElement) {
+    const first = [...container.querySelectorAll<HTMLElement>('button, select, input, a[href], [tabindex]:not([tabindex="-1"])')].find(
+      (el) => !(el as HTMLButtonElement).disabled && el.getClientRects().length > 0,
+    );
+    first?.focus();
+  }
 
   const actions: Record<string, (b: HTMLElement) => void> = {
     'pick-folder': () => void chooseFolder(),
     reopen: () => void reopen(),
+    // Open or closed by what is on screen (CSS decides the default for the screen size).
     'toggle-list': () => {
-      root.dataset.list = root.dataset.list === 'closed' ? 'open' : 'closed';
+      root.dataset.list = getComputedStyle(clipsPanel).display === 'none' ? 'open' : 'closed';
+    },
+    'toggle-record': () => {
+      const open = root.dataset.record !== 'open';
+      setRecord(open);
+      // The popover is after other buttons in the tab order: the focus goes into it.
+      if (open) focusFirstIn(recordPop);
+    },
+    pick: () => (canPickFolder() ? void chooseFolder() : filesInput.click()),
+    'next-clip': () => nextClip(),
+    dismiss: (b) => {
+      b.closest<HTMLElement>('.notice')!.hidden = true;
     },
     play: () => toggle(),
     'prev-frame': () => step(-1),
@@ -577,13 +834,21 @@ export function init(root: HTMLElement): void {
       video.defaultPlaybackRate = Number(b.dataset.rate);
       video.playbackRate = Number(b.dataset.rate);
     },
-    fullscreen: () => {
-      const viewer = $('[data-viewer]');
-      if (document.fullscreenElement) void document.exitFullscreen();
-      else void viewer.requestFullscreen?.();
+    // 1× → 0.5× → 0.25× → 1×, for the narrow screens where three buttons do not fit.
+    'cycle-rate': (b) => {
+      const speeds = (b.dataset.rates ?? '1').split(' ').map(Number);
+      const next = speeds[(speeds.indexOf(video.playbackRate) + 1) % speeds.length];
+      video.defaultPlaybackRate = next;
+      video.playbackRate = next;
     },
+    fullscreen: () => setImmersive(!root.hasAttribute('data-immersive')),
     tool: (b) => setTool(b.dataset.tool as Tool),
-    color: (b) => setColor(b.dataset.color!),
+    // One button that steps through the colours (the list is in the markup).
+    color: (b) => {
+      const all = JSON.parse(b.dataset.colors!) as { value: string; token: string }[];
+      const next = all[(all.findIndex((c) => c.value === sketch.color) + 1) % all.length];
+      setColor(next.value);
+    },
     undo: () => sketch.undo(),
     clear: () => sketch.clear(),
     pin: (b) => {
@@ -591,6 +856,7 @@ export function init(root: HTMLElement): void {
       b.setAttribute('aria-pressed', String(pinned));
     },
     capture: () => void saveCapture(),
+    'open-capture': (b) => void openCapture(b.dataset.file!),
     'delete-capture': (b) => void deleteCapture(b.dataset.file!),
     finish: () => void finish(),
     retry: (b) => {
@@ -598,23 +864,70 @@ export function init(root: HTMLElement): void {
       void finish();
     },
     discard: () => void discard(),
+    'sign-in': () => void signIn(),
   };
 
   root.addEventListener('click', (e) => {
     const b = (e.target as Element).closest<HTMLElement>('[data-action]');
-    if (!b || !root.contains(b)) return;
+    // The audio panel has buttons named like ours (finish, retry) and handles them itself.
+    if (!b || !root.contains(b) || b.closest('[data-audio]')) return;
     actions[b.dataset.action!]?.(b);
     // A clicked button keeps the focus; the space bar would press it again instead of playing.
     if (e.detail > 0) b.blur();
   });
 
-  $<HTMLInputElement>('[data-files]').addEventListener('change', (e) => {
+  // A disabled select takes no taps, so the label says why it is locked.
+  field.addEventListener('click', () => {
+    if (dateSelect.disabled) say(texts.sessionLocked, 'warn');
+  });
+
+  filesInput.addEventListener('change', (e) => {
     const input = e.target as HTMLInputElement;
     void loadFiles([...(input.files ?? [])]);
   });
 
+  // Drop video files on the picture.
+  viewer.addEventListener('dragover', (e) => {
+    if (![...(e.dataTransfer?.types ?? [])].includes('Files')) return;
+    e.preventDefault();
+    viewer.toggleAttribute('data-dragging', true);
+  });
+  viewer.addEventListener('dragleave', () => viewer.removeAttribute('data-dragging'));
+  viewer.addEventListener('drop', (e) => {
+    e.preventDefault();
+    viewer.removeAttribute('data-dragging');
+    const dropped = [...(e.dataTransfer?.files ?? [])];
+    if (dropped.length) void loadFiles(dropped.filter((f) => isVideo(f.name)));
+  });
+
+  // A tap outside puts away the recording popover and, on a phone, the clip drawer.
+  document.addEventListener('pointerdown', (e) => {
+    const target = e.target as Element;
+    if (root.dataset.record === 'open' && !target.closest('[data-record-pop], [data-action="toggle-record"]')) {
+      setRecord(false);
+      swallowNextTap();
+    }
+    if (compact.matches && root.dataset.list === 'open' && !target.closest('.clips, [data-action="toggle-list"]')) {
+      root.dataset.list = 'closed';
+      swallowNextTap();
+    }
+  });
+
   document.addEventListener('keydown', (e) => {
+    if (root.dataset.signedIn === 'false') return;
     const target = e.target as HTMLElement;
+    if (e.key === 'Escape' && root.hasAttribute('data-immersive')) return setImmersive(false);
+    // Escape puts away the recording popover, then the clip drawer, and gives the focus back to their buttons.
+    if (e.key === 'Escape' && root.dataset.record === 'open') {
+      setRecord(false);
+      recordToggle.focus();
+      return;
+    }
+    if (e.key === 'Escape' && compact.matches && root.dataset.list === 'open' && root.dataset.hasClips === 'true') {
+      root.dataset.list = 'closed';
+      listToggle.focus();
+      return;
+    }
     if (target.closest('input:not([type="range"]), select, textarea, [contenteditable], [data-audio]')) return;
     if (e.altKey || e.metaKey) return;
     if (e.ctrlKey) {
@@ -624,6 +937,8 @@ export function init(root: HTMLElement): void {
       }
       return;
     }
+    // On a focused button the space bar presses it (a mouse click already blurs it, so focus here means keyboard).
+    if (e.key === ' ' && target.closest('button, label.btn, [role="button"], a')) return;
     const keys: Record<string, () => void> = {
       ' ': toggle,
       ArrowLeft: () => (e.shiftKey ? jump(-5) : step(-1)),
@@ -657,6 +972,21 @@ export function init(root: HTMLElement): void {
     if (uploading) e.preventDefault();
   });
 
+  // The roster row fades at the edge where there is more to scroll to.
+  const surferRow = $('.surfers');
+  function paintFades() {
+    const max = surferRow.scrollWidth - surferRow.clientWidth;
+    const x = Math.abs(surferRow.scrollLeft);
+    surferRow.style.setProperty('--fade-start', max > 1 && x > 1 ? '28px' : '0px');
+    surferRow.style.setProperty('--fade-end', max > 1 && x < max - 1 ? '28px' : '0px');
+  }
+  surferRow.addEventListener('scroll', paintFades, { passive: true });
+  new ResizeObserver(paintFades).observe(surferRow);
+
+  new MutationObserver(paintList).observe(root, { attributes: true, attributeFilter: ['data-list', 'data-has-clips'] });
+  compact.addEventListener('change', paintList);
+  matchMedia('(min-width: 761px) and (min-height: 501px)').addEventListener('change', paintList);
+
   // --- Startup ---
 
   const dates = [...dateSelect.options].map((o) => o.value);
@@ -664,7 +994,11 @@ export function init(root: HTMLElement): void {
   if (!canPickFolder()) {
     $('[data-action="pick-folder"]').hidden = true;
     $('[data-pick-files]').hidden = false;
+    for (const el of root.querySelectorAll('[data-pick-label]')) el.textContent = $('[data-action="pick"]').dataset.labelFiles!;
   }
+  setView('empty');
+  paintList();
+  paintFades();
   setColor(sketch.color);
   if (account) loadGoogle().catch(() => {});
   openReviewStore()
