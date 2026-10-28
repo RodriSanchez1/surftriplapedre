@@ -6,6 +6,7 @@ import SurferCard from '../components/SurferCard.astro';
 import { loadSite } from '../lib/content';
 import { pathFor, shortDate, t, type Lang } from '../lib/i18n';
 import { insightsForSurfer, pickLang } from '../lib/localized';
+import { homeMeta } from '../lib/og/meta';
 
 interface Props {
   lang: Lang;
@@ -13,12 +14,13 @@ interface Props {
 
 const { lang } = Astro.props;
 const base = import.meta.env.BASE_URL;
-const { trip, days, surfers, coaches, coachProfiles, insights } = await loadSite();
+const site = await loadSite();
+const { trip, days, surfers, coaches, coachProfiles, insights } = site;
 const hasProfile = (id: string) => pickLang(coachProfiles, id, lang) !== undefined;
 const dates = `${shortDate(lang, trip.startDate)} → ${shortDate(lang, trip.endDate)}`;
 ---
 
-<BaseLayout title={trip.name} lang={lang} team={trip.team}>
+<BaseLayout title={trip.name} lang={lang} team={trip.team} siteName={trip.name} description={homeMeta(site, lang).description}>
   <BoltBand
     size="hero"
     title={trip.name}

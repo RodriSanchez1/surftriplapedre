@@ -17,6 +17,7 @@ import AudioUploader from '../components/AudioUploader.astro';
 import FootageList from '../components/FootageList.astro';
 import VideoReview from '../components/VideoReview.astro';
 import { ACCENTS } from '../content.config';
+import { renderCard, type Card } from '../lib/og/card';
 
 const colors = [...new Set(['orange', 'red', 'yellow', 'ink', 'paper', 'white', 'muted', ...ACCENTS])];
 const fonts = [
@@ -29,6 +30,20 @@ const audioStates = ['login', 'ready', 'recording', 'cut', 'uploading', 'done', 
 const audioDemo = { driveFolder: 'demo', googleClientId: 'demo.apps.googleusercontent.com', contact: 'el organizador' };
 const demoDates = ['2026-01-05', '2026-01-06', '2026-01-07'];
 const demoSpots = ['Playa A', 'Playa B'];
+/** Link preview images (src/lib/og/), rendered here with demo data. */
+const demoCards: Card[] = [
+  {
+    title: 'Surftrip Demo',
+    size: 'hero',
+    team: 'Team Demo',
+    facts: [
+      { icon: 'place', text: 'Lugar del trip' },
+      { icon: 'dates', text: '5 ene – 12 ene' },
+    ],
+  },
+  { title: 'Juan', subtitle: 'Foco actual: mirar adonde quiere ir', team: 'Team Demo', avatar: { id: 'juan', color: 'red' } },
+];
+const cardImages = await Promise.all(demoCards.map(async (c) => `data:image/png;base64,${(await renderCard(c)).toString('base64')}`));
 const demoSurfers = [
   { id: 'juan', name: 'Juan', color: 'red' },
   { id: 'ana', name: 'Ana', color: 'sky' },
@@ -79,6 +94,12 @@ const demoSurfers = [
     ]}
   />
   <div class="wrap">
+    <h2 class="section-title">Link preview (og:image)</h2>
+    <p class="prose">What WhatsApp, Discord and Telegram show when a link is shared. Each page passes its own card from src/lib/og/meta.ts; the images are generated at build time in /og/.</p>
+    <div class="og-cards">
+      {cardImages.map((src, i) => <img src={src} alt={demoCards[i].title} width="600" height="315" />)}
+    </div>
+
     <h2 class="section-title">Bolt</h2>
     <div class="row" style="color: var(--c-red)">
       <Bolt size={14} />
@@ -231,6 +252,18 @@ const demoSurfers = [
     gap: var(--s-3);
     align-items: flex-start;
     margin-bottom: var(--s-3);
+  }
+  .og-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--s-4);
+  }
+  .og-cards img {
+    width: 100%;
+    height: auto;
+    border: var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
   }
   .state {
     font: 13px var(--font-head);

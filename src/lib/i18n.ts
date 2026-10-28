@@ -4,6 +4,8 @@ export const DEFAULT_LANG: Lang = 'es';
 
 const es = {
   'site.langLabel': 'Idioma',
+  'site.locale': 'es_LA',
+  'meta.home': 'El calendario del trip, las sesiones con {coach} y el foco de cada surfista.',
   'home.calendar': 'Calendario',
   'home.team': 'El equipo',
   'home.coaches': 'Los coaches',
@@ -122,6 +124,8 @@ export type UiKey = keyof typeof es;
 
 const pt: Record<UiKey, string> = {
   'site.langLabel': 'Idioma',
+  'site.locale': 'pt_BR',
+  'meta.home': 'O calendário da viagem, as sessões com {coach} e o foco de cada surfista.',
   'home.calendar': 'Calendário',
   'home.team': 'A equipe',
   'home.coaches': 'Os coaches',

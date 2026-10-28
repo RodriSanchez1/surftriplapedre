@@ -35,6 +35,8 @@ src/lib/content.ts            loads the content and stops the build on broken re
 src/lib/audio/                upload of the coach's audio to Drive (filenames, upload, store, recorder, login, page)
                               and which Drive audios still need processing (pending)
 src/lib/review/               video review: log format (log.ts), clip header (mp4.ts), timeline of the talk (timeline.ts)
+src/lib/og/                   link previews (WhatsApp, Discord...): each page's description and card (meta.ts), drawn
+                              as PNG at build time (card.ts) and served at /og/<lang>/<page>.png
 src/components/               design system
 src/views/                    body of each page (they receive lang)
 src/pages/  src/pages/pt/     one-line wrappers per language
