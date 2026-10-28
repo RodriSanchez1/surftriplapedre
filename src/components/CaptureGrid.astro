@@ -1,0 +1,38 @@
+---
+/** The captures of an insight: one column on a phone, two from 640 px. */
+import Capture from './Capture.astro';
+import type { Lang } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+  /** Talk date of the session, 'YYYY-MM-DD'. It names the folder of the images. */
+  date: string;
+  captures: { id: string; caption: string; wave?: string; day?: string }[];
+}
+
+const { lang, date, captures } = Astro.props;
+---
+
+{
+  captures.length > 0 && (
+    <div class="capture-grid">
+      {captures.map((c) => (
+        <Capture lang={lang} src={`captures/${date}/${c.id}.jpg`} caption={c.caption} wave={c.wave} day={c.day} />
+      ))}
+    </div>
+  )
+}
+
+<style>
+  .capture-grid {
+    display: grid;
+    gap: var(--s-4);
+    grid-template-columns: 1fr;
+    margin: var(--s-4) var(--s-1) var(--s-2);
+  }
+  @media (min-width: 640px) {
+    .capture-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+</style>

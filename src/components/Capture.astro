@@ -1,0 +1,51 @@
+---
+/** One frame from the video review, with the coach's drawing on it. The image opens full size in a new tab. */
+import { dayMonth } from '../lib/calendar';
+import { format, t, type Lang } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+  /** Image path under public/, e.g. 'captures/2026-10-26/183012-3.jpg'. */
+  src: string;
+  caption: string;
+  /** 'HH:mm' of the filmed wave. Without it (or without `day`) the caption is shown alone. */
+  wave?: string;
+  /** Day it was filmed, 'YYYY-MM-DD'. */
+  day?: string;
+}
+
+const { lang, src, caption, wave, day } = Astro.props;
+const url = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/${src}`;
+const when = wave && day ? format(t(lang, 'capture.wave'), { time: wave, date: dayMonth(day) }) : '';
+const text = when ? `${when} — ${caption}` : caption;
+---
+
+<figure class="capture">
+  <a href={url} target="_blank" rel="noopener">
+    <img src={url} alt={text} loading="lazy" />
+  </a>
+  <figcaption>{text}</figcaption>
+</figure>
+
+<style>
+  .capture {
+    margin: 0;
+  }
+  a {
+    display: block;
+    line-height: 0;
+  }
+  img {
+    width: 100%;
+    height: auto;
+    border: var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    background: var(--c-white);
+  }
+  figcaption {
+    margin-top: var(--s-2);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+  }
+</style>

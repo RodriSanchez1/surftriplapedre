@@ -10,6 +10,7 @@ import DayCell from '../components/DayCell.astro';
 import SurferCard from '../components/SurferCard.astro';
 import Avatar from '../components/Avatar.astro';
 import FocusBlock from '../components/FocusBlock.astro';
+import CaptureGrid from '../components/CaptureGrid.astro';
 import InsightBlock from '../components/InsightBlock.astro';
 import TranslationBadge from '../components/TranslationBadge.astro';
 import AudioUploader from '../components/AudioUploader.astro';
@@ -114,6 +115,16 @@ const demoSurfers = [
       <p>Shown in Spanish because the .pt.md is missing.</p>
     </InsightBlock>
     <p><TranslationBadge /></p>
+
+    <h2 class="section-title">Capture and CaptureGrid</h2>
+    <CaptureGrid
+      lang="es"
+      date="_design"
+      captures={[
+        { id: 'example', caption: 'El brazo delantero guía el giro', wave: '10:42', day: '2026-01-05' },
+        { id: 'example', caption: 'Without wave time: just the caption' },
+      ]}
+    />
 
     <h2 class="section-title">Pressing</h2>
     <div class="prose">
