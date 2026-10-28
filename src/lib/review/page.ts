@@ -6,7 +6,7 @@
 import { clampToTrip, dayMonth, todayIn } from '../calendar';
 import { format } from '../i18n';
 import { googleAccount, loadGoogle, LoginError, SIGNED_IN } from '../audio/google';
-import { send, verifyAccess, PermissionError, type Dependencies } from '../audio/upload';
+import { folderIn, send, verifyAccess, PermissionError, type Dependencies } from '../audio/upload';
 import { clock, DEFAULT_FPS, length, middleEllipsis, position, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
 import { canPickFolder, canRead, isVideo, pickFolder, videosIn } from './folder';
@@ -574,13 +574,15 @@ export function init(root: HTMLElement): void {
     const total = files.length + 1;
     try {
       await writes;
+      // Each review gets its own folder, named like its files. A retry finds the one it already made.
+      const folder = await folderIn(deps, folderId, d.log.group);
       for (const [i, file] of files.entries()) {
         if (d.uploaded.includes(file)) continue;
         progress(i + 1, total);
         const blob = await blobOf(file);
         if (!blob) continue; // lost with the device storage: the log still says it existed
         await send(deps, {
-          file: { name: file, mime: 'image/jpeg', size: blob.size, folder: folderId },
+          file: { name: file, mime: 'image/jpeg', size: blob.size, folder },
           blob,
           url: d.sessions[file],
           onSessionCreated: (url) => {
@@ -595,7 +597,7 @@ export function init(root: HTMLElement): void {
       const name = reviewName(d.log.group);
       const blob = new Blob([toJson(d.log)], { type: 'application/json' });
       await send(deps, {
-        file: { name, mime: 'application/json', size: blob.size, folder: folderId },
+        file: { name, mime: 'application/json', size: blob.size, folder },
         blob,
         url: d.sessions[name],
         onSessionCreated: (url) => {

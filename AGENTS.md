@@ -88,7 +88,7 @@ If a subagent gets stuck or the task turns out to have open decisions, it goes b
 
 ### Automatic summary  ·  human to connect it
 
-`scripts/session-auto.mjs` does the whole path: it lists the Drive folder, downloads the audio for each date, transcribes it locally and runs `claude -p "/process-session <date>"`. It leaves a commit on `feat/session-<date>` (created from `main`) and goes back to the branch it was on. It never pushes.
+`scripts/session-auto.mjs` does the whole path: it lists the Drive folder and its review subfolders, downloads the audio for each date, transcribes it locally and runs `claude -p "/process-session <date>"`. It leaves a commit on `feat/session-<date>` (created from `main`) and goes back to the branch it was on. It never pushes.
 
 - It downloads the footage meta files with the audio. A new meta file counts as a change, like a new audio.
 - It also downloads the video review files of the date (`<date>_<HHmmss>.review.json` and `_cap-<n>.jpg`). After transcribing, if there are logs, `scripts/review-timeline.mjs` writes `sessions/<date>/review-timeline.md` (talk minute → wave on screen) for the skill; if that fails the insights go on without it. Logs, captures and the timeline stay local (`.gitignore`); only the captures cited in an insight are copied to `public/captures/<date>/`.
@@ -113,7 +113,7 @@ Variables: `SURFTRIP_RCLONE_REMOTE` (remote, default `drive`), `SURFTRIP_MODEL` 
 
 ### Review videos with the coach  ·  human
 
-On `/review/` the coach (or the organizer) picks the folder with the day's clips, plays them and pauses on a wave to draw on it and tag the surfer; each frame is a capture. Next to the talk audio, the page uploads to the Drive folder:
+On `/review/` the coach (or the organizer) picks the folder with the day's clips, plays them and pauses on a wave to draw on it and tag the surfer; each frame is a capture. The page uploads into a new subfolder of the trip's Drive folder, one per review and named like its files (`<date>_<HHmmss>/`):
 
 - `<date>_<HHmmss>.review.json`: the log (what was on screen, by the device clock, so it lines up with the audio).
 - `<date>_<HHmmss>_cap-<n>.jpg`: each capture with the drawing.
