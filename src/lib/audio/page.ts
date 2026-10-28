@@ -3,7 +3,7 @@
  * Ties together login, recording, the device store and the resumable upload.
  */
 import { clampToTrip, dayMonth, todayIn } from '../calendar';
-import { defaultTime, OTHER_SPOT, toMeta, type Footage, type TimeOfDay } from '../footage';
+import { defaultTime, OTHER_SPOT, toMeta, type AudioTimes, type Footage, type TimeOfDay } from '../footage';
 import { format } from '../i18n';
 import { extensionOfFile, extensionFor, groupOf, timeIn, fileName, metaName } from './filenames';
 import { googleAccount, accountEmail, loadGoogle, LoginError } from './google';
@@ -266,10 +266,11 @@ export function init(root: HTMLElement): void {
     group: string,
     talkDate: string,
     footage: Footage[],
+    audio: Record<string, AudioTimes>,
     url: string | undefined,
     onSessionCreated: (url: string) => void,
   ) => {
-    const blob = new Blob([toMeta(talkDate, footage)], { type: 'application/json' });
+    const blob = new Blob([toMeta(talkDate, footage, audio)], { type: 'application/json' });
     const name = metaName(group);
     showUpload(name);
     return send(
@@ -286,7 +287,8 @@ export function init(root: HTMLElement): void {
     try {
       // The meta goes first, once: after it succeeds (or on a retry) it is not uploaded again.
       if (footage && !parts.some((r) => r.metaUploaded)) {
-        await sendMeta(group, parts[0].date, footage, parts.find((r) => r.metaSessionUrl)?.metaSessionUrl, (url) => {
+        const starts = Object.fromEntries(parts.map((r) => [nameOf(r), { start: new Date(r.start).toISOString() }]));
+        await sendMeta(group, parts[0].date, footage, starts, parts.find((r) => r.metaSessionUrl)?.metaSessionUrl, (url) => {
           for (const r of parts) {
             r.metaSessionUrl = url;
             write((s) => s.save({ ...r }));
@@ -337,7 +339,8 @@ export function init(root: HTMLElement): void {
     const name = p.name;
     try {
       if (!p.metaDone) {
-        await sendMeta(p.group, p.date, p.footage, p.metaUrl, (url) => {
+        const times = { [name]: { modified: new Date(p.file.lastModified).toISOString() } };
+        await sendMeta(p.group, p.date, p.footage, times, p.metaUrl, (url) => {
           p.metaUrl = url;
         });
         p.metaDone = true;

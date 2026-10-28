@@ -18,11 +18,21 @@ export interface Footage {
   surfers: string[];
 }
 
+/** When an audio file was recorded, by the device clock (ISO 8601). Lines the talk up with the review log. */
+export interface AudioTimes {
+  /** Recording start: known when the audio was recorded on the upload page. */
+  start?: string;
+  /** Modification date of an uploaded file: usually the end of the recording. */
+  modified?: string;
+}
+
 /** Contents of '<date>_<HHmm>.meta.json', uploaded next to the audio. */
 export interface Meta {
   /** Date of the talk, the same as the audio's. */
   talkDate: string;
   footage: Footage[];
+  /** By audio file name. Optional: older meta files do not have it. */
+  audio?: Record<string, AudioTimes>;
 }
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -44,8 +54,8 @@ function clean(f: Footage): Footage {
   return { date: f.date, time: f.time, ...(spot ? { spot } : {}), surfers: [...f.surfers] };
 }
 
-export function toMeta(talkDate: string, footage: Footage[]): string {
-  const meta: Meta = { talkDate, footage: footage.map(clean) };
+export function toMeta(talkDate: string, footage: Footage[], audio?: Record<string, AudioTimes>): string {
+  const meta: Meta = { talkDate, footage: footage.map(clean), ...(audio ? { audio } : {}) };
   return `${JSON.stringify(meta, null, 2)}\n`;
 }
 
@@ -58,7 +68,7 @@ export function parseMeta(text: string): Meta | null {
     return null;
   }
   if (!data || typeof data !== 'object') return null;
-  const { talkDate, footage } = data as Record<string, unknown>;
+  const { talkDate, footage, audio } = data as Record<string, unknown>;
   if (typeof talkDate !== 'string' || !ISO.test(talkDate) || !Array.isArray(footage)) return null;
   const cards = footage.flatMap((item): Footage[] => {
     if (!item || typeof item !== 'object') return [];
@@ -73,7 +83,18 @@ export function parseMeta(text: string): Meta | null {
       }),
     ];
   });
-  return { talkDate, footage: cards };
+  const times: Record<string, AudioTimes> = {};
+  if (audio && typeof audio === 'object') {
+    for (const [name, value] of Object.entries(audio as Record<string, unknown>)) {
+      if (!value || typeof value !== 'object') continue;
+      const { start, modified } = value as Record<string, unknown>;
+      const t: AudioTimes = {};
+      if (typeof start === 'string' && !Number.isNaN(Date.parse(start))) t.start = start;
+      if (typeof modified === 'string' && !Number.isNaN(Date.parse(modified))) t.modified = modified;
+      if (t.start || t.modified) times[name] = t;
+    }
+  }
+  return { talkDate, footage: cards, ...(Object.keys(times).length ? { audio: times } : {}) };
 }
 
 /**

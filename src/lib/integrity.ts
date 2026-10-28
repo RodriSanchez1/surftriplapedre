@@ -7,9 +7,11 @@ export interface IntegrityInput {
   coachProfileIds: string[];
   days: { id: string; session?: string }[];
   sessionIds: string[];
-  insights: { id: string; data: { surfer: string; date: string } }[];
+  insights: { id: string; data: { surfer: string; date: string; captures?: { id: string }[] } }[];
   /** `session` is the content id, e.g. '2026-10-26.es'. */
   footage: { session: string; footage: { date: string; surfers: string[] }[] }[];
+  /** Whether a path under public/ exists, e.g. 'captures/2026-10-26/183012-3.jpg'. Without it, captures are not checked. */
+  publicFileExists?: (path: string) => boolean;
 }
 
 /** Checks the references between content files. Returns one readable error per problem. */
@@ -22,6 +24,7 @@ export function findContentErrors({
   sessionIds,
   insights,
   footage,
+  publicFileExists,
 }: IntegrityInput): string[] {
   const errors: string[] = [];
   const surfers = new Set(surferIds);
@@ -50,6 +53,11 @@ export function findContentErrors({
     }
     if (!sessions.has(insight.data.date)) {
       errors.push(`insights/${insight.id}.md: session src/content/sessions/${insight.data.date}.es.md does not exist`);
+    }
+    for (const capture of insight.data.captures ?? []) {
+      if (publicFileExists && !publicFileExists(`captures/${insight.data.date}/${capture.id}.jpg`)) {
+        errors.push(`insights/${insight.id}.md: capture ${capture.id} has no public/captures/${insight.data.date}/${capture.id}.jpg`);
+      }
     }
   }
 

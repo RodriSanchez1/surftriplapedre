@@ -10,10 +10,12 @@ import DayCell from '../components/DayCell.astro';
 import SurferCard from '../components/SurferCard.astro';
 import Avatar from '../components/Avatar.astro';
 import FocusBlock from '../components/FocusBlock.astro';
+import CaptureGrid from '../components/CaptureGrid.astro';
 import InsightBlock from '../components/InsightBlock.astro';
 import TranslationBadge from '../components/TranslationBadge.astro';
 import AudioUploader from '../components/AudioUploader.astro';
 import FootageList from '../components/FootageList.astro';
+import VideoReview from '../components/VideoReview.astro';
 import { ACCENTS } from '../content.config';
 
 const colors = [...new Set(['orange', 'red', 'yellow', 'ink', 'paper', 'white', 'muted', ...ACCENTS])];
@@ -115,6 +117,16 @@ const demoSurfers = [
     </InsightBlock>
     <p><TranslationBadge /></p>
 
+    <h2 class="section-title">Capture and CaptureGrid</h2>
+    <CaptureGrid
+      lang="es"
+      date="_design"
+      captures={[
+        { id: 'example', caption: 'El brazo delantero guía el giro', wave: '10:42', day: '2026-01-05' },
+        { id: 'example', caption: 'Without wave time: just the caption' },
+      ]}
+    />
+
     <h2 class="section-title">Pressing</h2>
     <div class="prose">
       <p>
@@ -177,10 +189,21 @@ const demoSurfers = [
     }
     <p class="state">not configured</p>
     <AudioUploader lang="es" dates={demoDates} timeZone="UTC" />
+
+    <h2 class="section-title">VideoReview</h2>
+    <p class="state">clip open, arrow tool, recording audio, three captures</p>
+  </div>
+  <div class="wide-demo">
+    <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo />
   </div>
 </BaseLayout>
 
 <style>
+  .wide-demo {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 var(--s-4);
+  }
   .swatches {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

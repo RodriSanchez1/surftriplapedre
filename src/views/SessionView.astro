@@ -4,6 +4,7 @@ import BaseLayout from '../components/BaseLayout.astro';
 import BoltBand from '../components/BoltBand.astro';
 import InsightBlock from '../components/InsightBlock.astro';
 import TranslationBadge from '../components/TranslationBadge.astro';
+import CaptureGrid from '../components/CaptureGrid.astro';
 import Avatar from '../components/Avatar.astro';
 import FootageList from '../components/FootageList.astro';
 import { loadSite } from '../lib/content';
@@ -106,6 +107,7 @@ const items = await Promise.all(
         >
           <Avatar slot="media" id={entry.data.surfer} name="" size="sm" />
           <Insight />
+          <CaptureGrid lang={lang} date={entry.data.date} captures={entry.data.captures} />
         </InsightBlock>
       ))
     }

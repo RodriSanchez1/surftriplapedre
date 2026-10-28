@@ -2,6 +2,9 @@ import { getCollection, type CollectionEntry } from 'astro:content';
 import { findContentErrors } from './integrity';
 import { splitLangId } from './localized';
 
+/** Images in public/captures/ (the keys only; they are never imported). */
+const captureFiles = new Set(Object.keys(import.meta.glob('/public/captures/*/*.jpg')).map((p) => p.replace('/public/', '')));
+
 export type Insight = CollectionEntry<'insights'>;
 export type Session = CollectionEntry<'sessions'>;
 export type Surfer = CollectionEntry<'surfers'>;
@@ -30,6 +33,7 @@ export async function loadSite() {
     sessionIds: sessions.map((s) => s.id),
     insights,
     footage: sessions.map((s) => ({ session: s.id, footage: s.data.footage })),
+    publicFileExists: (path) => captureFiles.has(path),
   });
   if (errors.length) throw new Error(`Invalid content:\n- ${errors.join('\n- ')}`);
 

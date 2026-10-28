@@ -4,6 +4,7 @@ import BaseLayout from '../components/BaseLayout.astro';
 import BoltBand from '../components/BoltBand.astro';
 import Avatar from '../components/Avatar.astro';
 import FocusBlock from '../components/FocusBlock.astro';
+import CaptureGrid from '../components/CaptureGrid.astro';
 import InsightBlock from '../components/InsightBlock.astro';
 import { loadSite } from '../lib/content';
 import { dayMonth } from '../lib/calendar';
@@ -34,8 +35,8 @@ const absences = sessions
   .filter((s) => s.id.endsWith('.es') && !insightDates.has(s.id.slice(0, -3)) && !wasInWater(s.data.footage, id))
   .map((s) => ({ date: s.id.slice(0, -3) }));
 const history = [
-  ...items.map(({ entry, fallback, Content }) => ({ date: entry.data.date, fallback, Content })),
-  ...absences.map(({ date }) => ({ date, fallback: false, Content: undefined })),
+  ...items.map(({ entry, fallback, Content }) => ({ date: entry.data.date, fallback, Content, captures: entry.data.captures })),
+  ...absences.map(({ date }) => ({ date, fallback: false, Content: undefined, captures: [] })),
 ].sort((a, b) => b.date.localeCompare(a.date));
 ---
 
@@ -58,7 +59,7 @@ const history = [
 
     {history.length > 0 && <h2 class="section-title">{t(lang, 'surfer.history')}</h2>}
     {
-      history.map(({ date, fallback, Content }) => (
+      history.map(({ date, fallback, Content, captures }) => (
         <InsightBlock
           heading={`${t(lang, 'session.title')} ${dayMonth(date)}`}
           fallback={fallback}
@@ -66,6 +67,7 @@ const history = [
           linkText={t(lang, 'surfer.seeSession')}
         >
           {Content ? <Content /> : <p>{t(lang, 'surfer.notInWater')}</p>}
+          <CaptureGrid lang={lang} date={date} captures={captures} />
         </InsightBlock>
       ))
     }

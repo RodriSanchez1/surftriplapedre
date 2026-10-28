@@ -1,0 +1,684 @@
+---
+/**
+ * The coach's video review: clips from disk, a player, drawing on the paused frame and captures.
+ * The client logic is in src/lib/review/page.ts. With `demo` a filled-in state is shown and the
+ * script leaves it alone (for /design/).
+ */
+import { dayMonth, weekdayOf } from '../lib/calendar';
+import { WEEKDAYS, format, t, type Lang } from '../lib/i18n';
+import type { Texts } from '../lib/review/page';
+import AudioUploader from './AudioUploader.astro';
+import Avatar from './Avatar.astro';
+
+interface Props {
+  lang: Lang;
+  dates: string[];
+  timeZone: string;
+  spots?: string[];
+  surfers: { id: string; name: string; color: string }[];
+  audio?: { driveFolder: string; googleClientId: string; contact: string };
+  demo?: boolean;
+}
+
+const { lang, dates, timeZone, spots = [], surfers, audio, demo = false } = Astro.props;
+const texts: Texts = {
+  reopen: t(lang, 'review.reopen'),
+  noVideos: t(lang, 'review.noVideos'),
+  unplayable: t(lang, 'review.unplayable'),
+  approx: t(lang, 'review.approx'),
+  captureSaved: t(lang, 'review.captureSaved'),
+  deleteCapture: t(lang, 'review.deleteCapture'),
+  deleteCaptureConfirm: t(lang, 'review.deleteCaptureConfirm'),
+  unsent: t(lang, 'review.unsent'),
+  restored: t(lang, 'review.restored'),
+  discardConfirm: t(lang, 'review.discardConfirm'),
+  nothing: t(lang, 'review.nothing'),
+  uploading: t(lang, 'review.uploading'),
+  done: t(lang, 'review.done'),
+  errorUpload: t(lang, 'review.errorUpload'),
+  errorPermission: format(t(lang, 'audio.errorPermission'), { contact: audio?.contact ?? '' }),
+  errorLogin: t(lang, 'audio.errorLogin'),
+};
+const colors = [
+  { value: '#ffd400', token: 'var(--c-yellow)' },
+  { value: '#e4261c', token: 'var(--c-red)' },
+  { value: '#ffffff', token: 'var(--c-white)' },
+];
+const tools = [
+  { id: 'pen', icon: '✎', label: t(lang, 'review.pen') },
+  { id: 'arrow', icon: '➚', label: t(lang, 'review.arrow') },
+  { id: 'circle', icon: '◯', label: t(lang, 'review.circle') },
+] as const;
+const demoClips = [
+  { time: '10:38', name: 'C0231.MP4', length: '0:24' },
+  { time: '10:42', name: 'C0232.MP4', length: '0:31', active: true, capture: true },
+  { time: '10:47', name: 'C0233.MP4', length: '0:19' },
+  { time: '≈10:55', name: 'C0234.MOV', length: '0:40', broken: true },
+];
+---
+
+<section
+  class="review"
+  data-review={!demo ? '' : undefined}
+  data-demo={demo ? '' : undefined}
+  data-folder={audio?.driveFolder}
+  data-client-id={audio?.googleClientId}
+  data-time-zone={timeZone}
+  data-texts={JSON.stringify(texts)}
+  data-list="open"
+  data-tool={demo ? 'arrow' : ''}
+  data-has-clips={demo ? 'true' : 'false'}
+  data-loaded={demo ? 'true' : 'false'}
+  data-recording={demo ? 'true' : 'false'}
+>
+  <div class="bar">
+    <button type="button" class="btn icon" data-action="toggle-list" title={t(lang, 'review.toggleList')} aria-label={t(lang, 'review.toggleList')}>
+      ☰
+    </button>
+    <label class="field">
+      <span>{t(lang, 'review.session')}</span>
+      <select data-date>
+        {
+          dates.map((d) => (
+            <option value={d}>
+              {WEEKDAYS[lang][weekdayOf(d)]} {dayMonth(d)}
+            </option>
+          ))
+        }
+      </select>
+    </label>
+    <button type="button" class="btn" data-action="pick-folder">📁 {t(lang, 'review.pickFolder')}</button>
+    <label class="btn" data-pick-files hidden>
+      🎞 {t(lang, 'review.pickFiles')}
+      <input type="file" multiple accept="video/*,.mp4,.mov,.m4v" class="visually-hidden" data-files />
+    </label>
+    <button type="button" class="btn" data-action="reopen" hidden></button>
+    <span class="spacer"></span>
+    <span class="unsent" data-unsent>{demo ? format(t(lang, 'review.unsent'), { n: 3 }) : ''}</span>
+    {
+      audio && (
+        <button type="button" class="btn primary" data-action="finish">
+          {t(lang, 'review.finish')}
+        </button>
+      )
+    }
+  </div>
+
+  <details class="record">
+    <summary>
+      <span class="rec-dot" aria-hidden="true"></span>
+      🎙 {t(lang, 'review.record')}
+      <span class="rec-label">· {t(lang, 'review.recording')}</span>
+    </summary>
+    <p class="help">{t(lang, 'review.recordHelp')}</p>
+    {
+      !demo && (
+        <AudioUploader lang={lang} dates={dates} timeZone={timeZone} spots={spots} surfers={surfers} audio={audio} />
+      )
+    }
+  </details>
+
+  <p class="notice warn" data-restored hidden></p>
+  <p class="notice" data-message hidden={!demo}>{demo ? format(t(lang, 'review.captureSaved'), { n: 3 }) : ''}</p>
+  <button type="button" class="btn" data-action="retry" hidden>{t(lang, 'review.retry')}</button>
+
+  <div class="body">
+    <aside class="clips" aria-label={t(lang, 'review.clips')}>
+      <ol data-clip-list>
+        {
+          demo &&
+            demoClips.map((c) => (
+              <li class:list={['clip', { active: c.active, 'has-capture': c.capture, broken: c.broken }]}>
+                <span class="thumb demo-thumb" />
+                <span class="meta">
+                  <strong>{c.time}</strong>
+                  <small>
+                    {c.name} · {c.length}
+                  </small>
+                </span>
+              </li>
+            ))
+        }
+      </ol>
+      <template data-clip-template>
+        <li class="clip" tabindex="0">
+          <img class="thumb" data-clip-thumb alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" />
+          <span class="meta">
+            <strong data-clip-time></strong>
+            <small><span data-clip-name></span> · <span data-clip-length></span></small>
+          </span>
+        </li>
+      </template>
+    </aside>
+
+    <div class="viewer" data-viewer>
+      <p class="empty">{t(lang, 'review.empty')}</p>
+      <div class="stage" data-stage style={demo ? '--ar: 1.7778' : undefined}>
+        <video data-video playsinline preload="auto" class:list={{ 'demo-frame': demo }}></video>
+        <canvas data-sketch></canvas>
+        {
+          demo && (
+            <svg class="demo-drawing" viewBox="0 0 160 90" aria-hidden="true">
+              <path d="M40 30 L74 44 M68 39 L74 44 L66 46" stroke="#ffd400" stroke-width="1.6" fill="none" stroke-linecap="round" />
+              <ellipse cx="88" cy="48" rx="10" ry="13" stroke="#e4261c" stroke-width="1.6" fill="none" />
+            </svg>
+          )
+        }
+        <div class="tools">
+          {
+            tools.map((tool) => (
+              <button
+                type="button"
+                class="tool"
+                data-action="tool"
+                data-tool={tool.id}
+                title={tool.label}
+                aria-label={tool.label}
+                aria-pressed={demo && tool.id === 'arrow' ? 'true' : 'false'}
+              >
+                {tool.icon}
+              </button>
+            ))
+          }
+          <button type="button" class="tool" data-action="undo" title={t(lang, 'review.undo')} aria-label={t(lang, 'review.undo')}>↶</button>
+          <button type="button" class="tool" data-action="clear" title={t(lang, 'review.clear')} aria-label={t(lang, 'review.clear')}>🗑</button>
+          <button type="button" class="tool" data-action="pin" title={t(lang, 'review.pin')} aria-label={t(lang, 'review.pin')} aria-pressed="false">📌</button>
+        </div>
+        <div class="colors" role="group" aria-label={t(lang, 'review.color')}>
+          {
+            colors.map((c, i) => (
+              <button
+                type="button"
+                class="swatch"
+                data-action="color"
+                data-color={c.value}
+                style={`--swatch: ${c.token}`}
+                aria-label={`${t(lang, 'review.color')} ${i + 1}`}
+                aria-pressed={demo && i === 0 ? 'true' : 'false'}
+              />
+            ))
+          }
+        </div>
+      </div>
+
+      <div class="transport">
+        <button type="button" class="btn small" data-action="prev-frame" title={t(lang, 'review.prevFrame')} aria-label={t(lang, 'review.prevFrame')}>|◀</button>
+        <button type="button" class="btn small primary play" data-action="play" title={t(lang, 'review.play')} aria-label={t(lang, 'review.play')}>
+          <span class="when-paused">▶</span><span class="when-playing">❚❚</span>
+        </button>
+        <button type="button" class="btn small" data-action="next-frame" title={t(lang, 'review.nextFrame')} aria-label={t(lang, 'review.nextFrame')}>▶|</button>
+        <input type="range" class="seek" min="0" max={demo ? '31' : '0'} step="any" value={demo ? '13.4' : '0'} data-seek aria-label="Timeline" />
+        <span class="readout" data-readout>{demo ? '0:13.40 · 10:42:18' : ''}</span>
+        <span class="rates" role="group" aria-label={t(lang, 'review.speed')}>
+          {
+            [0.25, 0.5, 1].map((r) => (
+              <button type="button" class="btn small" data-action="rate" data-rate={r} aria-pressed={(demo ? r === 0.5 : r === 1) ? 'true' : 'false'}>
+                {r}×
+              </button>
+            ))
+          }
+        </span>
+        <button type="button" class="btn small" data-action="fullscreen" title={t(lang, 'review.fullscreen')} aria-label={t(lang, 'review.fullscreen')}>⛶</button>
+      </div>
+
+      <div class="capture">
+        <span class="whose">{t(lang, 'review.whose')}</span>
+        <span class="surfers">
+          {
+            surfers.map((s, i) => (
+              <label class="pick" style={`--accent: var(--c-${s.color})`}>
+                <input type="checkbox" class="visually-hidden" value={s.id} data-surfer checked={demo && i === 0} />
+                <Avatar id={s.id} name="" size="sm" />
+                <span>{s.name}</span>
+              </label>
+            ))
+          }
+        </span>
+        <button type="button" class="btn primary" data-action="capture">📸 {t(lang, 'review.saveCapture')}</button>
+      </div>
+      <p class="keys help">{t(lang, 'review.keys')}</p>
+    </div>
+  </div>
+
+  <div class="shots-box" data-shots-box hidden={!demo}>
+    <h2 class="section-title">{t(lang, 'review.captures')}</h2>
+    <div class="shots" data-shots>
+      {
+        demo &&
+          [1, 2, 3].map(() => (
+            <figure class="shot">
+              <span class="demo-thumb" />
+              <button type="button" class="shot-remove">✕</button>
+            </figure>
+          ))
+      }
+    </div>
+    <button type="button" class="btn" data-action="discard" hidden={!demo}>{t(lang, 'review.discard')}</button>
+  </div>
+</section>
+
+<script>
+  import { init } from '../lib/review/page';
+  document.querySelectorAll<HTMLElement>('[data-review]').forEach(init);
+</script>
+
+<style>
+  .review {
+    --list-w: 15rem;
+    /* Tall enough to fill a laptop screen with the transport and capture bar still in view. */
+    --stage-h: max(16rem, calc(100vh - 17rem));
+    margin: var(--s-4) 0 var(--s-6);
+  }
+  .bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-3);
+    margin-bottom: var(--s-3);
+  }
+  .spacer {
+    flex: 1;
+  }
+  .field {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    font: 13px var(--font-head);
+  }
+  select {
+    font: 16px var(--font-body);
+    padding: var(--s-1) var(--s-2);
+    border: var(--border);
+    border-radius: var(--radius);
+    background: var(--c-white);
+  }
+  select:disabled {
+    opacity: 0.7;
+  }
+  .btn.icon {
+    min-width: 0;
+    padding-inline: var(--s-3);
+  }
+  .btn.small {
+    padding: var(--s-1) var(--s-2);
+    min-height: 0;
+    font-size: 14px;
+  }
+  .unsent {
+    font: 13px var(--font-strong);
+    color: var(--c-muted);
+  }
+  label.btn:focus-within {
+    outline: 3px solid var(--c-sky);
+    outline-offset: 2px;
+  }
+
+  /* Record panel */
+  .record {
+    background: var(--c-paper);
+    border: var(--border);
+    border-radius: var(--radius);
+    padding: var(--s-2) var(--s-3);
+    margin-bottom: var(--s-3);
+  }
+  .record summary {
+    cursor: pointer;
+    font: 14px var(--font-head);
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .rec-dot,
+  .rec-label {
+    display: none;
+  }
+  [data-recording='true'] .rec-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--c-red);
+    animation: blink 1.2s steps(2) infinite;
+  }
+  [data-recording='true'] .rec-label {
+    display: inline;
+    color: var(--c-red);
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0.2;
+    }
+  }
+  .help {
+    font-size: 14px;
+    color: var(--c-muted);
+  }
+
+  /* Layout: clip list on the left, the viewer on the right */
+  .body {
+    display: grid;
+    grid-template-columns: var(--list-w) minmax(0, 1fr);
+    gap: var(--s-4);
+    align-items: start;
+  }
+  [data-list='closed'] .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  [data-list='closed'] .clips,
+  [data-has-clips='false'] .clips {
+    display: none;
+  }
+  [data-has-clips='false'] .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .clips {
+    max-height: calc(var(--stage-h) + 120px);
+    overflow-y: auto;
+    padding: 2px 6px 6px 2px;
+  }
+  .clips ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--s-2);
+  }
+  .clip {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: var(--s-1) var(--s-2);
+    background: var(--c-white);
+    border: var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .clip:hover,
+  .clip:focus-visible {
+    box-shadow: var(--shadow);
+    outline: none;
+  }
+  .clip.active {
+    background: var(--c-yellow);
+  }
+  .clip.broken {
+    opacity: 0.55;
+    text-decoration: line-through;
+  }
+  .clip.has-capture strong::after {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-left: var(--s-1);
+    border-radius: 50%;
+    background: var(--c-red);
+    vertical-align: middle;
+  }
+  .thumb {
+    width: 64px;
+    height: 36px;
+    flex: none;
+    object-fit: cover;
+    border-radius: 4px;
+    background: var(--c-ink);
+  }
+  .meta {
+    display: grid;
+    line-height: 1.2;
+    min-width: 0;
+  }
+  .meta small {
+    color: var(--c-muted);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Viewer */
+  .viewer {
+    min-width: 0;
+  }
+  .viewer:fullscreen {
+    --stage-h: calc(100vh - 150px);
+    background: var(--c-paper);
+    padding: var(--s-3);
+    overflow: auto;
+  }
+  .empty {
+    border: var(--border);
+    border-style: dashed;
+    border-radius: var(--radius);
+    padding: var(--s-6) var(--s-5);
+    text-align: center;
+    background: var(--c-white);
+  }
+  [data-loaded='true'] .empty,
+  [data-has-clips='true'] .empty {
+    display: none;
+  }
+  [data-loaded='false'] .stage,
+  [data-loaded='false'] .transport,
+  [data-loaded='false'] .capture,
+  [data-loaded='false'] .keys {
+    display: none;
+  }
+  .stage {
+    position: relative;
+    width: min(100%, calc(var(--stage-h) * var(--ar, 1.7778)));
+    aspect-ratio: var(--ar, 1.7778);
+    margin-inline: auto;
+    background: var(--c-ink);
+    border: var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  video,
+  canvas,
+  .demo-drawing {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  video {
+    object-fit: contain;
+  }
+  canvas {
+    touch-action: none;
+    cursor: crosshair;
+  }
+  [data-tool=''] canvas {
+    pointer-events: none;
+  }
+  .tools,
+  .colors {
+    position: absolute;
+    top: var(--s-2);
+    display: flex;
+    gap: var(--s-1);
+    padding: var(--s-1);
+    background: color-mix(in srgb, var(--c-paper) 85%, transparent);
+    border: 2px solid var(--c-ink);
+    border-radius: var(--radius);
+  }
+  .tools {
+    left: var(--s-2);
+    flex-direction: column;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    max-height: calc(100% - 2 * var(--s-2));
+  }
+  .colors {
+    right: var(--s-2);
+  }
+  .tool {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    background: var(--c-white);
+    border: 2px solid var(--c-ink);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .tool[aria-pressed='true'] {
+    background: var(--c-yellow);
+  }
+  .swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--c-ink);
+    background: var(--swatch);
+    cursor: pointer;
+  }
+  .swatch[aria-pressed='true'] {
+    outline: 3px solid var(--c-ink);
+    outline-offset: 1px;
+  }
+
+  .transport {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+    margin-top: var(--s-3);
+  }
+  .play {
+    min-width: 3rem;
+  }
+  .when-playing,
+  [data-playing='true'] .when-paused {
+    display: none;
+  }
+  [data-playing='true'] .when-playing {
+    display: inline;
+  }
+  .seek {
+    flex: 1 1 12rem;
+    accent-color: var(--c-orange);
+  }
+  .readout {
+    font: 15px var(--font-strong);
+    font-variant-numeric: tabular-nums;
+    min-width: 11ch;
+  }
+  .rates {
+    display: inline-flex;
+    gap: var(--s-1);
+  }
+  .rates [aria-pressed='true'] {
+    background: var(--c-yellow);
+  }
+
+  .capture {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2) var(--s-3);
+    margin-top: var(--s-3);
+    padding: var(--s-2) var(--s-3);
+    background: var(--c-white);
+    border: var(--border);
+    border-style: dashed;
+    border-radius: var(--radius);
+  }
+  .whose {
+    font: 14px var(--font-head);
+  }
+  .surfers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    flex: 1;
+  }
+  .pick {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    padding: 2px var(--s-2) 2px 2px;
+    border: 2px solid var(--c-ink);
+    border-radius: 999px;
+    background: var(--c-paper);
+    cursor: pointer;
+    font: 13px var(--font-strong);
+  }
+  .pick :global(.avatar) {
+    width: 28px;
+    height: 28px;
+  }
+  .pick:has(input:checked) {
+    background: var(--accent);
+  }
+  .pick:has(input:focus-visible) {
+    outline: 3px solid var(--c-sky);
+    outline-offset: 2px;
+  }
+
+  .shots-box {
+    margin-top: var(--s-5);
+  }
+  .shots {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    gap: var(--s-3);
+    margin-bottom: var(--s-3);
+  }
+  .shots :global(.shot) {
+    position: relative;
+    margin: 0;
+  }
+  .shots :global(.shot img),
+  .shots .demo-thumb {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border: var(--border);
+    border-radius: var(--radius);
+  }
+  .shots :global(.shot-remove) {
+    position: absolute;
+    top: var(--s-1);
+    right: var(--s-1);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--c-ink);
+    background: var(--c-white);
+    cursor: pointer;
+  }
+
+  /* Only for /design/ */
+  .demo-thumb,
+  .demo-frame {
+    background: linear-gradient(180deg, var(--c-sky) 0 55%, #e9d8a6 56% 100%);
+  }
+  .demo-thumb {
+    display: block;
+    width: 64px;
+    height: 36px;
+    border-radius: 4px;
+  }
+
+  @media (max-width: 760px) {
+    .body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .tool {
+      width: 28px;
+      height: 28px;
+      font-size: 15px;
+    }
+    .whose {
+      width: 100%;
+    }
+    .clips {
+      max-height: 30vh;
+    }
+  }
+</style>

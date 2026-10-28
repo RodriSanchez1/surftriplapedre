@@ -112,7 +112,7 @@ function processedFiles(date) {
   const path = `sessions/${date}/processed.json`;
   if (!existsSync(path)) return null;
   const p = JSON.parse(readFileSync(path, 'utf8'));
-  return [...p.audios, ...(p.meta ?? [])];
+  return [...p.audios, ...(p.meta ?? []), ...(p.review ?? [])];
 }
 
 // --- Steps -------------------------------------------------------------------------------------
@@ -135,6 +135,17 @@ function transcribe(date, audios) {
   say('Transcribing (may take several minutes)…');
   run('uv', ['run', 'scripts/transcribe.py', ...names.map((n) => `sessions/${date}/${n}`)]);
   say(`Raw transcript ready: sessions/${date}/raw-transcript.md`);
+}
+
+/** Lines up the review logs with the audio. A failure here must not stop the insights. */
+function reviewTimeline(date) {
+  if (!readdirSync(`sessions/${date}`).some((f) => f.endsWith('.review.json'))) return;
+  try {
+    run('node', ['scripts/review-timeline.mjs', date]);
+    say(`Video timeline ready: sessions/${date}/review-timeline.md`);
+  } catch (e) {
+    say(`The video timeline failed, the insights go on without it: ${e.message}`);
+  }
 }
 
 function generateInsights(date) {
@@ -162,7 +173,7 @@ function generateInsights(date) {
       '--permission-mode', 'acceptEdits',
       '--allowedTools',
       'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Skill',
-      'Bash(npm run *)', 'Bash(npm test*)', 'Bash(uv run scripts/transcribe.py *)',
+      'Bash(npm run *)', 'Bash(npm run review-timeline*)', 'Bash(npm test*)', 'Bash(uv run scripts/transcribe.py *)',
       'Bash(git status*)', 'Bash(git diff*)', 'Bash(git log*)', 'Bash(git add *)', 'Bash(git commit *)',
       'Bash(ls *)', 'Bash(wc *)',
     ], { capture: true });
@@ -176,7 +187,7 @@ function generateInsights(date) {
 // --- Main --------------------------------------------------------------------------------------
 
 const files = op.local ? localFiles() : filesInDrive();
-const { byDate, meta, ignored } = groupByDate(files);
+const { byDate, meta, review, ignored } = groupByDate(files);
 if (ignored.length && !op.local) console.log(`Ignored (different name): ${ignored.join(', ')}`);
 
 const now = new Date();
@@ -185,15 +196,20 @@ const rows = [...byDate]
   .filter(([date]) => !op.date || date === op.date)
   .map(([date, audios]) => {
     const metas = meta.get(date) ?? [];
-    return { date, audios, metas, status: dateStatus([...audios, ...metas], processedFiles(date), now, wait) };
+    const reviews = review.get(date) ?? [];
+    return { date, audios, metas, reviews, status: dateStatus([...audios, ...metas, ...reviews], processedFiles(date), now, wait) };
   });
 
 if (!rows.length) {
   console.log(op.date ? `There are no audios for ${op.date}.` : 'There are no audios.');
   process.exit(0);
 }
-for (const { date, audios, metas, status } of rows) {
-  const extra = metas.length ? ` + ${metas.map((m) => m.name).join(', ')}` : '';
+for (const { date, audios, metas, reviews, status } of rows) {
+  const logs = reviews.filter((f) => f.name.endsWith('.review.json')).length;
+  const captures = reviews.length - logs;
+  const extra =
+    (metas.length ? ` + ${metas.map((m) => m.name).join(', ')}` : '') +
+    (reviews.length ? ` + ${logs} review log${logs === 1 ? '' : 's'}, ${captures} capture${captures === 1 ? '' : 's'}` : '');
   console.log(`${date}  ${status.padEnd(10)} ${audios.map((a) => a.name).join(', ')}${extra}`);
 }
 if (op.list) process.exit(0);
@@ -211,13 +227,14 @@ if (!toProcess.length) process.exit(0);
 
 takeLock();
 let failures = 0;
-for (const { date, audios, metas } of toProcess) {
+for (const { date, audios, metas, reviews } of toProcess) {
   mkdirSync(`sessions/${date}`, { recursive: true });
   log = `sessions/${date}/auto.log`;
-  say(`=== ${date}: ${audios.length} audio(s)${metas.length ? `, ${metas.length} meta` : ''} ===`);
+  say(`=== ${date}: ${audios.length} audio(s)${metas.length ? `, ${metas.length} meta` : ''}${reviews.length ? `, ${reviews.length} review file(s)` : ''} ===`);
   try {
-    if (!op.local) download(date, [...audios, ...metas]);
+    if (!op.local) download(date, [...audios, ...metas, ...reviews]);
     transcribe(date, audios);
+    reviewTimeline(date);
     if (op['no-claude']) {
       say('No Claude: the raw transcript is left as is.');
       continue;
@@ -225,7 +242,7 @@ for (const { date, audios, metas } of toProcess) {
     generateInsights(date);
     writeFileSync(
       `sessions/${date}/processed.json`,
-      JSON.stringify({ audios: audios.map((a) => a.name), meta: metas.map((m) => m.name), date: new Date().toISOString() }, null, 1),
+      JSON.stringify({ audios: audios.map((a) => a.name), meta: metas.map((m) => m.name), review: reviews.map((f) => f.name), date: new Date().toISOString() }, null, 1),
     );
     say(`Done. Review feat/session-${date} and confirm the push.`);
   } catch (e) {
