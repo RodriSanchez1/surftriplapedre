@@ -14,9 +14,11 @@ interface Props {
   description?: string;
   /** false on pages that only exist in one language, like /design/. */
   langSwitch?: boolean;
+  /** App shell: fills the screen (100dvh), no footer and no page scroll. For tools like /review/. */
+  app?: boolean;
 }
 
-const { title, lang, team, description, langSwitch = true } = Astro.props;
+const { title, lang, team, description, langSwitch = true, app = false } = Astro.props;
 const base = import.meta.env.BASE_URL;
 ---
 
@@ -24,18 +26,18 @@ const base = import.meta.env.BASE_URL;
 <html lang={lang}>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content={app ? 'width=device-width, initial-scale=1, viewport-fit=cover' : 'width=device-width, initial-scale=1'} />
     <meta name="robots" content="noindex" />
     <title>{title}</title>
     {description && <meta name="description" content={description} />}
     <link rel="icon" type="image/svg+xml" href={`${base.replace(/\/$/, '')}/favicon.svg`} />
   </head>
-  <body>
+  <body data-app={app ? '' : undefined}>
     <SiteHeader lang={lang} team={team} langSwitch={langSwitch} />
     <main>
       <slot />
     </main>
-    <footer class="wrap">⚡ {team}</footer>
+    {!app && <footer class="wrap">⚡ {team}</footer>}
   </body>
 </html>
 
@@ -44,5 +46,40 @@ const base = import.meta.env.BASE_URL;
     font: 13px var(--font-head);
     text-align: center;
     padding: var(--s-6) var(--s-4);
+  }
+</style>
+
+<style is:global>
+  /* App shell: the header and one cell that takes the rest of the screen. Nothing scrolls the page. */
+  body[data-app] {
+    height: 100vh;
+    height: 100dvh;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  body[data-app] > main {
+    /* Always the second row, also when the header is hidden. */
+    grid-row: 2;
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+    min-height: 0;
+  }
+  /* The app starts at the screen edge, so the header does too (not centred at the site's reading width). */
+  body[data-app] > header .wrap {
+    max-width: none;
+    margin: 0;
+  }
+  /* "Immersive" hides the site header; a phone held sideways has no height to spare for it either. */
+  body[data-app][data-immersive] > header {
+    display: none;
+  }
+  @media (orientation: landscape) and (max-height: 500px) {
+    body[data-app] > header {
+      display: none;
+    }
   }
 </style>

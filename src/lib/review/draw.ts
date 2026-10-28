@@ -70,10 +70,52 @@ export function paint(ctx: CanvasRenderingContext2D, shapes: Shape[], w: number,
   ctx.shadowBlur = 0;
 }
 
+/** How many changes to the drawing can be undone. */
+const HISTORY_LIMIT = 30;
+
+/**
+ * The shapes of a drawing and the way back: every change (adding a shape or clearing them all) keeps the
+ * previous state, so undo also brings back a drawing that was cleared by mistake.
+ */
+export class ShapeHistory {
+  #shapes: Shape[] = [];
+  #past: Shape[][] = [];
+
+  get shapes(): Shape[] {
+    return this.#shapes;
+  }
+
+  #remember() {
+    this.#past.push(this.#shapes);
+    if (this.#past.length > HISTORY_LIMIT) this.#past.shift();
+  }
+
+  add(shape: Shape): void {
+    this.#remember();
+    this.#shapes = [...this.#shapes, shape];
+  }
+
+  /** Removes every shape. Returns false (and remembers nothing) if there was nothing to remove. */
+  clear(): boolean {
+    if (!this.#shapes.length) return false;
+    this.#remember();
+    this.#shapes = [];
+    return true;
+  }
+
+  /** Goes back one change. Returns false if there is nothing to undo. */
+  undo(): boolean {
+    const before = this.#past.pop();
+    if (!before) return false;
+    this.#shapes = before;
+    return true;
+  }
+}
+
 /** The drawing layer over the video: a canvas the size of the picture that takes pointer input when a tool is on. */
 export class Sketch {
   readonly #canvas: HTMLCanvasElement;
-  #shapes: Shape[] = [];
+  #history = new ShapeHistory();
   #current: Shape | null = null;
   tool: Tool | null = null;
   color = '#ffd400';
@@ -90,7 +132,7 @@ export class Sketch {
   }
 
   get shapes(): Shape[] {
-    return this.#shapes;
+    return this.#history.shapes;
   }
 
   #point(e: PointerEvent): Point {
@@ -122,20 +164,21 @@ export class Sketch {
     if (!s) return;
     const [a, b] = [s.points[0], s.points[s.points.length - 1]];
     // A tap without dragging draws nothing.
-    if (Math.hypot(a[0] - b[0], a[1] - b[1]) > 0.005 || s.points.length > 3) this.#shapes.push(s);
+    if (Math.hypot(a[0] - b[0], a[1] - b[1]) > 0.005 || s.points.length > 3) this.#history.add(s);
     this.redraw();
-    this.onChange(this.#shapes.length);
+    this.onChange(this.shapes.length);
   }
 
+  /** Takes back the last change; after a clear, brings the drawing back. */
   undo() {
-    this.#shapes.pop();
+    if (!this.#history.undo()) return;
     this.redraw();
-    this.onChange(this.#shapes.length);
+    this.onChange(this.shapes.length);
   }
 
+  /** Clears the drawing. Undo brings it back. */
   clear() {
-    if (!this.#shapes.length) return;
-    this.#shapes = [];
+    if (!this.#history.clear()) return;
     this.redraw();
     this.onChange(0);
   }
@@ -151,7 +194,7 @@ export class Sketch {
     }
     const ctx = c.getContext('2d')!;
     ctx.clearRect(0, 0, w, h);
-    paint(ctx, this.#current ? [...this.#shapes, this.#current] : this.#shapes, w, h);
+    paint(ctx, this.#current ? [...this.shapes, this.#current] : this.shapes, w, h);
   }
 
   /** The current frame of the video with the drawing on top, as a JPEG. */
@@ -162,7 +205,7 @@ export class Sketch {
     canvas.height = height;
     const ctx = canvas.getContext('2d')!;
     ctx.drawImage(video, 0, 0, width, height);
-    paint(ctx, this.#shapes, width, height);
+    paint(ctx, this.shapes, width, height);
     return new Promise((resolve, reject) =>
       canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not encode the capture'))), 'image/jpeg', 0.85),
     );

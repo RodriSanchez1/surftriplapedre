@@ -6,7 +6,7 @@ import { clampToTrip, dayMonth, todayIn } from '../calendar';
 import { defaultTime, OTHER_SPOT, toMeta, type AudioTimes, type Footage, type TimeOfDay } from '../footage';
 import { format } from '../i18n';
 import { extensionOfFile, extensionFor, groupOf, timeIn, fileName, metaName } from './filenames';
-import { googleAccount, accountEmail, loadGoogle, LoginError } from './google';
+import { googleAccount, accountEmail, loadGoogle, LoginError, SIGNED_IN } from './google';
 import { startRecording, recordingFormat, TIMESLICE, type Recorder } from './recorder';
 import { openStore, type Store, type Recording } from './store';
 import { send, PermissionError, verifyAccess, type Dependencies } from './upload';
@@ -513,6 +513,10 @@ export function init(root: HTMLElement): void {
     $('[data-no-recorder]').hidden = false;
   }
   loadGoogle().catch(() => {});
+  // Another part of the page (the review's login) already signed in with this account.
+  addEventListener(SIGNED_IN, () => {
+    if (root.dataset.state === 'login') void login();
+  });
   openStore()
     .then((s) => {
       store = s;
