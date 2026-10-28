@@ -2,10 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   MAX_RETRIES,
   CHUNK_SIZE,
+  FILES_URL,
+  FOLDER_MIME,
   UPLOAD_URL,
   bytesReceived,
   createSession,
+  folderIn,
   send,
+  sessionFolders,
   PermissionError,
   SessionExpiredError,
   UploadError,
@@ -182,5 +186,58 @@ describe('send', () => {
     await send(deps(f).d, { file, blob: new Blob([new Uint8Array(300)]), url: 'https://session/old', onSessionCreated });
     expect(onSessionCreated).toHaveBeenCalledWith('https://session/B');
     expect(header(f.calls[3].init, 'Content-Range')).toBe('bytes 0-299/300');
+  });
+});
+
+const json = (body: unknown): Step => () => new Response(JSON.stringify(body), { status: 200 });
+
+describe('folderIn', () => {
+  it('uses the folder that is already there', async () => {
+    const f = fakeFetch([json({ files: [{ id: 'f1' }, { id: 'f2' }] })]);
+    await expect(folderIn(deps(f).d, 'root', '2026-10-28')).resolves.toBe('f1');
+    const { url, init } = f.calls[0];
+    expect(url.startsWith(`${FILES_URL}?`)).toBe(true);
+    const q = new URL(url).searchParams.get('q');
+    expect(q).toBe(`name = '2026-10-28' and 'root' in parents and mimeType = '${FOLDER_MIME}' and trashed = false`);
+    expect(header(init, 'Authorization')).toBe('Bearer old');
+  });
+  it('creates it inside the parent when there is none', async () => {
+    const f = fakeFetch([json({ files: [] }), json({ id: 'new1' })]);
+    await expect(folderIn(deps(f).d, 'root', '2026-10-28')).resolves.toBe('new1');
+    const { init } = f.calls[1];
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ name: '2026-10-28', mimeType: FOLDER_MIME, parents: ['root'] });
+  });
+  it('escapes quotes in the query', async () => {
+    const f = fakeFetch([json({ files: [{ id: 'f1' }] })]);
+    await folderIn(deps(f).d, 'root', "it's");
+    expect(new URL(f.calls[0].url).searchParams.get('q')).toContain("name = 'it\\'s'");
+  });
+  it('on 401 it asks for a new token and retries once', async () => {
+    const f = fakeFetch([respond(401), json({ files: [{ id: 'f1' }] })]);
+    await expect(folderIn(deps(f).d, 'root', '2026-10-28')).resolves.toBe('f1');
+    expect(header(f.calls[1].init, 'Authorization')).toBe('Bearer new');
+  });
+  it('403 or 404 is a permission error', async () => {
+    await expect(folderIn(deps(fakeFetch([respond(403)])).d, 'root', 'x')).rejects.toBeInstanceOf(PermissionError);
+    await expect(folderIn(deps(fakeFetch([respond(404)])).d, 'root', 'x')).rejects.toBeInstanceOf(PermissionError);
+  });
+});
+
+describe('sessionFolders', () => {
+  it('looks each date up once, even with two uploads at the same time', async () => {
+    const f = fakeFetch([json({ files: [] }), json({ id: 'a' }), json({ files: [{ id: 'b' }] })]);
+    const folderOf = sessionFolders(deps(f).d, 'root');
+    const [one, two] = await Promise.all([folderOf('2026-10-28'), folderOf('2026-10-28')]);
+    expect([one, two]).toEqual(['a', 'a']);
+    await expect(folderOf('2026-10-29')).resolves.toBe('b');
+    await expect(folderOf('2026-10-28')).resolves.toBe('a');
+    expect(f.calls).toHaveLength(3);
+  });
+  it('after a failure it looks again', async () => {
+    const f = fakeFetch([respond(500), json({ files: [{ id: 'a' }] })]);
+    const folderOf = sessionFolders(deps(f).d, 'root');
+    await expect(folderOf('2026-10-28')).rejects.toBeInstanceOf(UploadError);
+    await expect(folderOf('2026-10-28')).resolves.toBe('a');
   });
 });

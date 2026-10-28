@@ -6,7 +6,7 @@
 import { clampToTrip, dayMonth, todayIn } from '../calendar';
 import { format } from '../i18n';
 import { googleAccount, loadGoogle, LoginError } from '../audio/google';
-import { send, PermissionError, type Dependencies } from '../audio/upload';
+import { send, sessionFolders, PermissionError, type Dependencies } from '../audio/upload';
 import { clock, DEFAULT_FPS, length, position, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
 import { canPickFolder, canRead, pickFolder, videosIn } from './folder';
@@ -85,6 +85,8 @@ export function init(root: HTMLElement): void {
     waitForConnection: () =>
       navigator.onLine ? Promise.resolve() : new Promise((r) => addEventListener('online', () => r(), { once: true })),
   };
+  /** The log and the captures go to the session's folder, next to its audio. */
+  const folderOf = deps && folderId ? sessionFolders(deps, folderId) : null;
 
   const dateSelect = $<HTMLSelectElement>('[data-date]');
   const list = $('[data-clip-list]');
@@ -392,7 +394,7 @@ export function init(root: HTMLElement): void {
   async function finish() {
     const d = draft;
     if (!d || !d.log.events.length) return say(texts.nothing, 'warn');
-    if (!deps || !folderId) return;
+    if (!deps || !folderOf) return;
     // Ask for the token now, while the tap still counts as a gesture (Google may open a popup).
     account!.token().catch(() => {});
     uploading = true;
@@ -402,13 +404,14 @@ export function init(root: HTMLElement): void {
     const total = files.length + 1;
     try {
       await writes;
+      const folder = await folderOf(d.log.talkDate);
       for (const [i, file] of files.entries()) {
         if (d.uploaded.includes(file)) continue;
         say(format(texts.uploading, { i: i + 1, n: total }), 'ok', true);
         const blob = await blobOf(file);
         if (!blob) continue; // lost with the device storage: the log still says it existed
         await send(deps, {
-          file: { name: file, mime: 'image/jpeg', size: blob.size, folder: folderId },
+          file: { name: file, mime: 'image/jpeg', size: blob.size, folder },
           blob,
           url: d.sessions[file],
           onSessionCreated: (url) => {
@@ -423,7 +426,7 @@ export function init(root: HTMLElement): void {
       const name = reviewName(d.log.group);
       const blob = new Blob([toJson(d.log)], { type: 'application/json' });
       await send(deps, {
-        file: { name, mime: 'application/json', size: blob.size, folder: folderId },
+        file: { name, mime: 'application/json', size: blob.size, folder },
         blob,
         url: d.sessions[name],
         onSessionCreated: (url) => {

@@ -89,11 +89,17 @@ function takeLock() {
 
 // --- Where the audios are ----------------------------------------------------------------------
 
+// Each session has its own folder ('2026-10-28/'); older uploads sit loose in the trip's folder.
+// Two accounts may each have created a folder with the same name (the site's drive.file scope does
+// not see the other's), so it lists by IDs (--fast-list) and downloads by ID, never by path.
 function filesInDrive() {
   if (!folder) exit('audio.driveFolder is missing in src/data/trip.yaml.');
   if (!has('rclone')) exit('rclone is not installed. See "Connect it" in AGENTS.md, or use --local.');
-  const json = run('rclone', ['lsjson', `${REMOTE}:`, '--drive-root-folder-id', folder, '--files-only'], { capture: true });
-  return JSON.parse(json).map((f) => ({ name: f.Name, modified: f.ModTime }));
+  const json = run(
+    'rclone', ['lsjson', `${REMOTE}:`, '--drive-root-folder-id', folder, '--recursive', '--fast-list', '--files-only'],
+    { capture: true },
+  );
+  return JSON.parse(json).map((f) => ({ name: f.Name, modified: f.ModTime, id: f.ID }));
 }
 
 function localFiles() {
@@ -121,8 +127,7 @@ function download(date, files) {
   const missing = files.filter((a) => !existsSync(`sessions/${date}/${a.name}`));
   if (!missing.length) return say('The files were already downloaded.');
   say(`Downloading ${missing.map((a) => a.name).join(', ')}`);
-  const include = missing.flatMap((a) => ['--include', a.name]);
-  run('rclone', ['copy', `${REMOTE}:`, `sessions/${date}/`, '--drive-root-folder-id', folder, ...include]);
+  run('rclone', ['backend', 'copyid', `${REMOTE}:`, ...missing.flatMap((a) => [a.id, `sessions/${date}/`])]);
 }
 
 function transcribe(date, audios) {
