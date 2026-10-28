@@ -34,10 +34,12 @@ src/lib/footage.ts            footage the coach reviewed (day, time, spot, who w
 src/lib/content.ts            loads the content and stops the build on broken references
 src/lib/audio/                upload of the coach's audio to Drive (filenames, upload, store, recorder, login, page)
                               and which Drive audios still need processing (pending)
+src/lib/review/               video review: log format (log.ts), clip header (mp4.ts), timeline of the talk (timeline.ts)
 src/components/               design system
 src/views/                    body of each page (they receive lang)
 src/pages/  src/pages/pt/     one-line wrappers per language
-scripts/                      avatars, import-session, shots, transcribe.py, session-auto
+public/captures/<date>/       frames from the video review, with the coach's drawing (<id>.jpg, committed with the insights)
+scripts/                      avatars, import-session, shots, transcribe.py, session-auto, review-timeline
 .claude/skills/process-session/   skill: from the transcript to the insights loaded in the site
 sessions/<date>/              inputs for each session (insights-es.md, insights-pt.md; audio, transcripts and
                               <date>_<HHmm>.meta.json footage files are local)
@@ -89,6 +91,7 @@ If a subagent gets stuck or the task turns out to have open decisions, it goes b
 `scripts/session-auto.mjs` does the whole path: it lists the Drive folder, downloads the audio for each date, transcribes it locally and runs `claude -p "/process-session <date>"`. It leaves a commit on `feat/session-<date>` (created from `main`) and goes back to the branch it was on. It never pushes.
 
 - It downloads the footage meta files with the audio. A new meta file counts as a change, like a new audio.
+- It also downloads the video review files of the date (`<date>_<HHmmss>.review.json` and `_cap-<n>.jpg`). After transcribing, if there are logs, `scripts/review-timeline.mjs` writes `sessions/<date>/review-timeline.md` (talk minute → wave on screen) for the skill; if that fails the insights go on without it. Logs, captures and the timeline stay local (`.gitignore`); only the captures cited in an insight are copied to `public/captures/<date>/`.
 - A date is processed when its last audio is more than 15 minutes old (`--wait`), in case the coach uploads another part.
 - If new audio arrives for a date that was already processed, it warns and overwrites nothing unless you use `--date <date> --force`.
 - `--local` uses the audio already in `sessions/<date>/`, without Drive. `--no-claude` only downloads and transcribes. `--list` shows the status.
@@ -107,6 +110,15 @@ If a subagent gets stuck or the task turns out to have open decisions, it goes b
    `*/10 * * * * cd "<repo path>" && PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/<v24>/bin:$PATH" node scripts/session-auto.mjs >> sessions/cron.log 2>&1`
 
 Variables: `SURFTRIP_RCLONE_REMOTE` (remote, default `drive`), `SURFTRIP_MODEL` (model for the skill, default `sonnet`) and `SURFTRIP_BASE_BRANCH` (default `main`).
+
+### Review videos with the coach  ·  human
+
+On `/review/` the coach (or the organizer) picks the folder with the day's clips, plays them and pauses on a wave to draw on it and tag the surfer; each frame is a capture. Next to the talk audio, the page uploads to the Drive folder:
+
+- `<date>_<HHmmss>.review.json`: the log (what was on screen, by the device clock, so it lines up with the audio).
+- `<date>_<HHmmss>_cap-<n>.jpg`: each capture with the drawing.
+
+The videos themselves are never uploaded. `npm run session-auto` (or `/process-session <date>`) turns the logs into `review-timeline.md`, and the insights can cite the wave ("En tu ola de las 10:42...") and carry a `**Capturas**` block that `import-session` publishes. By hand: `npm run review-timeline -- <date>` after transcribing.
 
 ### Load or change a calendar day  ·  Haiku
 
@@ -152,6 +164,7 @@ npm run build           generates dist/ (fails if the content has broken referen
 npm run avatars         generates missing avatars
 npm run import-session -- <date> "<ES title>" "<PT title>"
 npm run transcribe -- <audio> [<audio> ...] [--until <sec>]   local ES/PT transcription
+npm run review-timeline -- <date>   timeline of the video review for a transcribed talk
 npm run session-auto -- [--list] [--date <date>] [--local] [--no-claude] [--force]
 npm run shots -- <base-url> <folder> [route ...]   screenshots at 390 px and 1280 px
 ```
