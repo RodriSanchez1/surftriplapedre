@@ -15,7 +15,7 @@ const { trip, surfers } = await loadSite();
 ---
 
 <BaseLayout title={`${t(lang, 'audio.title')} · ${trip.name}`} lang={lang} team={trip.team}>
-  <BoltBand kicker={trip.team} title={t(lang, 'audio.title')} subtitle={t(lang, 'audio.intro')} />
+  <BoltBand title={t(lang, 'audio.title')} subtitle={t(lang, 'audio.intro')} />
   <div class="wrap">
     <AudioUploader
       lang={lang}

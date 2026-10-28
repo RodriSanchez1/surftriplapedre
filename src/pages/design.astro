@@ -35,7 +35,7 @@ const demoSurfers = [
 ---
 
 <BaseLayout title="Design system" lang="es" team="Design system" langSwitch={false}>
-  <BoltBand kicker="Board Graphic" title="Design system" subtitle="Site tokens and components" />
+  <BoltBand title="Design system" subtitle="Site tokens and components" />
 
   <div class="wrap">
     <h2 class="section-title">Colors</h2>
@@ -114,6 +114,20 @@ const demoSurfers = [
       <p>Shown in Spanish because the .pt.md is missing.</p>
     </InsightBlock>
     <p><TranslationBadge /></p>
+
+    <h2 class="section-title">Pressing</h2>
+    <div class="prose">
+      <p>
+        <code>.btn</code> and <code>.pressable</code> (session days, linked cards) share one pattern. On hover the surface lifts
+        by half its shadow (<code>--lift</code>) and the shadow grows by the same, so its foot does not move. Pressing pushes it in.
+        Text links only change the underline color.
+      </p>
+      <div class="row">
+        <button type="button" class="btn primary">Rest</button>
+        <button type="button" class="btn primary" data-demo="hover">Hover</button>
+        <button type="button" class="btn primary" data-demo="press">Press</button>
+      </div>
+    </div>
 
     <h2 class="section-title">FootageList</h2>
     <FootageList

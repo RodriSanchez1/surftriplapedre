@@ -47,6 +47,10 @@ const base = import.meta.env.BASE_URL;
     text-decoration: none;
     color: var(--c-yellow);
   }
+  .brand:hover {
+    text-decoration: underline;
+    text-decoration-color: currentColor;
+  }
   .lang {
     display: flex;
     border: 2px solid var(--c-yellow);
@@ -58,6 +62,9 @@ const base = import.meta.env.BASE_URL;
     padding: 4px 12px;
     text-decoration: none;
     color: var(--c-yellow);
+  }
+  .lang a:not([aria-current='page']):hover {
+    background: color-mix(in srgb, var(--c-yellow) 22%, transparent);
   }
   .lang a[aria-current='page'] {
     background: var(--c-yellow);

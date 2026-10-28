@@ -34,7 +34,7 @@ const items = await Promise.all(
 ---
 
 <BaseLayout title={`${t(lang, 'session.title')} ${dayMonth(date)} · ${trip.name}`} lang={lang} team={trip.team}>
-  <BoltBand kicker={trip.name} title={`${t(lang, 'session.title')} ${dayMonth(date)}`} subtitle={session.entry.data.title} />
+  <BoltBand title={`${t(lang, 'session.title')} ${dayMonth(date)}`} subtitle={session.entry.data.title} />
 
   <div class="wrap">
     {
