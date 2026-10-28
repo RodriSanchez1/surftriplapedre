@@ -9,7 +9,7 @@ import { extensionOfFile, extensionFor, groupOf, timeIn, fileName, metaName } fr
 import { googleAccount, accountEmail, loadGoogle, LoginError } from './google';
 import { startRecording, recordingFormat, TIMESLICE, type Recorder } from './recorder';
 import { openStore, type Store, type Recording } from './store';
-import { send, sessionFolders, PermissionError, verifyAccess, type Dependencies } from './upload';
+import { send, PermissionError, verifyAccess, type Dependencies } from './upload';
 
 export type State = 'login' | 'ready' | 'recording' | 'cut' | 'uploading' | 'done' | 'error';
 
@@ -45,8 +45,6 @@ export function init(root: HTMLElement): void {
     waitForConnection: () =>
       navigator.onLine ? Promise.resolve() : new Promise((r) => addEventListener('online', () => r(), { once: true })),
   };
-  /** Each session's audio and meta go to its own folder inside the trip's. */
-  const folderOf = sessionFolders(deps, folder);
 
   const dateSelect = $<HTMLSelectElement>('[data-date]');
   const fileInput = $<HTMLInputElement>('[data-file]');
@@ -264,7 +262,7 @@ export function init(root: HTMLElement): void {
   const nameOf = (r: Recording) => fileName(r.group, r.part, extensionFor(r.mime));
 
   /** Uploads the meta file (the footage form) that goes next to the audio. */
-  const sendMeta = async (
+  const sendMeta = (
     group: string,
     talkDate: string,
     footage: Footage[],
@@ -275,8 +273,11 @@ export function init(root: HTMLElement): void {
     const blob = new Blob([toMeta(talkDate, footage, audio)], { type: 'application/json' });
     const name = metaName(group);
     showUpload(name);
-    const file = { name, mime: 'application/json', size: blob.size, folder: await folderOf(talkDate) };
-    return send(deps, { file, blob, url, onSessionCreated }, progress);
+    return send(
+      deps,
+      { file: { name, mime: 'application/json', size: blob.size, folder }, blob, url, onSessionCreated },
+      progress,
+    );
   };
 
   async function uploadGroup(group: string) {
@@ -305,7 +306,7 @@ export function init(root: HTMLElement): void {
         await send(
           deps,
           {
-            file: { name, mime: r.mime, size: blob.size, folder: await folderOf(r.date) },
+            file: { name, mime: r.mime, size: blob.size, folder },
             blob,
             url: r.sessionUrl,
             onSessionCreated: (url) => {
@@ -348,7 +349,7 @@ export function init(root: HTMLElement): void {
       await send(
         deps,
         {
-          file: { name, mime: p.file.type || 'application/octet-stream', size: p.file.size, folder: await folderOf(p.date) },
+          file: { name, mime: p.file.type || 'application/octet-stream', size: p.file.size, folder },
           blob: p.file,
           url: p.url,
           onSessionCreated: (url) => {

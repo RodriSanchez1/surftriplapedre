@@ -78,7 +78,7 @@ If a subagent gets stuck or the task turns out to have open decisions, it goes b
 
 `npm run session-auto` does all of this on its own (see "Automatic summary"). By hand, use the `process-session` skill (`/process-session <date>`), which follows these steps:
 
-1. Download the audio from the session's folder (`<date>/`) inside the trip's Drive folder (the coach uploads it from `/upload/`) to `sessions/<date>/` and transcribe it with `npm run transcribe -- sessions/<date>/<audio> [<part2> ...]`. This leaves `raw-transcript.md`; the skill organizes it into `transcript.md`. Audio and transcripts are local and are not committed. Download the `<date>_<HHmm>.meta.json` files too, if there are any: they say which surf sessions were reviewed and who was in the water.
+1. Download the audio from the trip's Drive folder (the coach uploads it from `/upload/`) to `sessions/<date>/` and transcribe it with `npm run transcribe -- sessions/<date>/<audio> [<part2> ...]`. This leaves `raw-transcript.md`; the skill organizes it into `transcript.md`. Audio and transcripts are local and are not committed. Download the `<date>_<HHmm>.meta.json` files too, if there are any: they say which surf sessions were reviewed and who was in the water.
 2. Write `sessions/<date>/insights-es.md` in the same format as `sessions/2026-10-26/insights-es.md`: `## Resumen`, one `## <Name>` per surfer with `**Lo que salió bien**` and `**En qué trabajar**`, and `## Plan para la próxima sesión` with the table (Surfista | Foco principal | Foco secundario | Frase para el agua) and the logistics list. Cite the minute of each insight in parentheses. These headings are content format: they stay in Spanish.
 3. Translate to `sessions/<date>/insights-pt.md`, with the same structure and `## Resumo`.
 4. `npm run import-session -- <date> "<ES title>" "<PT title>"`. It merges the meta files into `footage` in the session frontmatter, which is how the footage gets committed (the meta files themselves are ignored).
@@ -88,7 +88,7 @@ If a subagent gets stuck or the task turns out to have open decisions, it goes b
 
 ### Automatic summary  ·  human to connect it
 
-`scripts/session-auto.mjs` does the whole path: it lists the Drive folder and its session subfolders, downloads the audio for each date, transcribes it locally and runs `claude -p "/process-session <date>"`. It leaves a commit on `feat/session-<date>` (created from `main`) and goes back to the branch it was on. It never pushes.
+`scripts/session-auto.mjs` does the whole path: it lists the Drive folder and its review subfolders, downloads the audio for each date, transcribes it locally and runs `claude -p "/process-session <date>"`. It leaves a commit on `feat/session-<date>` (created from `main`) and goes back to the branch it was on. It never pushes.
 
 - It downloads the footage meta files with the audio. A new meta file counts as a change, like a new audio.
 - It also downloads the video review files of the date (`<date>_<HHmmss>.review.json` and `_cap-<n>.jpg`). After transcribing, if there are logs, `scripts/review-timeline.mjs` writes `sessions/<date>/review-timeline.md` (talk minute → wave on screen) for the skill; if that fails the insights go on without it. Logs, captures and the timeline stay local (`.gitignore`); only the captures cited in an insight are copied to `public/captures/<date>/`.
@@ -113,7 +113,7 @@ Variables: `SURFTRIP_RCLONE_REMOTE` (remote, default `drive`), `SURFTRIP_MODEL` 
 
 ### Review videos with the coach  ·  human
 
-On `/review/` the coach (or the organizer) picks the folder with the day's clips, plays them and pauses on a wave to draw on it and tag the surfer; each frame is a capture. Next to the talk audio, the page uploads to the session's folder in Drive:
+On `/review/` the coach (or the organizer) picks the folder with the day's clips, plays them and pauses on a wave to draw on it and tag the surfer; each frame is a capture. The page uploads into a new subfolder of the trip's Drive folder, one per review and named like its files (`<date>_<HHmmss>/`):
 
 - `<date>_<HHmmss>.review.json`: the log (what was on screen, by the device clock, so it lines up with the audio).
 - `<date>_<HHmmss>_cap-<n>.jpg`: each capture with the drawing.
@@ -142,8 +142,6 @@ In `src/data/days.yaml`: `id` is the date in quotes, and `activity` has `es` and
 ### Set up audio upload for a trip  ·  human
 
 The `/upload/` page uploads audio straight from the browser to a Drive folder (Google Identity Services + Drive API, `drive.file` scope). There is no server and no secrets: the client ID and the folder ID are public.
-
-Each session gets its own subfolder, named by date (`2026-10-28/`): the site creates it on the first upload and puts the audio, the meta file, the review log and the captures of that date inside. With `drive.file` an account only sees the folders it created, so if the coach and the organizer both upload for the same date there are two folders with that name; `session-auto` reads them as one.
 
 1. Create a folder in Drive and share it as **Editor** with the coach's Google account.
 2. In Google Cloud: a project with the **Google Drive API** enabled.

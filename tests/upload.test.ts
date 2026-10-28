@@ -9,7 +9,6 @@ import {
   createSession,
   folderIn,
   send,
-  sessionFolders,
   PermissionError,
   SessionExpiredError,
   UploadError,
@@ -221,23 +220,5 @@ describe('folderIn', () => {
   it('403 or 404 is a permission error', async () => {
     await expect(folderIn(deps(fakeFetch([respond(403)])).d, 'root', 'x')).rejects.toBeInstanceOf(PermissionError);
     await expect(folderIn(deps(fakeFetch([respond(404)])).d, 'root', 'x')).rejects.toBeInstanceOf(PermissionError);
-  });
-});
-
-describe('sessionFolders', () => {
-  it('looks each date up once, even with two uploads at the same time', async () => {
-    const f = fakeFetch([json({ files: [] }), json({ id: 'a' }), json({ files: [{ id: 'b' }] })]);
-    const folderOf = sessionFolders(deps(f).d, 'root');
-    const [one, two] = await Promise.all([folderOf('2026-10-28'), folderOf('2026-10-28')]);
-    expect([one, two]).toEqual(['a', 'a']);
-    await expect(folderOf('2026-10-29')).resolves.toBe('b');
-    await expect(folderOf('2026-10-28')).resolves.toBe('a');
-    expect(f.calls).toHaveLength(3);
-  });
-  it('after a failure it looks again', async () => {
-    const f = fakeFetch([respond(500), json({ files: [{ id: 'a' }] })]);
-    const folderOf = sessionFolders(deps(f).d, 'root');
-    await expect(folderOf('2026-10-28')).rejects.toBeInstanceOf(UploadError);
-    await expect(folderOf('2026-10-28')).resolves.toBe('a');
   });
 });

@@ -99,25 +99,6 @@ export async function folderIn(deps: Dependencies, parent: string, name: string)
   return ((await created.json()) as { id: string }).id;
 }
 
-/**
- * One folder per session inside the trip's folder ('2026-10-28'), so each session's files stay together.
- * Each folder is looked up once per page, and two uploads at the same time share the lookup.
- * The drive.file scope only sees the folders this app created for this account: another account
- * may create its own folder with the same name, which scripts/session-auto.mjs reads as one.
- */
-export function sessionFolders(deps: Dependencies, parent: string): (date: string) => Promise<string> {
-  const cache = new Map<string, Promise<string>>();
-  return (date) => {
-    let id = cache.get(date);
-    if (!id) {
-      id = folderIn(deps, parent, date);
-      cache.set(date, id);
-      id.catch(() => cache.delete(date));
-    }
-    return id;
-  };
-}
-
 function fail(res: Response): never {
   if (res.status === 404 || res.status === 410) throw new SessionExpiredError(`Drive responded ${res.status}`);
   if (res.status >= 500) throw new TransientError(`Drive responded ${res.status}`);

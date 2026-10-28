@@ -89,9 +89,8 @@ function takeLock() {
 
 // --- Where the audios are ----------------------------------------------------------------------
 
-// Each session has its own folder ('2026-10-28/'); older uploads sit loose in the trip's folder.
-// Two accounts may each have created a folder with the same name (the site's drive.file scope does
-// not see the other's), so it lists by IDs (--fast-list) and downloads by ID, never by path.
+// The audio sits in the trip's folder and each video review in a subfolder ('2026-10-28_103512/'):
+// it lists everything and downloads by ID, so the subfolder does not matter.
 function filesInDrive() {
   if (!folder) exit('audio.driveFolder is missing in src/data/trip.yaml.');
   if (!has('rclone')) exit('rclone is not installed. See "Connect it" in AGENTS.md, or use --local.');
