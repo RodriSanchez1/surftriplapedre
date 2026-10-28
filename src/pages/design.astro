@@ -14,6 +14,7 @@ import InsightBlock from '../components/InsightBlock.astro';
 import TranslationBadge from '../components/TranslationBadge.astro';
 import AudioUploader from '../components/AudioUploader.astro';
 import FootageList from '../components/FootageList.astro';
+import VideoReview from '../components/VideoReview.astro';
 import { ACCENTS } from '../content.config';
 
 const colors = [...new Set(['orange', 'red', 'yellow', 'ink', 'paper', 'white', 'muted', ...ACCENTS])];
@@ -177,10 +178,21 @@ const demoSurfers = [
     }
     <p class="state">not configured</p>
     <AudioUploader lang="es" dates={demoDates} timeZone="UTC" />
+
+    <h2 class="section-title">VideoReview</h2>
+    <p class="state">clip open, arrow tool, recording audio, three captures</p>
+  </div>
+  <div class="wide-demo">
+    <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo />
   </div>
 </BaseLayout>
 
 <style>
+  .wide-demo {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 var(--s-4);
+  }
   .swatches {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

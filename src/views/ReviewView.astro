@@ -1,0 +1,38 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import BoltBand from '../components/BoltBand.astro';
+import VideoReview from '../components/VideoReview.astro';
+import { loadSite } from '../lib/content';
+import { tripDates } from '../lib/calendar';
+import { t, type Lang } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const { trip, surfers } = await loadSite();
+---
+
+<BaseLayout title={`${t(lang, 'review.title')} · ${trip.name}`} lang={lang} team={trip.team}>
+  <BoltBand title={t(lang, 'review.title')} subtitle={t(lang, 'review.intro')} />
+  <div class="wide">
+    <VideoReview
+      lang={lang}
+      dates={tripDates(trip.startDate, trip.endDate)}
+      timeZone={trip.timeZone}
+      spots={trip.spots}
+      surfers={surfers.map((s) => ({ id: s.id, name: s.data.name, color: s.data.color }))}
+      audio={trip.audio}
+    />
+  </div>
+</BaseLayout>
+
+<style>
+  /* The video needs more room than the reading column. */
+  .wide {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 var(--s-4);
+  }
+</style>
