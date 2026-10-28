@@ -55,3 +55,11 @@ export function clock(timeZone: string, date: Date, seconds = true): string {
 export function dayIn(timeZone: string, date: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 }
+
+/** A file name cut in the middle to at most `max` characters: keeps the start and the end, where GoPro-style names differ. */
+export function middleEllipsis(name: string, max: number): string {
+  if (name.length <= max || max < 3) return name;
+  const keep = max - 1;
+  const head = Math.floor(keep / 2);
+  return `${name.slice(0, head)}…${name.slice(name.length - (keep - head))}`;
+}

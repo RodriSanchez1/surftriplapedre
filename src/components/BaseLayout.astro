@@ -68,6 +68,11 @@ const base = import.meta.env.BASE_URL;
     min-width: 0;
     min-height: 0;
   }
+  /* The app starts at the screen edge, so the header does too (not centred at the site's reading width). */
+  body[data-app] > header .wrap {
+    max-width: none;
+    margin: 0;
+  }
   /* "Immersive" hides the site header; a phone held sideways has no height to spare for it either. */
   body[data-app][data-immersive] > header {
     display: none;

@@ -50,6 +50,10 @@ const demoSurfers = [
           </div>
         ))
       }
+      <div class="swatch">
+        <span class="ring-sample" />
+        <code>--focus-ring</code>
+      </div>
     </div>
 
     <h2 class="section-title">Typography</h2>
@@ -228,6 +232,13 @@ const demoSurfers = [
     display: block;
     height: 56px;
     border-bottom: var(--border);
+  }
+  /* Keyboard focus ring as the app screens draw it: on the orange page, offset from the control. */
+  .swatch span.ring-sample {
+    background: var(--c-orange)
+      linear-gradient(var(--c-white), var(--c-white)) center / calc(100% - 56px) calc(100% - 28px) no-repeat;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: -11px;
   }
   .swatch code {
     display: block;

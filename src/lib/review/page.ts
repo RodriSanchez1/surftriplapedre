@@ -7,7 +7,7 @@ import { clampToTrip, dayMonth, todayIn } from '../calendar';
 import { format } from '../i18n';
 import { googleAccount, loadGoogle, LoginError } from '../audio/google';
 import { send, PermissionError, type Dependencies } from '../audio/upload';
-import { clock, DEFAULT_FPS, length, position, sortClips, stepFrame, type Clip } from './clips';
+import { clock, DEFAULT_FPS, length, middleEllipsis, position, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
 import { canPickFolder, canRead, isVideo, pickFolder, videosIn } from './folder';
 import {
@@ -58,6 +58,9 @@ interface Entry extends Clip {
   item: HTMLElement;
 }
 
+/** Characters of a file name shown in the clip list before the middle is cut. */
+const NAME_MAX = 14;
+
 /** Waits for a media event, or fails after `ms`. */
 function once(el: HTMLMediaElement, event: string, ms = 8000): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -90,6 +93,10 @@ export function init(root: HTMLElement): void {
   };
 
   const dateSelect = $<HTMLSelectElement>('[data-date]');
+  const field = $('[data-field]');
+  const lockIcon = $('[data-lock-icon]');
+  const lockWhy = $('[data-lock-why]');
+  const announce = $('[data-announce]');
   const list = $('[data-clip-list]');
   const itemTemplate = $<HTMLTemplateElement>('[data-clip-template]');
   const video = $<HTMLVideoElement>('[data-video]');
@@ -166,8 +173,12 @@ export function init(root: HTMLElement): void {
     }
     dateSelect.disabled = !!draft;
     const why = draft ? texts.sessionLocked : '';
+    // The reason is for touch and screen readers too, not only a tooltip.
     dateSelect.title = why;
-    dateSelect.closest('label')!.title = why;
+    field.title = why;
+    field.toggleAttribute('data-locked', !!draft);
+    lockIcon.hidden = !draft;
+    lockWhy.textContent = why;
     $('[data-action="discard"]').hidden = !draft;
     for (const c of clips) c.item.classList.toggle('has-capture', captureEvents().some((e) => e.clip === c.file.name));
   }
@@ -176,6 +187,8 @@ export function init(root: HTMLElement): void {
   function paintFinish(long: string, short: string) {
     $('[data-finish-label]').textContent = long;
     $('[data-finish-short]').textContent = short;
+    // The long text is hidden on a phone: without this the button would be announced as just a number.
+    root.querySelector('[data-action="finish"]')?.setAttribute('aria-label', long);
   }
 
   /** While an upload runs, nothing that changes the draft can be touched. */
@@ -220,9 +233,14 @@ export function init(root: HTMLElement): void {
     const el = entry.item;
     el.querySelector('[data-clip-time]')!.textContent =
       `${entry.filmedAtSource === 'file-date' ? '≈' : ''}${clock(timeZone, entry.filmedAt, false)}`;
-    el.querySelector('[data-clip-name]')!.textContent = entry.file.name;
     el.querySelector('[data-clip-length]')!.textContent = entry.duration ? length(entry.duration) : '';
-    el.title = entry.error ? texts.unplayable : entry.filmedAtSource === 'file-date' ? texts.approx : '';
+    const note = entry.error ? texts.unplayable : entry.filmedAtSource === 'file-date' ? texts.approx : '';
+    // The visible name is cut in the middle; screen readers get the whole name and the note as text.
+    el.querySelector('[data-clip-name]')!.textContent = middleEllipsis(entry.file.name, NAME_MAX);
+    el.querySelector('[data-clip-full]')!.textContent = entry.file.name;
+    el.querySelector('[data-clip-note]')!.textContent = note;
+    const button = el.querySelector<HTMLButtonElement>('[data-clip-button]')!;
+    button.title = note ? `${entry.file.name}\n${note}` : entry.file.name;
     el.classList.toggle('broken', entry.error);
   }
 
@@ -254,7 +272,11 @@ export function init(root: HTMLElement): void {
     clips = sortClips(read).map((clip) => {
       const item = itemTemplate.content.firstElementChild!.cloneNode(true) as HTMLElement;
       const entry: Entry = { ...clip, url: URL.createObjectURL(clip.file), duration: null, error: false, item };
-      item.addEventListener('click', () => void open(entry));
+      item.addEventListener('click', (e) => {
+        void open(entry);
+        // A mouse click keeps the focus on the button, and the space bar would press it again instead of playing.
+        if (e.detail > 0) item.querySelector('button')?.blur();
+      });
       paintItem(entry);
       return entry;
     });
@@ -297,7 +319,12 @@ export function init(root: HTMLElement): void {
   async function open(entry: Entry, log = true) {
     if (current === entry && root.dataset.view === 'ready') return;
     current = entry;
-    for (const c of clips) c.item.classList.toggle('active', c === entry);
+    for (const c of clips) {
+      c.item.classList.toggle('active', c === entry);
+      const button = c.item.querySelector('button')!;
+      if (c === entry) button.setAttribute('aria-current', 'true');
+      else button.removeAttribute('aria-current');
+    }
     entry.item.scrollIntoView({ block: 'nearest' });
     // On a phone the list is a drawer: picking a clip puts it away.
     if (compact.matches) root.dataset.list = 'closed';
@@ -367,6 +394,7 @@ export function init(root: HTMLElement): void {
   function paintTime() {
     if (!current) return;
     seek.value = String(video.currentTime);
+    seek.setAttribute('aria-valuetext', position(video.currentTime));
     seek.style.setProperty('--played', `${video.duration ? (video.currentTime / video.duration) * 100 : 0}%`);
     readoutPos.textContent = position(video.currentTime);
     readoutWave.textContent = waveTime(current, video.currentTime);
@@ -491,10 +519,11 @@ export function init(root: HTMLElement): void {
     });
     addShot(file, id, blob, tagged);
     pulseShots();
-    if (!landscape.matches) {
-      const names = surfersOf(tagged).map((w) => w.name).join(', ');
-      say(tagged.length ? format(texts.captureTagged, { n, names }) : format(texts.captureUntagged, { n }), tagged.length ? 'ok' : 'warn');
-    }
+    const names = surfersOf(tagged).map((w) => w.name).join(', ');
+    const text = tagged.length ? format(texts.captureTagged, { n, names }) : format(texts.captureUntagged, { n });
+    // A short picture is not covered by a toast: the counter pulses and screen readers hear a hidden message.
+    if (landscape.matches) announce.textContent = text;
+    else say(text, tagged.length ? 'ok' : 'warn');
   }
 
   async function deleteCapture(file: string) {
@@ -738,6 +767,27 @@ export function init(root: HTMLElement): void {
     if (!sketch.tool && (e.target as Element).matches('[data-sketch], video')) toggle();
   });
 
+  const recordPop = $('[data-record-pop]');
+  const recordToggle = $('[data-action="toggle-record"]');
+  const listToggle = $('[data-action="toggle-list"]');
+
+  function setRecord(open: boolean) {
+    root.dataset.record = open ? 'open' : 'closed';
+    recordToggle.setAttribute('aria-expanded', String(open));
+  }
+
+  /** The toggle says whether the clip list is showing (the CSS decides that, so it is read back). */
+  function paintList() {
+    listToggle.setAttribute('aria-expanded', String(getComputedStyle(clipsPanel).display !== 'none'));
+  }
+
+  function focusFirstIn(container: HTMLElement) {
+    const first = [...container.querySelectorAll<HTMLElement>('button, select, input, a[href], [tabindex]:not([tabindex="-1"])')].find(
+      (el) => !(el as HTMLButtonElement).disabled && el.getClientRects().length > 0,
+    );
+    first?.focus();
+  }
+
   const actions: Record<string, (b: HTMLElement) => void> = {
     'pick-folder': () => void chooseFolder(),
     reopen: () => void reopen(),
@@ -745,10 +795,11 @@ export function init(root: HTMLElement): void {
     'toggle-list': () => {
       root.dataset.list = getComputedStyle(clipsPanel).display === 'none' ? 'open' : 'closed';
     },
-    'toggle-record': (b) => {
+    'toggle-record': () => {
       const open = root.dataset.record !== 'open';
-      root.dataset.record = open ? 'open' : 'closed';
-      b.setAttribute('aria-expanded', String(open));
+      setRecord(open);
+      // The popover is after other buttons in the tab order: the focus goes into it.
+      if (open) focusFirstIn(recordPop);
     },
     pick: () => (canPickFolder() ? void chooseFolder() : filesInput.click()),
     'next-clip': () => nextClip(),
@@ -804,6 +855,11 @@ export function init(root: HTMLElement): void {
     if (e.detail > 0) b.blur();
   });
 
+  // A disabled select takes no taps, so the label says why it is locked.
+  field.addEventListener('click', () => {
+    if (dateSelect.disabled) say(texts.sessionLocked, 'warn');
+  });
+
   filesInput.addEventListener('change', (e) => {
     const input = e.target as HTMLInputElement;
     void loadFiles([...(input.files ?? [])]);
@@ -827,8 +883,7 @@ export function init(root: HTMLElement): void {
   document.addEventListener('pointerdown', (e) => {
     const target = e.target as Element;
     if (root.dataset.record === 'open' && !target.closest('[data-record-pop], [data-action="toggle-record"]')) {
-      root.dataset.record = 'closed';
-      root.querySelector('[data-action="toggle-record"]')!.setAttribute('aria-expanded', 'false');
+      setRecord(false);
       swallowNextTap();
     }
     if (compact.matches && root.dataset.list === 'open' && !target.closest('.clips, [data-action="toggle-list"]')) {
@@ -840,6 +895,17 @@ export function init(root: HTMLElement): void {
   document.addEventListener('keydown', (e) => {
     const target = e.target as HTMLElement;
     if (e.key === 'Escape' && root.hasAttribute('data-immersive')) return setImmersive(false);
+    // Escape puts away the recording popover, then the clip drawer, and gives the focus back to their buttons.
+    if (e.key === 'Escape' && root.dataset.record === 'open') {
+      setRecord(false);
+      recordToggle.focus();
+      return;
+    }
+    if (e.key === 'Escape' && compact.matches && root.dataset.list === 'open' && root.dataset.hasClips === 'true') {
+      root.dataset.list = 'closed';
+      listToggle.focus();
+      return;
+    }
     if (target.closest('input:not([type="range"]), select, textarea, [contenteditable], [data-audio]')) return;
     if (e.altKey || e.metaKey) return;
     if (e.ctrlKey) {
@@ -849,6 +915,8 @@ export function init(root: HTMLElement): void {
       }
       return;
     }
+    // On a focused button the space bar presses it (a mouse click already blurs it, so focus here means keyboard).
+    if (e.key === ' ' && target.closest('button, label.btn, [role="button"], a')) return;
     const keys: Record<string, () => void> = {
       ' ': toggle,
       ArrowLeft: () => (e.shiftKey ? jump(-5) : step(-1)),
@@ -882,6 +950,21 @@ export function init(root: HTMLElement): void {
     if (uploading) e.preventDefault();
   });
 
+  // The roster row fades at the edge where there is more to scroll to.
+  const surferRow = $('.surfers');
+  function paintFades() {
+    const max = surferRow.scrollWidth - surferRow.clientWidth;
+    const x = Math.abs(surferRow.scrollLeft);
+    surferRow.style.setProperty('--fade-start', max > 1 && x > 1 ? '28px' : '0px');
+    surferRow.style.setProperty('--fade-end', max > 1 && x < max - 1 ? '28px' : '0px');
+  }
+  surferRow.addEventListener('scroll', paintFades, { passive: true });
+  new ResizeObserver(paintFades).observe(surferRow);
+
+  new MutationObserver(paintList).observe(root, { attributes: true, attributeFilter: ['data-list', 'data-has-clips'] });
+  compact.addEventListener('change', paintList);
+  matchMedia('(min-width: 761px) and (min-height: 501px)').addEventListener('change', paintList);
+
   // --- Startup ---
 
   const dates = [...dateSelect.options].map((o) => o.value);
@@ -892,6 +975,8 @@ export function init(root: HTMLElement): void {
     for (const el of root.querySelectorAll('[data-pick-label]')) el.textContent = $('[data-action="pick"]').dataset.labelFiles!;
   }
   setView('empty');
+  paintList();
+  paintFades();
   setColor(sketch.color);
   if (account) loadGoogle().catch(() => {});
   openReviewStore()

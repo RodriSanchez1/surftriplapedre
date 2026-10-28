@@ -78,12 +78,19 @@ const demoClips = [
   data-recording={demo ? 'true' : 'false'}
 >
   <div class="bar">
-    <button type="button" class="btn icon" data-action="toggle-list" title={t(lang, 'review.toggleList')} aria-label={t(lang, 'review.toggleList')}>
+    <button
+      type="button"
+      class="btn icon"
+      data-action="toggle-list"
+      aria-expanded={demo ? 'true' : 'false'}
+      title={t(lang, 'review.toggleList')}
+      aria-label={t(lang, 'review.toggleList')}
+    >
       ☰
     </button>
-    <label class="field">
+    <label class="field" data-field>
       <span class="field-label">{t(lang, 'review.session')}</span>
-      <select data-date>
+      <select data-date aria-describedby="lock-why">
         {
           dates.map((d) => (
             <option value={d}>
@@ -92,13 +99,15 @@ const demoClips = [
           ))
         }
       </select>
+      <span class="lock" data-lock-icon aria-hidden="true" hidden>🔒</span>
+      <span class="visually-hidden" id="lock-why" data-lock-why aria-hidden="true"></span>
     </label>
-    <button type="button" class="btn bar-pick" data-action="pick-folder" title={t(lang, 'review.pickFolder')}>
+    <button type="button" class="btn bar-pick" data-action="pick-folder" title={t(lang, 'review.pickFolder')} aria-label={t(lang, 'review.pickFolder')}>
       <span aria-hidden="true">📁</span><span class="label">{t(lang, 'review.pickFolder')}</span>
     </button>
     <label class="btn bar-pick" data-pick-files title={t(lang, 'review.pickFiles')} hidden>
       <span aria-hidden="true">🎞</span><span class="label">{t(lang, 'review.pickFiles')}</span>
-      <input type="file" multiple accept="video/*,.mp4,.mov,.m4v" class="visually-hidden" data-files />
+      <input type="file" multiple accept="video/*,.mp4,.mov,.m4v" class="visually-hidden" data-files aria-label={t(lang, 'review.pickFiles')} />
     </label>
     <button type="button" class="btn reopen" data-action="reopen" hidden></button>
     <span class="spacer"></span>
@@ -107,17 +116,29 @@ const demoClips = [
       class="btn rec-toggle"
       data-action="toggle-record"
       aria-expanded="false"
+      aria-controls="record-pop"
       title={t(lang, 'review.record')}
       aria-label={t(lang, 'review.record')}
     >
-      <span aria-hidden="true">🎙</span><span class="rec-dot" aria-hidden="true"></span><span class="rec-label">{t(lang, 'review.recording')}</span>
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5M8.5 21.5h7" />
+      </svg><span class="rec-dot" aria-hidden="true"></span><span class="rec-label">{t(lang, 'review.recording')}</span>
     </button>
     <button type="button" class="btn" data-action="discard" data-lock title={t(lang, 'review.discard')} aria-label={t(lang, 'review.discard')} hidden={!demo}>
       <span aria-hidden="true">🗑</span><span class="label wide-only" aria-hidden="true">{t(lang, 'review.discard')}</span>
     </button>
     {
       audio && (
-        <button type="button" class="btn primary" data-action="finish" data-lock title={t(lang, 'review.finish')} hidden={!demo}>
+        <button
+          type="button"
+          class="btn primary"
+          data-action="finish"
+          data-lock
+          title={t(lang, 'review.finish')}
+          aria-label={demo ? format(t(lang, 'review.finishCount'), { n: 3 }) : undefined}
+          hidden={!demo}
+        >
           <span aria-hidden="true">⬆</span>
           <span class="finish-long" data-finish-label>{demo ? format(t(lang, 'review.finishCount'), { n: 3 }) : ''}</span>
           <span class="finish-short" data-finish-short>{demo ? 3 : ''}</span>
@@ -125,7 +146,8 @@ const demoClips = [
       )
     }
 
-    <div class="record-pop" data-record-pop>
+    <div class="record-pop" id="record-pop" data-record-pop role="group" aria-labelledby="record-title">
+      <p class="record-title" id="record-title">{t(lang, 'review.recordTitle')}</p>
       <p class="help">{t(lang, 'review.recordHelp')}</p>
       {!demo && <AudioUploader lang={lang} dates={dates} timeZone={timeZone} spots={spots} surfers={surfers} audio={audio} />}
     </div>
@@ -136,25 +158,31 @@ const demoClips = [
       {
         demo &&
           demoClips.map((c) => (
-            <li class:list={['clip', { active: c.active, 'has-capture': c.capture, broken: c.broken }]}>
-              <span class="thumb demo-thumb" />
-              <span class="meta">
-                <strong>{c.time}</strong>
-                <small>
-                  {c.name} · {c.length}
-                </small>
-              </span>
+            <li class:list={[{ active: c.active, 'has-capture': c.capture, broken: c.broken }]}>
+              <button type="button" class="clip" aria-current={c.active ? 'true' : undefined}>
+                <span class="thumb demo-thumb" />
+                <span class="meta">
+                  <strong>
+                    {c.time} <span class="len">{c.length}</span>
+                  </strong>
+                  <small>{c.name}</small>
+                </span>
+              </button>
             </li>
           ))
       }
     </ol>
     <template data-clip-template>
-      <li class="clip" tabindex="0">
-        <img class="thumb" data-clip-thumb alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" />
-        <span class="meta">
-          <strong data-clip-time></strong>
-          <small><span data-clip-name></span> · <span data-clip-length></span></small>
-        </span>
+      <li>
+        <button type="button" class="clip" data-clip-button>
+          <img class="thumb" data-clip-thumb alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" />
+          <span class="meta">
+            <strong><span data-clip-time></span> <span class="len" data-clip-length></span></strong>
+            <small aria-hidden="true" data-clip-name></small>
+          </span>
+          <span class="visually-hidden" data-clip-full></span>
+          <span class="visually-hidden" data-clip-note></span>
+        </button>
       </li>
     </template>
     <button
@@ -169,7 +197,7 @@ const demoClips = [
     <p class="keys help">{t(lang, 'review.keys')}</p>
   </aside>
 
-  <div class="rail" role="toolbar" aria-label={t(lang, 'review.tools')}>
+  <div class="rail" role="group" aria-label={t(lang, 'review.tools')}>
     <div class="tools">
       {
         tools.map((tool) => (
@@ -247,6 +275,7 @@ const demoClips = [
       </div>
     </div>
 
+    <p class="visually-hidden" role="status" data-announce></p>
     <div class="toasts" role="status" aria-live="polite">
       <div class="notice warn" data-restored hidden>
         <span data-restored-text></span>
@@ -285,7 +314,18 @@ const demoClips = [
       <button type="button" class="btn small rate-cycle" data-action="cycle-rate" data-rates={[1, 0.5, 0.25].join(' ')}>
         <span class="visually-hidden">{t(lang, 'review.speed')}</span><span data-rate-label>{demo ? '0.5×' : '1×'}</span>
       </button>
-      <button type="button" class="btn small" data-action="fullscreen" title={t(lang, 'review.fullscreen')} aria-label={t(lang, 'review.fullscreen')}>⛶</button>
+      <button
+        type="button"
+        class="btn small"
+        data-action="fullscreen"
+        title={t(lang, 'review.fullscreen')}
+        aria-label={t(lang, 'review.fullscreen')}
+        aria-pressed="false"
+      >
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -414,18 +454,65 @@ const demoClips = [
     border-radius: var(--radius);
     background: var(--c-white);
   }
+  /* Locked while an analysis is open: still readable (not faded), with a padlock; a tap says why. */
   select:disabled {
-    opacity: 0.7;
+    opacity: 1;
+    color: var(--c-ink);
+    background: var(--c-paper);
+    pointer-events: none;
+    /* No chevron on a box that cannot open: the padlock takes its place. */
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 30px;
+  }
+  .field {
+    position: relative;
+  }
+  .field[data-locked] {
     cursor: not-allowed;
   }
+  .lock {
+    position: absolute;
+    right: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    line-height: 1;
+    pointer-events: none;
+  }
+  /* The focus ring is ink on the orange page and on paper (sky only reaches 1.3:1 on orange). */
+  .review :global(:focus-visible),
+  .pick:has(input:focus-visible),
   label.btn:focus-within {
-    outline: 3px solid var(--c-sky);
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+  /* Tighter on the chips, whose row clips what sticks out of it. */
+  .pick:has(input:focus-visible) {
     outline-offset: 2px;
   }
   .btn .label,
-  .field-label,
   .rec-label {
     display: none;
+  }
+  /* The session label stays for screen readers when the bar has no room for it. */
+  .field-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .icon {
+    width: 1.25em;
+    height: 1.25em;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vertical-align: -0.2em;
   }
   [data-has-clips='false'] [data-action='toggle-list'] {
     display: none;
@@ -476,6 +563,10 @@ const demoClips = [
   .help {
     font-size: 14px;
     color: var(--c-muted);
+  }
+  .record-title {
+    margin: 0 0 var(--s-1);
+    font: 14px var(--font-head);
   }
   .record-pop {
     display: none;
@@ -536,38 +627,66 @@ const demoClips = [
   .keys {
     margin: var(--s-2) 0 0;
   }
+  .clips li {
+    display: block;
+  }
   .clip {
     display: flex;
     align-items: center;
     gap: var(--s-2);
+    width: 100%;
     min-height: var(--hit);
     padding: var(--s-1) var(--s-2);
     background: var(--c-white);
     border: var(--border);
     border-radius: var(--radius);
+    color: var(--c-ink);
+    font: inherit;
+    text-align: left;
     cursor: pointer;
   }
   .clip:hover,
   .clip:focus-visible {
     box-shadow: var(--shadow);
-    outline: none;
   }
-  .clip.active {
+  li.active .clip {
     background: var(--c-yellow);
   }
-  .clip.broken {
-    opacity: 0.55;
+  /* A clip that does not play: no fading (it must stay readable), a struck name and a red mark. */
+  li.broken .clip {
+    color: var(--c-muted);
+  }
+  li.broken .clip small {
     text-decoration: line-through;
   }
-  .clip.has-capture strong::after {
+  /* A mark on the corner of the thumbnail: a capture was taken here, or the clip does not play. */
+  .clip {
+    position: relative;
+  }
+  li.broken .clip::after,
+  li.has-capture .clip::after {
     content: '';
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    margin-left: var(--s-1);
+    position: absolute;
+    top: 5px;
+    left: 57px;
+    width: 14px;
+    height: 14px;
+    box-sizing: border-box;
+    border: 2px solid var(--c-white);
     border-radius: 50%;
     background: var(--c-red);
-    vertical-align: middle;
+    color: var(--c-white);
+    font-size: 8px;
+    line-height: 10px;
+    text-align: center;
+  }
+  li.broken .clip::after {
+    content: '✕';
+    content: '✕' / '';
+  }
+  .len {
+    font-weight: 400;
+    color: var(--c-muted);
   }
   .thumb {
     width: 64px;
@@ -718,6 +837,11 @@ const demoClips = [
   }
   .warn-text {
     font-weight: 700;
+    color: var(--c-ink);
+  }
+  .warn-text::before {
+    content: '⚠ ';
+    content: '⚠ ' / '';
     color: var(--c-red);
   }
   .state.loading {
@@ -877,8 +1001,6 @@ const demoClips = [
     background: var(--c-yellow);
   }
   .seek:focus-visible {
-    outline: 3px solid var(--c-sky);
-    outline-offset: 2px;
     border-radius: 999px;
   }
   /* Three speeds fit on a laptop; elsewhere one button steps through them. */
@@ -937,8 +1059,11 @@ const demoClips = [
     flex: 1;
     min-width: 0;
     overflow-x: auto;
-    padding: 3px 2px;
+    padding: 5px 6px;
     scrollbar-width: thin;
+    /* An edge fade says the row scrolls; the script sets the two sizes only while there is more to see. */
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-start, 0px), #000 calc(100% - var(--fade-end, 0px)), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 var(--fade-start, 0px), #000 calc(100% - var(--fade-end, 0px)), transparent);
   }
   .pick {
     flex: none;
@@ -967,10 +1092,6 @@ const demoClips = [
   }
   .pick:has(input:checked) {
     background: var(--accent);
-  }
-  .pick:has(input:focus-visible) {
-    outline: 3px solid var(--c-sky);
-    outline-offset: 2px;
   }
 
   .shots-box {
@@ -1004,7 +1125,9 @@ const demoClips = [
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .shots-head.pulse .count {
+    .shots-head.pulse .count,
+    .spinner,
+    .rec-dot {
       animation: none;
     }
   }
@@ -1101,6 +1224,10 @@ const demoClips = [
     }
   }
 
+  .wave:has([data-wave]:empty) {
+    display: none;
+  }
+
   /* Wider than a phone: names show, labels show. */
   @media (min-width: 480px) {
     .pick {
@@ -1127,9 +1254,15 @@ const demoClips = [
   }
   /* Room for words in the bar (not on a phone on its side: it is wide but short). */
   @media (min-width: 600px) and (min-height: 501px) {
-    .btn .label,
-    .field-label {
+    .btn .label {
       display: inline;
+    }
+    .field-label {
+      position: static;
+      width: auto;
+      height: auto;
+      overflow: visible;
+      clip-path: none;
     }
     [data-recording='true'] .rec-label {
       display: inline;
@@ -1302,18 +1435,26 @@ const demoClips = [
       flex-direction: column;
       overflow: hidden;
     }
+    /* With a long roster the chips scroll inside their box instead of pushing the captures out. */
     .capture {
       flex-direction: column;
       align-items: stretch;
-      flex: none;
+      flex: 0 1 auto;
+      min-height: 0;
     }
     .whose {
       display: none;
     }
     .surfers {
+      flex: 0 1 auto;
       flex-wrap: wrap;
-      overflow-x: visible;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
       justify-content: flex-start;
+      padding: 5px;
+      -webkit-mask-image: none;
+      mask-image: none;
     }
     .pick {
       padding-right: 2px;
@@ -1327,7 +1468,7 @@ const demoClips = [
     }
     .shots-box {
       flex: 1;
-      min-height: 0;
+      min-height: 5rem;
       flex-direction: column;
       align-items: stretch;
       gap: 0;
