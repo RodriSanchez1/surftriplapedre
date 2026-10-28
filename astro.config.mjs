@@ -2,7 +2,6 @@
 import { defineConfig } from 'astro/config';
 
 export default defineConfig({
-  site: 'https://rodrisanchez1.github.io',
-  base: '/surftriplapedre',
+  site: 'https://lapedrera.erkscode.com',
   trailingSlash: 'always',
 });
