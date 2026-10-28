@@ -8,6 +8,7 @@ import InsightBlock from '../components/InsightBlock.astro';
 import { loadSite } from '../lib/content';
 import { dayMonth } from '../lib/calendar';
 import { pathFor, t, type Lang } from '../lib/i18n';
+import { wasInWater } from '../lib/footage';
 import { insightsForSurfer } from '../lib/localized';
 
 interface Props {
@@ -17,7 +18,7 @@ interface Props {
 
 const { lang, id } = Astro.props;
 const base = import.meta.env.BASE_URL;
-const { trip, surfers, insights } = await loadSite();
+const { trip, surfers, sessions, insights } = await loadSite();
 
 const surfer = surfers.find((s) => s.id === id);
 if (!surfer) throw new Error(`Surfer "${id}" is not in surfers.yaml`);
@@ -26,6 +27,16 @@ const items = await Promise.all(
   insightsForSurfer(insights, id, lang).map(async (l) => ({ ...l, Content: (await render(l.entry)).Content })),
 );
 const current = items[0]?.entry.data;
+
+// Sessions where the surfer has no insight because they were not in the water of the reviewed footage.
+const insightDates = new Set(items.map((i) => i.entry.data.date));
+const absences = sessions
+  .filter((s) => s.id.endsWith('.es') && !insightDates.has(s.id.slice(0, -3)) && !wasInWater(s.data.footage, id))
+  .map((s) => ({ date: s.id.slice(0, -3) }));
+const history = [
+  ...items.map(({ entry, fallback, Content }) => ({ date: entry.data.date, fallback, Content })),
+  ...absences.map(({ date }) => ({ date, fallback: false, Content: undefined })),
+].sort((a, b) => b.date.localeCompare(a.date));
 ---
 
 <BaseLayout title={`${surfer.data.name} · ${trip.name}`} lang={lang} team={trip.team}>
@@ -45,16 +56,16 @@ const current = items[0]?.entry.data;
       )
     }
 
-    {items.length > 0 && <h2 class="section-title">{t(lang, 'surfer.history')}</h2>}
+    {history.length > 0 && <h2 class="section-title">{t(lang, 'surfer.history')}</h2>}
     {
-      items.map(({ entry, fallback, Content }) => (
+      history.map(({ date, fallback, Content }) => (
         <InsightBlock
-          heading={`${t(lang, 'session.title')} ${dayMonth(entry.data.date)}`}
+          heading={`${t(lang, 'session.title')} ${dayMonth(date)}`}
           fallback={fallback}
-          href={pathFor(lang, `/sessions/${entry.data.date}/`, base)}
+          href={pathFor(lang, `/sessions/${date}/`, base)}
           linkText={t(lang, 'surfer.seeSession')}
         >
-          <Content />
+          {Content ? <Content /> : <p>{t(lang, 'surfer.notInWater')}</p>}
         </InsightBlock>
       ))
     }

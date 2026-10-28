@@ -3,6 +3,8 @@
  * Metadata and audio chunks live in separate stores.
  */
 
+import type { Footage } from '../footage';
+
 export interface Recording {
   id: string;
   /** Session, 'YYYY-MM-DD'. */
@@ -18,6 +20,12 @@ export interface Recording {
   chunks: number;
   /** URL of the resumable upload session, if one was already created. */
   sessionUrl?: string;
+  /** Surf sessions reviewed, from the form. */
+  footage?: Footage[];
+  /** Upload session of the meta file. */
+  metaSessionUrl?: string;
+  /** The meta file is already in Drive. */
+  metaUploaded?: boolean;
 }
 
 interface Chunk {

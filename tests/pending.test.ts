@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dateStatus, groupByDate, parseName } from '../src/lib/audio/pending';
+import { dateStatus, groupByDate, parseMetaName, parseName } from '../src/lib/audio/pending';
 
 describe('parseName', () => {
   it('reads date, time and extension', () => {
@@ -74,5 +74,34 @@ describe('dateStatus', () => {
   });
   it('is changed if an audio arrived after processing', () => {
     expect(dateStatus(audios, ['2026-10-27_1830.webm'], new Date('2026-10-28T00:00:00Z'), 15)).toBe('changed');
+  });
+});
+
+describe('parseMetaName', () => {
+  it('reads date and time', () => {
+    expect(parseMetaName('2026-10-27_1830.meta.json')).toEqual({ date: '2026-10-27', time: '1830' });
+  });
+  it('accepts uppercase', () => {
+    expect(parseMetaName('2026-10-27_1830.META.JSON')).toEqual({ date: '2026-10-27', time: '1830' });
+  });
+  it('returns null for a .json without .meta', () => {
+    expect(parseMetaName('2026-10-27_1830.json')).toBeNull();
+  });
+});
+
+describe('meta files', () => {
+  const m = '2026-10-27T20:00:00Z';
+  const files = [
+    { name: '2026-10-27_1830.webm', modified: m },
+    { name: '2026-10-27_1830.meta.json', modified: m },
+  ];
+  it('go to meta, not to byDate nor ignored', () => {
+    const { byDate, meta, ignored } = groupByDate(files);
+    expect(byDate.get('2026-10-27')!.map((a) => a.name)).toEqual(['2026-10-27_1830.webm']);
+    expect(meta.get('2026-10-27')!.map((f) => f.name)).toEqual(['2026-10-27_1830.meta.json']);
+    expect(ignored).toEqual([]);
+  });
+  it('count in the status: a processed list without them is changed', () => {
+    expect(dateStatus(files, ['2026-10-27_1830.webm'], new Date('2026-10-28T00:00:00Z'), 15)).toBe('changed');
   });
 });

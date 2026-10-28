@@ -108,16 +108,18 @@ function localFiles() {
     );
 }
 
-function processedAudios(date) {
+function processedFiles(date) {
   const path = `sessions/${date}/processed.json`;
-  return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')).audios : null;
+  if (!existsSync(path)) return null;
+  const p = JSON.parse(readFileSync(path, 'utf8'));
+  return [...p.audios, ...(p.meta ?? [])];
 }
 
 // --- Steps -------------------------------------------------------------------------------------
 
-function download(date, audios) {
-  const missing = audios.filter((a) => !existsSync(`sessions/${date}/${a.name}`));
-  if (!missing.length) return say('The audios were already downloaded.');
+function download(date, files) {
+  const missing = files.filter((a) => !existsSync(`sessions/${date}/${a.name}`));
+  if (!missing.length) return say('The files were already downloaded.');
   say(`Downloading ${missing.map((a) => a.name).join(', ')}`);
   const include = missing.flatMap((a) => ['--include', a.name]);
   run('rclone', ['copy', `${REMOTE}:`, `sessions/${date}/`, '--drive-root-folder-id', folder, ...include]);
@@ -174,21 +176,25 @@ function generateInsights(date) {
 // --- Main --------------------------------------------------------------------------------------
 
 const files = op.local ? localFiles() : filesInDrive();
-const { byDate, ignored } = groupByDate(files);
+const { byDate, meta, ignored } = groupByDate(files);
 if (ignored.length && !op.local) console.log(`Ignored (different name): ${ignored.join(', ')}`);
 
 const now = new Date();
 const wait = Number(op.wait);
 const rows = [...byDate]
   .filter(([date]) => !op.date || date === op.date)
-  .map(([date, audios]) => ({ date, audios, status: dateStatus(audios, processedAudios(date), now, wait) }));
+  .map(([date, audios]) => {
+    const metas = meta.get(date) ?? [];
+    return { date, audios, metas, status: dateStatus([...audios, ...metas], processedFiles(date), now, wait) };
+  });
 
 if (!rows.length) {
   console.log(op.date ? `There are no audios for ${op.date}.` : 'There are no audios.');
   process.exit(0);
 }
-for (const { date, audios, status } of rows) {
-  console.log(`${date}  ${status.padEnd(10)} ${audios.map((a) => a.name).join(', ')}`);
+for (const { date, audios, metas, status } of rows) {
+  const extra = metas.length ? ` + ${metas.map((m) => m.name).join(', ')}` : '';
+  console.log(`${date}  ${status.padEnd(10)} ${audios.map((a) => a.name).join(', ')}${extra}`);
 }
 if (op.list) process.exit(0);
 
@@ -205,12 +211,12 @@ if (!toProcess.length) process.exit(0);
 
 takeLock();
 let failures = 0;
-for (const { date, audios } of toProcess) {
+for (const { date, audios, metas } of toProcess) {
   mkdirSync(`sessions/${date}`, { recursive: true });
   log = `sessions/${date}/auto.log`;
-  say(`=== ${date}: ${audios.length} audio(s) ===`);
+  say(`=== ${date}: ${audios.length} audio(s)${metas.length ? `, ${metas.length} meta` : ''} ===`);
   try {
-    if (!op.local) download(date, audios);
+    if (!op.local) download(date, [...audios, ...metas]);
     transcribe(date, audios);
     if (op['no-claude']) {
       say('No Claude: the raw transcript is left as is.');
@@ -219,7 +225,7 @@ for (const { date, audios } of toProcess) {
     generateInsights(date);
     writeFileSync(
       `sessions/${date}/processed.json`,
-      JSON.stringify({ audios: audios.map((a) => a.name), date: new Date().toISOString() }, null, 1),
+      JSON.stringify({ audios: audios.map((a) => a.name), meta: metas.map((m) => m.name), date: new Date().toISOString() }, null, 1),
     );
     say(`Done. Review feat/session-${date} and confirm the push.`);
   } catch (e) {

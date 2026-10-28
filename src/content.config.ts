@@ -1,6 +1,7 @@
 import { defineCollection } from 'astro:content';
 import { file, glob } from 'astro/loaders';
 import { z } from 'astro/zod';
+import { TIMES_OF_DAY } from './lib/footage';
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the YYYY-MM-DD format, in quotes');
 const text = z.object({ es: z.string().min(1), pt: z.string().min(1).optional() });
@@ -20,6 +21,8 @@ const trip = defineCollection({
     startDate: isoDate,
     endDate: isoDate,
     timeZone: z.string(),
+    /** Surf spots offered in the upload form. Optional. */
+    spots: z.array(z.string().min(1)).default([]),
     /** Upload of the coach's audio to Drive (see AGENTS.md). Optional: without it, /upload/ says it is not configured. */
     audio: z
       .object({
@@ -73,6 +76,17 @@ const sessions = defineCollection({
     title: z.string(),
     planNote: z.string().optional(),
     logistics: z.array(z.string()).default([]),
+    /** Surf sessions whose footage was reviewed; written by import-session from the meta files. */
+    footage: z
+      .array(
+        z.object({
+          date: isoDate,
+          time: z.enum(TIMES_OF_DAY),
+          spot: z.string().optional(),
+          surfers: z.array(z.string()),
+        }),
+      )
+      .default([]),
   }),
 });
 

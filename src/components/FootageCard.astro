@@ -1,0 +1,131 @@
+---
+/**
+ * One surf session of the footage form: day, time of day, spot and who was in the water.
+ * Used only inside AudioUploader (it shows up in /design/ through it).
+ * The client logic that reads it is in src/lib/audio/page.ts.
+ */
+import { dayMonth, weekdayOf } from '../lib/calendar';
+import { OTHER_SPOT, TIMES_OF_DAY, type TimeOfDay } from '../lib/footage';
+import { WEEKDAYS, t, type Lang } from '../lib/i18n';
+
+interface Props {
+  lang: Lang;
+  dates: string[];
+  spots: string[];
+  surfers: { id: string; name: string; color: string }[];
+  date: string;
+  time: TimeOfDay;
+  removable?: boolean;
+}
+
+const { lang, dates, spots, surfers, date, time, removable } = Astro.props;
+---
+
+<div class="footage-card" data-footage-card>
+  <div class="row">
+    <label class="field">
+      {t(lang, 'footage.date')}
+      <select data-footage-date>
+        {
+          dates.map((d) => (
+            <option value={d} selected={d === date}>
+              {WEEKDAYS[lang][weekdayOf(d)]} {dayMonth(d)}
+            </option>
+          ))
+        }
+      </select>
+    </label>
+    <label class="field">
+      {t(lang, 'footage.time')}
+      <select data-footage-time>
+        {
+          TIMES_OF_DAY.map((v) => (
+            <option value={v} selected={v === time}>
+              {t(lang, `footage.${v}`)}
+            </option>
+          ))
+        }
+      </select>
+    </label>
+  </div>
+  <label class="field">
+    {t(lang, 'footage.spot')}
+    {
+      spots.length > 0 && (
+        <select data-footage-spot>
+          <option value="">{t(lang, 'footage.spotChoose')}</option>
+          {spots.map((s) => (
+            <option value={s}>{s}</option>
+          ))}
+          <option value={OTHER_SPOT}>{t(lang, 'footage.spotOther')}</option>
+        </select>
+      )
+    }
+    <input
+      type="text"
+      data-footage-spot-other
+      placeholder={t(lang, 'footage.spotOtherPlaceholder')}
+      hidden={spots.length > 0}
+    />
+  </label>
+  <div class="field">
+    <span>{t(lang, 'footage.surfers')}</span>
+    <div class="chips">
+      {
+        surfers.map((s) => (
+          <label class="chip" style={`--accent: var(--c-${s.color})`}>
+            <input type="checkbox" value={s.id} checked data-footage-surfer /> {s.name}
+          </label>
+        ))
+      }
+    </div>
+  </div>
+  {
+    removable && (
+      <button type="button" class="btn remove" data-action="remove-footage">
+        ✕ {t(lang, 'footage.remove')}
+      </button>
+    )
+  }
+</div>
+
+<style>
+  .footage-card {
+    display: grid;
+    gap: var(--s-3);
+    margin: var(--s-3) 0;
+    padding: var(--s-3);
+    background: var(--c-white);
+    border: var(--border);
+    border-radius: var(--radius);
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    align-items: end;
+  }
+  .field {
+    display: grid;
+    gap: var(--s-1);
+    font: 13px var(--font-head);
+  }
+  select,
+  input[type='text'] {
+    font: 16px var(--font-body);
+    padding: var(--s-2);
+    border: var(--border);
+    border-radius: var(--radius);
+    background: var(--c-white);
+  }
+  .remove {
+    justify-self: start;
+    padding: var(--s-2) var(--s-3);
+    font-size: 13px;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+</style>

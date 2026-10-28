@@ -29,6 +29,7 @@ export async function loadSite() {
     days: days.map((d) => ({ id: d.id, session: d.data.session })),
     sessionIds: sessions.map((s) => s.id),
     insights,
+    footage: sessions.map((s) => ({ session: s.id, footage: s.data.footage })),
   });
   if (errors.length) throw new Error(`Invalid content:\n- ${errors.join('\n- ')}`);
 

@@ -44,3 +44,8 @@ export function groupOf(date: string, time: string): string {
 export function fileName(group: string, part: number, extension: string): string {
   return `${group}${part > 1 ? `_part${part}` : ''}.${extension}`;
 }
+
+/** '2026-10-27_1830.meta.json': the footage of a recording, uploaded next to its audio. */
+export function metaName(group: string): string {
+  return `${group}.meta.json`;
+}

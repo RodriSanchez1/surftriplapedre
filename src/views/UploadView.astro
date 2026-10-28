@@ -11,7 +11,7 @@ interface Props {
 }
 
 const { lang } = Astro.props;
-const { trip } = await loadSite();
+const { trip, surfers } = await loadSite();
 ---
 
 <BaseLayout title={`${t(lang, 'audio.title')} · ${trip.name}`} lang={lang} team={trip.team}>
@@ -21,6 +21,8 @@ const { trip } = await loadSite();
       lang={lang}
       dates={tripDates(trip.startDate, trip.endDate)}
       timeZone={trip.timeZone}
+      spots={trip.spots}
+      surfers={surfers.map((s) => ({ id: s.id, name: s.data.name, color: s.data.color }))}
       audio={trip.audio}
     />
   </div>

@@ -43,6 +43,16 @@ describe('store', () => {
     expect((await s.pending())[0].sessionUrl).toBe('https://session/1');
   });
 
+  it('keeps the footage and the meta upload state', async () => {
+    const s = await openStore(fresh());
+    const footage = [{ date: '2026-10-26', time: 'morning' as const, spot: 'Playa A', surfers: ['juan'] }];
+    await s.save(recording('a', 100, { footage, metaSessionUrl: 'https://session/meta', metaUploaded: true }));
+    const [r] = await s.pending();
+    expect(r.footage).toEqual(footage);
+    expect(r.metaSessionUrl).toBe('https://session/meta');
+    expect(r.metaUploaded).toBe(true);
+  });
+
   it('deletes a recording with its chunks without touching the others', async () => {
     const s = await openStore(fresh());
     await s.save(recording('a', 100));
