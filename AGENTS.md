@@ -6,7 +6,7 @@ Guide for any AI agent working in this repo. `CLAUDE.md` only imports this file.
 
 The site for the surftrip to La Pedrera (Oct 24 to Nov 1, 2026) with coach Douglas Cominski. Participants use it to see what happens each day, what each surfer should think about in the water, and what Douglas said in each session. It is in Spanish and Portuguese (Douglas reads Portuguese).
 
-- Published at https://rodrisanchez1.github.io/surftriplapedre/ (GitHub Pages, `noindex`).
+- Published at https://lapedrera.erkscode.com/ (GitHub Pages, `noindex`).
 - Stack: static Astro 7, TypeScript, Vitest and Node 24 (`nvm use`).
 
 ## Project rules
@@ -146,10 +146,19 @@ The `/upload/` page uploads audio straight from the browser to a Drive folder (G
 1. Create a folder in Drive and share it as **Editor** with the coach's Google account.
 2. In Google Cloud: a project with the **Google Drive API** enabled.
 3. Google Auth Platform → Audience: type **External**, in **testing mode**, with the coach and the organizer as **test users**. Without this Google answers `Error 403: access_denied`.
-4. Clients → OAuth client ID of type **Web application**, with origins `https://<user>.github.io` and `http://localhost:4321`.
+4. Clients → OAuth client ID of type **Web application**, with origins `https://<site domain>` (the `site` in `astro.config.mjs`) and `http://localhost:4321`.
 5. In `src/data/trip.yaml`, inside the trip: `audio: { driveFolder, googleClientId, contact }`. `contact` is the name shown when an account has no access.
 6. Also in the trip, `spots: [...]`: the surf spots offered in the form where the coach says which footage was reviewed (they can always type another one). Without it the spot is free text.
 7. Never commit the `client_secret_*.json` that Google downloads (it is in `.gitignore`; the site does not use it).
+
+### Custom domain  ·  human
+
+The site is served by GitHub Pages on a subdomain whose DNS lives in Cloudflare.
+
+1. Cloudflare → DNS: a `CNAME` record from the subdomain to `<user>.github.io`, proxy status **DNS only** (grey cloud), so GitHub can issue the HTTPS certificate.
+2. The domain goes in `site` in `astro.config.mjs` and in `public/CNAME`. With no `base`, the site lives at the root.
+3. GitHub → repo Settings → Pages → Custom domain: the subdomain, then **Enforce HTTPS** once the certificate is ready.
+4. Add the new origin to the Google OAuth client (see "Set up audio upload").
 
 ### Prepare the repo for another surftrip  ·  Sonnet
 
@@ -159,7 +168,7 @@ Change `src/data/trip.yaml`, empty `days.yaml`, update `surfers.yaml` and move t
 
 ```
 nvm use                 Node 24
-npm run dev             local server at http://localhost:4321/surftriplapedre/
+npm run dev             local server at http://localhost:4321/
 npm run check           Astro and TypeScript types
 npm test                tests in src/lib
 npm run build           generates dist/ (fails if the content has broken references)

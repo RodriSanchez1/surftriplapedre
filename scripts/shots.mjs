@@ -1,6 +1,6 @@
 // Visual review screenshots, on mobile (390 px) and desktop (1280 px).
 // Usage: node scripts/shots.mjs <base-url> <output-folder> [path ...]
-// E.g.: node scripts/shots.mjs http://localhost:4321/surftriplapedre /tmp/shots / /pt/ /surfers/juan/
+// E.g.: node scripts/shots.mjs http://localhost:4321 /tmp/shots / /pt/ /surfers/juan/
 import { mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 
