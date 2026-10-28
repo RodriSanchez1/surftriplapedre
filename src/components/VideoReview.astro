@@ -33,6 +33,7 @@ const texts: Texts = {
   captureTagged: t(lang, 'review.captureTagged'),
   captureUntagged: t(lang, 'review.captureUntagged'),
   openCapture: t(lang, 'review.openCapture'),
+  clipTagged: t(lang, 'review.clipTagged'),
   deleteCapture: t(lang, 'review.deleteCapture'),
   deleteCaptureConfirm: t(lang, 'review.deleteCaptureConfirm'),
   finishCount: t(lang, 'review.finishCount'),
@@ -58,8 +59,8 @@ const tools = [
   { id: 'circle', icon: '◯', label: t(lang, 'review.circle') },
 ] as const;
 const demoClips = [
-  { time: '10:38', name: 'C0231.MP4', length: '0:24' },
-  { time: '10:42', name: 'C0232.MP4', length: '0:31', active: true, capture: true },
+  { time: '10:38', name: 'C0231.MP4', length: '0:24', tags: surfers.slice(1, 3) },
+  { time: '10:42', name: 'C0232.MP4', length: '0:31', active: true, capture: true, tags: surfers.slice(0, 1) },
   { time: '10:47', name: 'C0233.MP4', length: '0:19' },
   { time: '≈10:55', name: 'C0234.MOV', length: '0:40', broken: true },
 ];
@@ -75,6 +76,8 @@ const demoClips = [
   data-texts={JSON.stringify(texts)}
   data-list={demo ? 'open' : undefined}
   data-record="closed"
+  data-surfers="open"
+  data-shots="open"
   data-tool={demo ? 'arrow' : ''}
   data-has-clips={demo ? 'true' : 'false'}
   data-view={demo ? 'ready' : 'empty'}
@@ -185,6 +188,13 @@ const demoClips = [
                   </strong>
                   <small>{c.name}</small>
                 </span>
+                {c.tags && (
+                  <span class="clip-tags" aria-hidden="true">
+                    {c.tags.map((s) => (
+                      <Avatar id={s.id} name="" size="sm" />
+                    ))}
+                  </span>
+                )}
               </button>
             </li>
           ))
@@ -198,7 +208,9 @@ const demoClips = [
             <strong><span data-clip-time></span> <span class="len" data-clip-length></span></strong>
             <small aria-hidden="true" data-clip-name></small>
           </span>
+          <span class="clip-tags" data-clip-tags aria-hidden="true"></span>
           <span class="visually-hidden" data-clip-full></span>
+          <span class="visually-hidden" data-clip-who></span>
           <span class="visually-hidden" data-clip-note></span>
         </button>
       </li>
@@ -349,7 +361,20 @@ const demoClips = [
 
   <div class="dock">
     <div class="capture">
-      <span class="whose" id="whose">{t(lang, 'review.whose')}</span>
+      <button
+        type="button"
+        class="dock-toggle"
+        data-action="toggle-surfers"
+        aria-expanded="true"
+        title={t(lang, 'review.toggleSurfers')}
+        aria-label={t(lang, 'review.toggleSurfers')}
+      >
+        <span class="chev" aria-hidden="true">▾</span>
+        <span class="whose" id="whose">{t(lang, 'review.whose')}</span>
+        <span class="whose-summary" data-whose-summary aria-hidden="true">
+          {demo && surfers[0] && <Avatar id={surfers[0].id} name="" size="sm" />}
+        </span>
+      </button>
       <span class="surfers" role="group" aria-labelledby="whose">
         {
           surfers.map((s, i) => (
@@ -365,11 +390,19 @@ const demoClips = [
         <span aria-hidden="true">📸</span> <span class="capture-label">{t(lang, 'review.saveCapture')}</span></button>
     </div>
     <div class="shots-box" data-shots-box hidden={!demo}>
-      <span class="shots-head" data-shots-head title={t(lang, 'review.captures')}>
-        <span class="visually-hidden">{t(lang, 'review.captures')}</span>
+      <button
+        type="button"
+        class="shots-head"
+        data-shots-head
+        data-action="toggle-shots"
+        aria-expanded="true"
+        title={t(lang, 'review.toggleShots')}
+      >
+        <span class="visually-hidden">{t(lang, 'review.toggleShots')}:</span>
         <span aria-hidden="true">📷</span>
         <b class="count" data-shots-count>{demo ? 3 : 0}</b>
-      </span>
+        <span class="chev" aria-hidden="true">▾</span>
+      </button>
       <div class="shots" data-shots>
         {
           demo &&
@@ -734,6 +767,22 @@ const demoClips = [
     line-height: 1.2;
     min-width: 0;
   }
+  /* Who surfs in the clip: the chips picked on it, remembered while the review lasts. */
+  .clip-tags {
+    flex: none;
+    display: flex;
+    margin-left: auto;
+    padding-right: 6px;
+  }
+  .clip-tags:empty {
+    display: none;
+  }
+  .clip-tags :global(.avatar) {
+    width: 24px;
+    height: 24px;
+    border-width: 2px;
+    margin-right: -6px;
+  }
   .meta small {
     color: var(--c-muted);
     font-size: 12px;
@@ -1073,6 +1122,7 @@ const demoClips = [
   }
   .capture > .btn {
     flex: none;
+    margin-left: auto;
     min-height: var(--hit);
     min-width: 3.5rem;
     padding-block: var(--s-1);
@@ -1085,6 +1135,7 @@ const demoClips = [
     display: none;
     flex: none;
     font: 14px var(--font-head);
+    text-align: left;
   }
   .surfers {
     display: flex;
@@ -1126,18 +1177,66 @@ const demoClips = [
   .pick:has(input:checked) {
     background: var(--accent);
   }
+  /* The roster and the captures fold away to give the picture their room; the choice stays on the device. */
+  .dock-toggle,
+  .shots-head {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    min-height: var(--hit);
+    min-width: var(--hit);
+    padding: 0 var(--s-1);
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--c-ink);
+    font: inherit;
+    cursor: pointer;
+  }
+  @media (hover: hover) {
+    .dock-toggle:hover,
+    .shots-head:hover {
+      background: var(--c-paper);
+    }
+  }
+  .chev {
+    display: inline-block;
+    font-size: 14px;
+    transition: transform 0.15s;
+  }
+  [data-surfers='closed'] .dock-toggle .chev,
+  [data-shots='closed'] .shots-head .chev {
+    transform: rotate(-90deg);
+  }
+  /* Folded, the toggle shows who is tagged on this clip. */
+  .whose-summary {
+    display: none;
+  }
+  [data-surfers='closed'] .whose-summary {
+    display: flex;
+  }
+  .whose-summary :global(.avatar) {
+    width: 28px;
+    height: 28px;
+    border-width: 2px;
+    margin-right: -8px;
+  }
+  .whose-summary :global(.avatar:last-child) {
+    margin-right: 0;
+  }
+  [data-surfers='closed'] .surfers {
+    display: none;
+  }
+  [data-shots='closed'] .shots {
+    display: none;
+  }
 
   .shots-box {
     display: flex;
     align-items: center;
     gap: var(--s-2);
     min-width: 0;
-  }
-  .shots-head {
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s-1);
   }
   .count {
     min-width: 24px;
@@ -1158,6 +1257,9 @@ const demoClips = [
     }
   }
   @media (prefers-reduced-motion: reduce) {
+    .chev {
+      transition: none;
+    }
     .shots-head.pulse .count,
     .spinner,
     .rec-dot {
@@ -1505,6 +1607,17 @@ const demoClips = [
       flex-direction: column;
       align-items: stretch;
       gap: 0;
+    }
+    [data-shots='closed'] .shots-box {
+      flex: none;
+      min-height: 0;
+    }
+    .dock-toggle,
+    .shots-head {
+      align-self: flex-start;
+    }
+    .capture > .btn {
+      margin-left: 0;
     }
     .shots {
       flex-wrap: wrap;

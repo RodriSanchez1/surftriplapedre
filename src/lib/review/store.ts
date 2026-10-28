@@ -11,6 +11,17 @@ export interface Draft {
   sessions: Record<string, string>;
   /** File names already in Drive. */
   uploaded: string[];
+  /** Who surfs in each clip, by clip file name: the chips picked on it. Missing in drafts from before it existed. */
+  tags?: Record<string, string[]>;
+}
+
+/** Who was tagged on a clip: the chips picked on it or, in an older draft, everyone in its captures. */
+export function clipTags(draft: Draft | null, clip: string): string[] {
+  if (!draft) return [];
+  const picked = draft.tags?.[clip];
+  if (picked) return picked;
+  const ids = draft.log.events.flatMap((e) => (e.type === 'capture' && e.clip === clip ? e.surfers : []));
+  return [...new Set(ids)];
 }
 
 const DB = 'surftrip-review';

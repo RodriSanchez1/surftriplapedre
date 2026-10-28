@@ -23,7 +23,7 @@ import {
   type ReviewEvent,
 } from './log';
 import { fileReader, readClipInfo } from './mp4';
-import { openReviewStore, type Draft, type ReviewStore } from './store';
+import { clipTags, openReviewStore, type Draft, type ReviewStore } from './store';
 
 /** Texts built by the script; the rest already comes in the HTML. */
 export interface Texts {
@@ -34,6 +34,7 @@ export interface Texts {
   captureTagged: string;
   captureUntagged: string;
   openCapture: string;
+  clipTagged: string;
   deleteCapture: string;
   deleteCaptureConfirm: string;
   finishCount: string;
@@ -60,6 +61,8 @@ interface Entry extends Clip {
 
 /** Characters of a file name shown in the clip list before the middle is cut. */
 const NAME_MAX = 14;
+/** Where the device remembers which parts of the dock are folded. */
+const FOLDED_KEY = 'surftrip-review-folded';
 
 /** Waits for a media event, or fails after `ms`. */
 function once(el: HTMLMediaElement, event: string, ms = 8000): Promise<void> {
@@ -180,7 +183,18 @@ export function init(root: HTMLElement): void {
     lockIcon.hidden = !draft;
     lockWhy.textContent = why;
     $('[data-action="discard"]').hidden = !draft;
-    for (const c of clips) c.item.classList.toggle('has-capture', captureEvents().some((e) => e.clip === c.file.name));
+    for (const c of clips) {
+      c.item.classList.toggle('has-capture', captureEvents().some((e) => e.clip === c.file.name));
+      paintClipTags(c);
+    }
+  }
+
+  /** The avatars of who surfs in a clip, next to it in the list. */
+  function paintClipTags(entry: Entry) {
+    const ids = clipTags(draft, entry.file.name);
+    entry.item.querySelector('[data-clip-tags]')!.replaceChildren(...avatarsOf(ids));
+    const names = surfersOf(ids).map((w) => w.name).join(', ');
+    entry.item.querySelector('[data-clip-who]')!.textContent = names ? format(texts.clipTagged, { names }) : '';
   }
 
   /** The text of the upload button: the long form, and the short one a narrow phone shows next to the icon. */
@@ -329,8 +343,10 @@ export function init(root: HTMLElement): void {
     // On a phone the list is a drawer: picking a clip puts it away.
     if (compact.matches) root.dataset.list = 'closed';
     sketch.clear();
-    // A new clip is probably another surfer's wave.
-    for (const c of chips()) c.checked = false;
+    // Each clip brings back who was tagged on it.
+    const tagged = clipTags(draft, entry.file.name);
+    for (const c of chips()) c.checked = tagged.includes(c.value);
+    paintWhose();
     // The picture area stays in place; it only shows what is going on.
     setView('loading');
     video.src = entry.url;
@@ -441,6 +457,33 @@ export function init(root: HTMLElement): void {
     });
   }
 
+  /** Copies of the roster avatars, for the clip list, the folded roster and the captures. */
+  function avatarsOf(ids: string[]): HTMLImageElement[] {
+    return surfersOf(ids).flatMap((w) => {
+      if (!w.avatar) return [];
+      const avatar = w.avatar.cloneNode() as HTMLImageElement;
+      avatar.removeAttribute('loading');
+      avatar.alt = '';
+      return [avatar];
+    });
+  }
+
+  /** The folded roster shows who is tagged on this clip. */
+  function paintWhose() {
+    $('[data-whose-summary]').replaceChildren(...avatarsOf(chips().filter((c) => c.checked).map((c) => c.value)));
+  }
+
+  /** The chips picked on a clip are kept with the draft, so going back to it brings them back. */
+  function tagClip() {
+    paintWhose();
+    if (!current || uploading) return;
+    ensureOpened();
+    const d = ensureDraft();
+    d.tags = { ...d.tags, [current.file.name]: chips().filter((c) => c.checked).map((c) => c.value) };
+    persist();
+    paintStatus();
+  }
+
   function addShot(file: string, id: string, blob: Blob, surferIds: string[]) {
     const who = surfersOf(surferIds);
     const names = who.map((w) => w.name).join(', ');
@@ -464,13 +507,7 @@ export function init(root: HTMLElement): void {
       const tags = document.createElement('span');
       tags.className = 'shot-tags';
       tags.setAttribute('aria-hidden', 'true');
-      for (const w of who) {
-        if (!w.avatar) continue;
-        const avatar = w.avatar.cloneNode() as HTMLImageElement;
-        avatar.removeAttribute('loading');
-        avatar.alt = '';
-        tags.append(avatar);
-      }
+      tags.append(...avatarsOf(surferIds));
       figure.append(tags);
     }
     const remove = document.createElement('button');
@@ -508,7 +545,7 @@ export function init(root: HTMLElement): void {
     blobs.set(file, blob);
     const s = store;
     if (s) writes = writes.then(() => s.saveCapture(file, blob)).catch((e) => console.error(e));
-    // The tags stay until changed or until another clip opens: several captures of one wave are common.
+    // The tags stay with the clip: several captures of one wave are common.
     const tagged = chips().filter((c) => c.checked).map((c) => c.value);
     record({
       type: 'capture',
@@ -801,6 +838,27 @@ export function init(root: HTMLElement): void {
     listToggle.setAttribute('aria-expanded', String(getComputedStyle(clipsPanel).display !== 'none'));
   }
 
+  /** Folds the roster or the captures of the dock, and remembers it on the device. */
+  function setFolded(part: 'surfers' | 'shots', folded: boolean) {
+    root.dataset[part] = folded ? 'closed' : 'open';
+    $(`[data-action="toggle-${part}"]`).setAttribute('aria-expanded', String(!folded));
+    try {
+      localStorage.setItem(FOLDED_KEY, JSON.stringify({ surfers: root.dataset.surfers, shots: root.dataset.shots }));
+    } catch {
+      // Private mode: it is only forgotten.
+    }
+  }
+
+  function restoreFolded() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '{}') as Record<string, string>;
+      setFolded('surfers', saved.surfers === 'closed');
+      setFolded('shots', saved.shots === 'closed');
+    } catch {
+      // Nothing saved, or unreadable: both open.
+    }
+  }
+
   function focusFirstIn(container: HTMLElement) {
     const first = [...container.querySelectorAll<HTMLElement>('button, select, input, a[href], [tabindex]:not([tabindex="-1"])')].find(
       (el) => !(el as HTMLButtonElement).disabled && el.getClientRects().length > 0,
@@ -855,6 +913,8 @@ export function init(root: HTMLElement): void {
       pinned = !pinned;
       b.setAttribute('aria-pressed', String(pinned));
     },
+    'toggle-surfers': () => setFolded('surfers', root.dataset.surfers !== 'closed'),
+    'toggle-shots': () => setFolded('shots', root.dataset.shots !== 'closed'),
     capture: () => void saveCapture(),
     'open-capture': (b) => void openCapture(b.dataset.file!),
     'delete-capture': (b) => void deleteCapture(b.dataset.file!),
@@ -875,6 +935,8 @@ export function init(root: HTMLElement): void {
     // A clicked button keeps the focus; the space bar would press it again instead of playing.
     if (e.detail > 0) b.blur();
   });
+
+  for (const c of chips()) c.addEventListener('change', tagClip);
 
   // A disabled select takes no taps, so the label says why it is locked.
   field.addEventListener('click', () => {
@@ -997,6 +1059,7 @@ export function init(root: HTMLElement): void {
     for (const el of root.querySelectorAll('[data-pick-label]')) el.textContent = $('[data-action="pick"]').dataset.labelFiles!;
   }
   setView('empty');
+  restoreFolded();
   paintList();
   paintFades();
   setColor(sketch.color);
