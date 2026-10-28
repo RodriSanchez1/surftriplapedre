@@ -8,6 +8,7 @@ import BoltBand from '../components/BoltBand.astro';
 import Bolt from '../components/Bolt.astro';
 import DayCell from '../components/DayCell.astro';
 import SurferCard from '../components/SurferCard.astro';
+import ToolLink from '../components/ToolLink.astro';
 import Avatar from '../components/Avatar.astro';
 import FocusBlock from '../components/FocusBlock.astro';
 import CaptureGrid from '../components/CaptureGrid.astro';
@@ -109,6 +110,11 @@ const demoSurfers = [
       <Avatar id="juan" name="Juan" size="lg" />
     </div>
 
+    <h2 class="section-title">ToolLink</h2>
+    <div style="max-width: 420px">
+      <ToolLink href="#" icon="🎬" title="Análisis de video" text="Una herramienta del coach, con una línea que dice para qué sirve." />
+    </div>
+
     <h2 class="section-title">FocusBlock</h2>
     <FocusBlock lang="es" focus="Manos al centro en el drop" secondaryFocus="Subir después de la base" cue="Bajé, llegué a la base, tengo que subir" />
 
@@ -202,6 +208,14 @@ const demoSurfers = [
       <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo />
     </div>
   </div>
+  <div class="wrap">
+    <p class="state">login: covers the screen until the coach signs in with a Google account that can see the trip's folder</p>
+  </div>
+  <div class="wide-demo">
+    <div class="review-frame short">
+      <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo="login" />
+    </div>
+  </div>
 </BaseLayout>
 
 <style>
@@ -216,6 +230,9 @@ const demoSurfers = [
     background: var(--c-orange);
     border: var(--border);
     border-radius: var(--radius);
+  }
+  .review-frame.short {
+    height: 24rem;
   }
   .swatches {
     display: grid;

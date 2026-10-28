@@ -3,7 +3,8 @@
  * The coach's video review: clips from disk, a player, drawing on the paused frame and captures.
  * An app screen: the page does not scroll. The parent gives it a box (the app shell in BaseLayout, or a
  * fixed-height frame on /design/) and the video takes what the controls leave. The client logic is in
- * src/lib/review/page.ts. With `demo` a filled-in state is shown and the script leaves it alone.
+ * src/lib/review/page.ts. With `demo` a filled-in state is shown and the script leaves it alone; with
+ * `demo="login"`, the Google login that covers the screen until the coach signs in (only when Drive is set up).
  */
 import { dayMonth, weekdayOf } from '../lib/calendar';
 import { WEEKDAYS, format, t, type Lang } from '../lib/i18n';
@@ -18,10 +19,12 @@ interface Props {
   spots?: string[];
   surfers: { id: string; name: string; color: string }[];
   audio?: { driveFolder: string; googleClientId: string; contact: string };
-  demo?: boolean;
+  demo?: boolean | 'login';
 }
 
-const { lang, dates, timeZone, spots = [], surfers, audio, demo = false } = Astro.props;
+const { lang, dates, timeZone, spots = [], surfers, audio, demo: demoProp = false } = Astro.props;
+const gated = audio !== undefined && (demoProp === 'login' || !demoProp);
+const demo = demoProp !== false;
 const texts: Texts = {
   reopen: t(lang, 'review.reopen'),
   noVideos: t(lang, 'review.noVideos'),
@@ -76,7 +79,22 @@ const demoClips = [
   data-has-clips={demo ? 'true' : 'false'}
   data-view={demo ? 'ready' : 'empty'}
   data-recording={demo ? 'true' : 'false'}
+  data-signed-in={gated ? 'false' : undefined}
 >
+  {
+    gated && (
+      <div class="gate">
+        <div class="card prose">
+          <p>{t(lang, 'review.gate')}</p>
+          <button type="button" class="btn primary" data-action="sign-in">
+            {t(lang, 'audio.login')}
+          </button>
+          <p class="help">{t(lang, 'audio.loginHelp')}</p>
+          <p class="notice error" data-gate-error hidden></p>
+        </div>
+      </div>
+    )
+  }
   <div class="bar">
     <button
       type="button"
@@ -401,6 +419,21 @@ const demoClips = [
     -webkit-user-select: none;
     -webkit-touch-callout: none;
   }
+  /* Until the coach signs in, the login covers the screen and the rest keeps its place, unseen. */
+  .gate {
+    display: none;
+    grid-area: 1 / 1 / -1 / -1;
+    z-index: 3;
+    place-items: center;
+    padding: var(--s-4);
+  }
+  .review[data-signed-in='false'] > .gate {
+    display: grid;
+  }
+  .review[data-signed-in='false'] > :not(.gate) {
+    visibility: hidden;
+  }
+
   .review input,
   .review select,
   .record-pop {

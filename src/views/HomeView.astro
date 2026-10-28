@@ -3,6 +3,7 @@ import BaseLayout from '../components/BaseLayout.astro';
 import BoltBand from '../components/BoltBand.astro';
 import TripCalendar from '../components/TripCalendar.astro';
 import SurferCard from '../components/SurferCard.astro';
+import ToolLink from '../components/ToolLink.astro';
 import { loadSite } from '../lib/content';
 import { pathFor, shortDate, t, type Lang } from '../lib/i18n';
 import { insightsForSurfer, pickLang } from '../lib/localized';
@@ -64,6 +65,16 @@ const dates = `${shortDate(lang, trip.startDate)} → ${shortDate(lang, trip.end
         </>
       )
     }
+
+    <h2 class="section-title">{t(lang, 'home.tools')}</h2>
+    <div class="tools">
+      <ToolLink
+        href={pathFor(lang, '/review/', base)}
+        icon="🎬"
+        title={t(lang, 'review.title')}
+        text={t(lang, 'home.reviewText')}
+      />
+    </div>
   </div>
 </BaseLayout>
 
@@ -80,6 +91,11 @@ const dates = `${shortDate(lang, trip.startDate)} → ${shortDate(lang, trip.end
   .roster {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--s-3);
+  }
+  .tools {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
     gap: var(--s-3);
   }
 </style>

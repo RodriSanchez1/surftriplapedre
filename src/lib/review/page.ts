@@ -5,8 +5,8 @@
  */
 import { clampToTrip, dayMonth, todayIn } from '../calendar';
 import { format } from '../i18n';
-import { googleAccount, loadGoogle, LoginError } from '../audio/google';
-import { send, PermissionError, type Dependencies } from '../audio/upload';
+import { googleAccount, loadGoogle, LoginError, SIGNED_IN } from '../audio/google';
+import { send, verifyAccess, PermissionError, type Dependencies } from '../audio/upload';
 import { clock, DEFAULT_FPS, length, middleEllipsis, position, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
 import { canPickFolder, canRead, isVideo, pickFolder, videosIn } from './folder';
@@ -638,6 +638,24 @@ export function init(root: HTMLElement): void {
     paintStatus();
   }
 
+  // --- Login: the review is only for accounts with access to the trip's folder ---
+
+  async function signIn() {
+    const error = $('[data-gate-error]');
+    error.hidden = true;
+    try {
+      await account!.token();
+      await verifyAccess(deps!, folderId!);
+      root.dataset.signedIn = 'true';
+      // The recording panel shares the account: it signs in without another tap.
+      dispatchEvent(new Event(SIGNED_IN));
+    } catch (e) {
+      console.error(e);
+      error.textContent = e instanceof PermissionError ? texts.errorPermission : texts.errorLogin;
+      error.hidden = false;
+    }
+  }
+
   // --- Folder ---
 
   async function chooseFolder() {
@@ -844,6 +862,7 @@ export function init(root: HTMLElement): void {
       void finish();
     },
     discard: () => void discard(),
+    'sign-in': () => void signIn(),
   };
 
   root.addEventListener('click', (e) => {
@@ -893,6 +912,7 @@ export function init(root: HTMLElement): void {
   });
 
   document.addEventListener('keydown', (e) => {
+    if (root.dataset.signedIn === 'false') return;
     const target = e.target as HTMLElement;
     if (e.key === 'Escape' && root.hasAttribute('data-immersive')) return setImmersive(false);
     // Escape puts away the recording popover, then the clip drawer, and gives the focus back to their buttons.
