@@ -5,6 +5,7 @@ import BoltBand from '../components/BoltBand.astro';
 import Avatar from '../components/Avatar.astro';
 import TranslationBadge from '../components/TranslationBadge.astro';
 import { loadSite } from '../lib/content';
+import { coachMeta } from '../lib/og/meta';
 import { t, type Lang } from '../lib/i18n';
 import { pickLang } from '../lib/localized';
 
@@ -14,7 +15,9 @@ interface Props {
 }
 
 const { lang, id } = Astro.props;
-const { trip, coaches, coachProfiles } = await loadSite();
+const site = await loadSite();
+const { trip, coaches, coachProfiles } = site;
+const meta = coachMeta(site, lang, id);
 
 const coach = coaches.find((c) => c.id === id);
 if (!coach) throw new Error(`Coach "${id}" is not in coaches.yaml`);
@@ -23,7 +26,7 @@ if (!profile) throw new Error(`src/content/coaches/${id}.es.md does not exist`);
 const { Content } = await render(profile.entry);
 ---
 
-<BaseLayout title={`${coach.data.name} · ${trip.name}`} lang={lang} team={trip.team}>
+<BaseLayout title={`${coach.data.name} · ${trip.name}`} lang={lang} team={trip.team} siteName={trip.name} description={meta.description} image={meta.key}>
   <BoltBand title={coach.data.name} subtitle={profile.entry.data.tagline ?? t(lang, 'home.coach')}>
     <div slot="media" style={`--accent: var(--c-${coach.data.color})`}>
       <Avatar id={id} name="" size="lg" />

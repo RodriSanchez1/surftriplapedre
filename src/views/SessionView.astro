@@ -8,6 +8,7 @@ import CaptureGrid from '../components/CaptureGrid.astro';
 import Avatar from '../components/Avatar.astro';
 import FootageList from '../components/FootageList.astro';
 import { loadSite } from '../lib/content';
+import { sessionMeta } from '../lib/og/meta';
 import { dayMonth } from '../lib/calendar';
 import { pathFor, t, type Lang } from '../lib/i18n';
 import { insightsForSession, pickLang } from '../lib/localized';
@@ -19,7 +20,9 @@ interface Props {
 
 const { lang, date } = Astro.props;
 const base = import.meta.env.BASE_URL;
-const { trip, surfers, sessions, insights } = await loadSite();
+const site = await loadSite();
+const { trip, surfers, sessions, insights } = site;
+const meta = sessionMeta(site, lang, date);
 
 const session = pickLang(sessions, date, lang);
 if (!session) throw new Error(`src/content/sessions/${date}.es.md does not exist`);
@@ -34,7 +37,7 @@ const items = await Promise.all(
 );
 ---
 
-<BaseLayout title={`${t(lang, 'session.title')} ${dayMonth(date)} · ${trip.name}`} lang={lang} team={trip.team}>
+<BaseLayout title={`${t(lang, 'session.title')} ${dayMonth(date)} · ${trip.name}`} lang={lang} team={trip.team} siteName={trip.name} description={meta.description} image={meta.key}>
   <BoltBand title={`${t(lang, 'session.title')} ${dayMonth(date)}`} subtitle={session.entry.data.title} />
 
   <div class="wrap">

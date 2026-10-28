@@ -7,6 +7,7 @@ import FocusBlock from '../components/FocusBlock.astro';
 import CaptureGrid from '../components/CaptureGrid.astro';
 import InsightBlock from '../components/InsightBlock.astro';
 import { loadSite } from '../lib/content';
+import { surferMeta } from '../lib/og/meta';
 import { dayMonth } from '../lib/calendar';
 import { pathFor, t, type Lang } from '../lib/i18n';
 import { wasInWater } from '../lib/footage';
@@ -19,7 +20,9 @@ interface Props {
 
 const { lang, id } = Astro.props;
 const base = import.meta.env.BASE_URL;
-const { trip, surfers, sessions, insights } = await loadSite();
+const site = await loadSite();
+const { trip, surfers, sessions, insights } = site;
+const meta = surferMeta(site, lang, id);
 
 const surfer = surfers.find((s) => s.id === id);
 if (!surfer) throw new Error(`Surfer "${id}" is not in surfers.yaml`);
@@ -40,7 +43,7 @@ const history = [
 ].sort((a, b) => b.date.localeCompare(a.date));
 ---
 
-<BaseLayout title={`${surfer.data.name} · ${trip.name}`} lang={lang} team={trip.team}>
+<BaseLayout title={`${surfer.data.name} · ${trip.name}`} lang={lang} team={trip.team} siteName={trip.name} description={meta.description} image={meta.key}>
   <BoltBand title={surfer.data.name}>
     <div slot="media" style={`--accent: var(--c-${surfer.data.color})`}>
       <Avatar id={id} name="" size="lg" />

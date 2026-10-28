@@ -14,7 +14,7 @@ const { lang } = Astro.props;
 const { trip, surfers } = await loadSite();
 ---
 
-<BaseLayout title={`${t(lang, 'audio.title')} · ${trip.name}`} lang={lang} team={trip.team}>
+<BaseLayout title={`${t(lang, 'audio.title')} · ${trip.name}`} lang={lang} team={trip.team} siteName={trip.name} description={t(lang, 'audio.intro')}>
   <BoltBand title={t(lang, 'audio.title')} subtitle={t(lang, 'audio.intro')} />
   <div class="wrap">
     <AudioUploader

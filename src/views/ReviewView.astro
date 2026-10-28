@@ -13,7 +13,7 @@ const { lang } = Astro.props;
 const { trip, surfers } = await loadSite();
 ---
 
-<BaseLayout title={`${t(lang, 'review.title')} · ${trip.name}`} lang={lang} team={trip.team} app>
+<BaseLayout title={`${t(lang, 'review.title')} · ${trip.name}`} lang={lang} team={trip.team} siteName={trip.name} description={t(lang, 'home.reviewText')} app>
   <h1 class="visually-hidden">{t(lang, 'review.title')}</h1>
   <VideoReview
     lang={lang}
