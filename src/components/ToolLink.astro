@@ -1,0 +1,64 @@
+---
+/** A pressable card that opens one of the coach's tools (e.g. the video review). */
+interface Props {
+  href: string;
+  icon: string;
+  title: string;
+  text: string;
+}
+
+const { href, icon, title, text } = Astro.props;
+---
+
+<a class="tool pressable" href={href}>
+  <span class="icon" aria-hidden="true">{icon}</span>
+  <span class="body">
+    <span class="title">{title}</span>
+    <span class="text">{text}</span>
+  </span>
+  <span class="arrow" aria-hidden="true">→</span>
+</a>
+
+<style>
+  .tool {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    padding: var(--s-3) var(--s-4);
+    background: var(--c-paper);
+    color: var(--c-ink);
+    border: var(--border);
+    border-radius: 10px;
+    text-decoration: none;
+  }
+  .icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    font-size: 24px;
+    background: var(--c-yellow);
+    border: var(--border);
+    border-radius: var(--radius);
+  }
+  .body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-1);
+    min-width: 0;
+  }
+  .title {
+    font: 18px/1.15 var(--font-head);
+  }
+  .text {
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: var(--c-muted);
+  }
+  .arrow {
+    flex: none;
+    font: 22px var(--font-head);
+  }
+</style>

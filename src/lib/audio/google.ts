@@ -32,6 +32,9 @@ declare global {
   }
 }
 
+/** Fired on window when one part of the page signs in, so the others can skip their own login step. */
+export const SIGNED_IN = 'surftrip:signed-in';
+
 /** The login was cancelled, the popup was blocked or Google returned an error. */
 export class LoginError extends Error {}
 
@@ -77,7 +80,16 @@ export interface Account {
   token: (force?: boolean) => Promise<string>;
 }
 
+const accounts = new Map<string, Account>();
+
+/** One account per client ID, so every part of a page (e.g. the review and its recorder) shares the login. */
 export function googleAccount(clientId: string): Account {
+  let account = accounts.get(clientId);
+  if (!account) accounts.set(clientId, (account = newAccount(clientId)));
+  return account;
+}
+
+function newAccount(clientId: string): Account {
   let current: { token: string; expires: number } | null = null;
   let client: TokenClient | null = null;
   let inFlight: Promise<string> | null = null;
