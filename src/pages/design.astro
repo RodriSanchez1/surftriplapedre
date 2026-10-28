@@ -50,6 +50,10 @@ const demoSurfers = [
           </div>
         ))
       }
+      <div class="swatch">
+        <span class="ring-sample" />
+        <code>--focus-ring</code>
+      </div>
     </div>
 
     <h2 class="section-title">Typography</h2>
@@ -191,10 +195,12 @@ const demoSurfers = [
     <AudioUploader lang="es" dates={demoDates} timeZone="UTC" />
 
     <h2 class="section-title">VideoReview</h2>
-    <p class="state">clip open, arrow tool, recording audio, three captures</p>
+    <p class="state">app screen with a fixed-height frame here: clip open, arrow tool, recording audio, three captures</p>
   </div>
   <div class="wide-demo">
-    <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo />
+    <div class="review-frame">
+      <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo />
+    </div>
   </div>
 </BaseLayout>
 
@@ -203,6 +209,13 @@ const demoSurfers = [
     max-width: 1280px;
     margin: 0 auto;
     padding: 0 var(--s-4);
+  }
+  /* The review screen fills its parent; on this page the parent has a fixed height instead of 100dvh. */
+  .review-frame {
+    height: 46rem;
+    background: var(--c-orange);
+    border: var(--border);
+    border-radius: var(--radius);
   }
   .swatches {
     display: grid;
@@ -219,6 +232,13 @@ const demoSurfers = [
     display: block;
     height: 56px;
     border-bottom: var(--border);
+  }
+  /* Keyboard focus ring as the app screens draw it: on the orange page, offset from the control. */
+  .swatch span.ring-sample {
+    background: var(--c-orange)
+      linear-gradient(var(--c-white), var(--c-white)) center / calc(100% - 56px) calc(100% - 28px) no-repeat;
+    outline: 3px solid var(--focus-ring);
+    outline-offset: -11px;
   }
   .swatch code {
     display: block;
