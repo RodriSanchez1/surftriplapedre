@@ -9,9 +9,18 @@
 //                                         final list = logistics
 //
 // If sessions/<date>/*.meta.json exist, their footage goes into the session frontmatter.
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+//
+// A surfer section can end with a block of captures from the video review (the bold heading is the same
+// in both languages). The ids are the ones in sessions/<date>/review-timeline.md:
+//   **Capturas**
+//
+//   - 183012-3 · El brazo delantero guía el giro
+// The block leaves the body; the frontmatter gets captures: [{ id, caption, wave, day }] and the image is
+// copied from sessions/<date>/ to public/captures/<date>/<id>.jpg.
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dump, load } from 'js-yaml';
 import { mergeFootage, parseMeta } from '../src/lib/footage.ts';
+import { clockIn, filmedMoment, parseLog } from '../src/lib/review/log.ts';
 
 const [date, ...titles] = process.argv.slice(2);
 if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '') || titles.length !== 2) {
@@ -52,6 +61,55 @@ function parsePlan(body) {
   return { note, foci, logistics };
 }
 
+/** Splits the **Capturas** block out of a section body. */
+function takeCaptures(body) {
+  const kept = [];
+  const captures = [];
+  let inBlock = false;
+  for (const line of body.split('\n')) {
+    if (line.trim() === '**Capturas**') {
+      inBlock = true;
+      continue;
+    }
+    const item = /^-\s+(\d{6}-\d+)\s*[·|]\s*(.+)$/.exec(line.trim());
+    if (inBlock && item) {
+      captures.push({ id: item[1], caption: item[2].trim() });
+      continue;
+    }
+    if (inBlock && line.trim() !== '') inBlock = false;
+    if (!inBlock || line.trim() !== '') kept.push(line);
+  }
+  return { body: kept.join('\n').trim(), captures };
+}
+
+const timeZone = load(readFileSync('src/data/trip.yaml', 'utf8'))[0].timeZone;
+const reviewDir = `sessions/${date}`;
+const reviewLogs = existsSync(reviewDir)
+  ? readdirSync(reviewDir)
+      .filter((f) => f.endsWith('.review.json'))
+      .sort()
+      .flatMap((f) => parseLog(readFileSync(`${reviewDir}/${f}`, 'utf8')) ?? [])
+  : [];
+
+/** Finds a capture in the logs, copies its image to the site and says when the wave was filmed. */
+function resolveCapture({ id, caption }) {
+  for (const log of reviewLogs) {
+    const event = log.events.find((e) => e.type === 'capture' && e.id === id);
+    if (!event) continue;
+    const image = `${reviewDir}/${event.file}`;
+    if (!existsSync(image)) throw new Error(`Capture ${id}: the image ${image} does not exist`);
+    mkdirSync(`public/captures/${date}`, { recursive: true });
+    copyFileSync(image, `public/captures/${date}/${id}.jpg`);
+    const open = log.events.findLast((e) => e.type === 'open' && e.clip === event.clip && e.at <= event.at)
+      ?? log.events.findLast((e) => e.type === 'open' && e.clip === event.clip);
+    const moment = open ? filmedMoment(open.filmedAt, event.t) : null;
+    const clock = moment ? clockIn(timeZone, moment) : null;
+    const wave = clock ? { wave: `${clock.slice(0, 2)}:${clock.slice(2, 4)}`, day: moment.toLocaleDateString('en-CA', { timeZone }) } : {};
+    return { id, caption, ...wave };
+  }
+  throw new Error(`Capture ${id} is not in any sessions/${date}/*.review.json`);
+}
+
 const metaDir = `sessions/${date}`;
 const metaFiles = existsSync(metaDir) ? readdirSync(metaDir).filter((f) => f.endsWith('.meta.json')).sort() : [];
 const metas = metaFiles.flatMap((f) => {
@@ -87,10 +145,12 @@ const footage = mergeFootage(
     if (!id) continue;
     const f = foci.get(sec.title.toLowerCase());
     if (!f) throw new Error(`${src}: ${sec.title} is not in the plan table`);
-    const body = sec.body.replace(/^\*\*([^*]+)\*\*$/gm, '### $1');
+    const taken = takeCaptures(sec.body);
+    const captures = taken.captures.map(resolveCapture);
+    const body = taken.body.replace(/^\*\*([^*]+)\*\*$/gm, '### $1');
     mkdirSync(`src/content/insights/${date}`, { recursive: true });
     const out = `src/content/insights/${date}/${id}.${lang}.md`;
-    writeFileSync(out, frontmatter({ date, surfer: id, ...f }, body));
+    writeFileSync(out, frontmatter({ date, surfer: id, ...f, ...(captures.length ? { captures } : {}) }, body));
     console.log(`+ ${out}`);
   }
 });

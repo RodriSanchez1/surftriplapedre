@@ -1,4 +1,5 @@
 /** Which audios in the Drive folder still need processing. Used by scripts/session-auto.mjs. */
+import { parseCaptureName, parseReviewName } from '../review/log.ts';
 
 export interface DriveFile {
   name: string;
@@ -34,19 +35,26 @@ export function parseMetaName(name: string): { date: string; time: string } | nu
   return m ? { date: m[1], time: m[2] } : null;
 }
 
-/** Groups the audios by session date, in recording order (time and part). Meta files go apart, by date. */
+/** Groups the audios by session date, in recording order (time and part). Meta and review files go apart, by date. */
 export function groupByDate(files: DriveFile[]): {
   byDate: Map<string, Audio[]>;
   meta: Map<string, DriveFile[]>;
+  review: Map<string, DriveFile[]>;
   ignored: string[];
 } {
   const byDate = new Map<string, Audio[]>();
   const meta = new Map<string, DriveFile[]>();
+  const review = new Map<string, DriveFile[]>();
   const ignored: string[] = [];
   for (const file of files) {
     const metaData = parseMetaName(file.name);
     if (metaData) {
       meta.set(metaData.date, [...(meta.get(metaData.date) ?? []), file]);
+      continue;
+    }
+    const reviewData = parseReviewName(file.name) ?? parseCaptureName(file.name);
+    if (reviewData) {
+      review.set(reviewData.date, [...(review.get(reviewData.date) ?? []), file]);
       continue;
     }
     const data = parseName(file.name);
@@ -61,12 +69,12 @@ export function groupByDate(files: DriveFile[]): {
   for (const list of byDate.values()) {
     list.sort((a, b) => a.time.localeCompare(b.time) || a.part - b.part);
   }
-  for (const list of meta.values()) list.sort((a, b) => a.name.localeCompare(b.name));
-  return { byDate: new Map([...byDate].sort(([a], [b]) => a.localeCompare(b))), meta, ignored };
+  for (const list of [...meta.values(), ...review.values()]) list.sort((a, b) => a.name.localeCompare(b.name));
+  return { byDate: new Map([...byDate].sort(([a], [b]) => a.localeCompare(b))), meta, review, ignored };
 }
 
 /**
- * - processed: exactly this list of files (audios and meta files) was already processed.
+ * - processed: exactly this list of files (audios, meta and review files) was already processed.
  * - changed: it was processed, but files arrived or changed afterwards.
  * - waiting: the last file is very recent; another part may be coming.
  * - ready: it can be processed.

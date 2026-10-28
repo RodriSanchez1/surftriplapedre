@@ -105,3 +105,20 @@ describe('meta files', () => {
     expect(dateStatus(files, ['2026-10-27_1830.webm'], new Date('2026-10-28T00:00:00Z'), 15)).toBe('changed');
   });
 });
+
+describe('groupByDate with review files', () => {
+  const m = '2026-10-27T20:00:00Z';
+  it('keeps logs and captures apart, by date, out of ignored', () => {
+    const { byDate, review, ignored } = groupByDate([
+      { name: '2026-10-27_183012_cap-2.jpg', modified: m },
+      { name: '2026-10-27_183012.review.json', modified: m },
+      { name: '2026-10-27_1830.webm', modified: m },
+      { name: '2026-10-28_090000.review.json', modified: m },
+      { name: 'photo.jpg', modified: m },
+    ]);
+    expect([...byDate.keys()]).toEqual(['2026-10-27']);
+    expect(review.get('2026-10-27')!.map((f) => f.name)).toEqual(['2026-10-27_183012_cap-2.jpg', '2026-10-27_183012.review.json']);
+    expect(review.get('2026-10-28')).toHaveLength(1);
+    expect(ignored).toEqual(['photo.jpg']);
+  });
+});

@@ -67,3 +67,23 @@ describe('findContentErrors', () => {
     expect(findContentErrors(input)).toEqual([expect.stringContaining('coach "maria" is not in coaches.yaml')]);
   });
 });
+
+describe('captures', () => {
+  const withCapture = (): IntegrityInput => {
+    const input = valid();
+    input.insights[0].data.captures = [{ id: '183012-3' }];
+    return input;
+  };
+
+  it('accepts a capture whose image exists', () => {
+    const seen: string[] = [];
+    const input = { ...withCapture(), publicFileExists: (p: string) => (seen.push(p), true) };
+    expect(findContentErrors(input)).toEqual([]);
+    expect(seen).toEqual(['captures/2026-10-26/183012-3.jpg']);
+  });
+
+  it('detects a capture without its image', () => {
+    const input = { ...withCapture(), publicFileExists: () => false };
+    expect(findContentErrors(input)).toEqual([expect.stringContaining('public/captures/2026-10-26/183012-3.jpg')]);
+  });
+});

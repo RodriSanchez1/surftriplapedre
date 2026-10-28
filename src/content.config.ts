@@ -98,6 +98,19 @@ const insights = defineCollection({
     focus: z.string(),
     secondaryFocus: z.string(),
     cue: z.string(),
+    /** Frames from the video review, with the coach's drawing; written by import-session. The image is public/captures/<date>/<id>.jpg. */
+    captures: z
+      .array(
+        z.object({
+          id: z.string(),
+          caption: z.string(),
+          /** 'HH:mm' of the filmed wave, in the trip time zone. */
+          wave: z.string().optional(),
+          /** Day it was filmed. */
+          day: isoDate.optional(),
+        }),
+      )
+      .default([]),
   }),
 });
 

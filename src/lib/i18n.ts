@@ -115,6 +115,7 @@ const es = {
   'footage.surfers': 'En el agua',
   'footage.add': 'Agregar otra sesión',
   'footage.remove': 'Quitar esta sesión',
+  'capture.wave': 'Ola de las {time} · {date}',
 } as const;
 
 export type UiKey = keyof typeof es;
@@ -232,6 +233,7 @@ const pt: Record<UiKey, string> = {
   'footage.surfers': 'Na água',
   'footage.add': 'Adicionar outra sessão',
   'footage.remove': 'Remover esta sessão',
+  'capture.wave': 'Onda das {time} · {date}',
 };
 
 const ui: Record<Lang, Record<UiKey, string>> = { es, pt };
