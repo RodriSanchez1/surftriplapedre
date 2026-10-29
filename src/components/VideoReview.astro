@@ -1478,7 +1478,8 @@ const demoClips = [
     display: grid;
     gap: var(--s-1);
   }
-  .tagged li {
+  /* The rows are built by the page script, so they need :global to get these styles. */
+  .tagged :global(li) {
     display: flex;
     align-items: center;
     gap: var(--s-2);
@@ -1488,12 +1489,12 @@ const demoClips = [
     border-radius: 6px;
     font-size: 14px;
   }
-  .tagged strong,
-  .del-name strong {
+  .tagged :global(strong),
+  .delete-list :global(.del-name strong) {
     font: 13px var(--font-strong);
     color: var(--c-ink);
   }
-  .tagged-who {
+  .tagged :global(.tagged-who) {
     flex: 1;
     min-width: 0;
     color: var(--c-muted);
@@ -1501,7 +1502,7 @@ const demoClips = [
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .tagged-marks {
+  .tagged :global(.tagged-marks) {
     flex: none;
     display: flex;
     align-items: center;
@@ -1519,13 +1520,13 @@ const demoClips = [
     font-size: 14px;
     line-height: 1.4;
   }
-  .delete-list li {
+  .delete-list :global(li) {
     display: flex;
     align-items: center;
     gap: var(--s-2);
     font-size: 14px;
   }
-  .del-name {
+  .delete-list :global(.del-name) {
     flex: 1;
     min-width: 0;
     color: var(--c-muted);
@@ -1561,7 +1562,7 @@ const demoClips = [
   /* Room above and to the right so the delete buttons stay inside the grid. */
   .shots {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
     gap: var(--s-3);
     padding: 10px 10px 2px 2px;
   }

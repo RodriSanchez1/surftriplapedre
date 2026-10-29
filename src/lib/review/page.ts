@@ -1236,6 +1236,13 @@ export function init(root: HTMLElement): void {
       listToggle.focus();
       return;
     }
+    // T opened the selector and moved the focus onto its first checkbox: T there closes it again.
+    if (e.key.toLowerCase() === 't' && !e.altKey && !e.metaKey && !e.ctrlKey && target.closest('[data-tag-pop]')) {
+      e.preventDefault();
+      setTags(false);
+      tagPill.focus();
+      return;
+    }
     if (target.closest('input:not([type="range"]), select, textarea, [contenteditable], [data-audio]')) return;
     if (e.altKey || e.metaKey) return;
     if (e.ctrlKey) {
