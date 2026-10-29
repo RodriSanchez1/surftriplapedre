@@ -2,7 +2,7 @@
  * What the review page keeps on the device (IndexedDB) until Drive confirms it:
  * the log in progress, its captures, which files are already uploaded, and the folder of clips.
  */
-import type { ReviewLog } from './log';
+import type { ClipTags, ReviewLog } from './log';
 
 /** The review in progress. */
 export interface Draft {
@@ -11,17 +11,17 @@ export interface Draft {
   sessions: Record<string, string>;
   /** File names already in Drive. */
   uploaded: string[];
-  /** Who surfs in each clip, by clip file name: the chips picked on it. Missing in drafts from before it existed. */
-  tags?: Record<string, string[]>;
+  /** Tags of each clip, by clip file name: the ones picked on it. Missing in drafts from before it existed. */
+  clips?: Record<string, ClipTags>;
 }
 
-/** Who was tagged on a clip: the chips picked on it or, in an older draft, everyone in its captures. */
-export function clipTags(draft: Draft | null, clip: string): string[] {
-  if (!draft) return [];
-  const picked = draft.tags?.[clip];
+/** The tags of a clip: the ones picked on it or, in an older draft, everyone in its captures. */
+export function clipTags(draft: Draft | null, clip: string): ClipTags {
+  if (!draft) return { surfers: [], kinds: [] };
+  const picked = draft.clips?.[clip];
   if (picked) return picked;
   const ids = draft.log.events.flatMap((e) => (e.type === 'capture' && e.clip === clip ? e.surfers : []));
-  return [...new Set(ids)];
+  return { surfers: [...new Set(ids)], kinds: [] };
 }
 
 const DB = 'surftrip-review';

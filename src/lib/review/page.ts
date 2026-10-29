@@ -193,7 +193,7 @@ export function init(root: HTMLElement): void {
 
   /** The avatars of who surfs in a clip, next to it in the list. */
   function paintClipTags(entry: Entry) {
-    const ids = clipTags(draft, entry.file.name);
+    const ids = clipTags(draft, entry.file.name).surfers;
     entry.item.querySelector('[data-clip-tags]')!.replaceChildren(...dotsOf(ids));
     const names = surfersOf(ids).map((w) => w.name).join(', ');
     entry.item.querySelector('[data-clip-who]')!.textContent = names ? format(texts.clipTagged, { names }) : '';
@@ -346,7 +346,7 @@ export function init(root: HTMLElement): void {
     if (compact.matches) root.dataset.list = 'closed';
     sketch.clear();
     // Each clip brings back who was tagged on it.
-    const tagged = clipTags(draft, entry.file.name);
+    const tagged = clipTags(draft, entry.file.name).surfers;
     for (const c of chips()) c.checked = tagged.includes(c.value);
     paintWhose();
     // The picture area stays in place; it only shows what is going on.
@@ -482,7 +482,8 @@ export function init(root: HTMLElement): void {
     if (!current || uploading) return;
     ensureOpened();
     const d = ensureDraft();
-    d.tags = { ...d.tags, [current.file.name]: chips().filter((c) => c.checked).map((c) => c.value) };
+    const surfers = chips().filter((c) => c.checked).map((c) => c.value);
+    d.clips = { ...d.clips, [current.file.name]: { surfers, kinds: clipTags(d, current.file.name).kinds } };
     persist();
     paintStatus();
   }

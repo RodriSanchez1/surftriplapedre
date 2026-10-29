@@ -85,4 +85,25 @@ describe('parseLog', () => {
     expect(parseLog('{')).toBeNull();
     expect(parseLog('{"talkDate":"2026-10-27","footage":[]}')).toBeNull();
   });
+
+  it('reads the tags of each clip and drops the broken ones', () => {
+    const log = newLog('2026-10-27', '2026-10-27_183012', new Date('2026-10-27T21:30:12Z'));
+    const text = toJson({
+      ...log,
+      clips: {
+        'C0232.MP4': { surfers: ['juan'], kinds: ['landscape'] },
+        'C0233.MP4': { surfers: [], kinds: ['delete', 'party' as never] },
+        'C0234.MP4': { surfers: 'juan' } as never,
+      },
+    });
+    expect(parseLog(text)?.clips).toEqual({
+      'C0232.MP4': { surfers: ['juan'], kinds: ['landscape'] },
+      'C0233.MP4': { surfers: [], kinds: ['delete'] },
+    });
+  });
+
+  it('leaves clips out of a log that has none', () => {
+    const log = newLog('2026-10-27', '2026-10-27_183012', new Date('2026-10-27T21:30:12Z'));
+    expect(parseLog(toJson(log))).not.toHaveProperty('clips');
+  });
 });
