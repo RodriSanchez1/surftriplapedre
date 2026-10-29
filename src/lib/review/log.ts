@@ -131,7 +131,6 @@ export function filmedMoment(filmedAt: string | null, t: number): Date | null {
   return filmedAt ? new Date(Date.parse(filmedAt) + Math.round(t * 1000)) : null;
 }
 
-/** Reads a log file. Anything that is not a log → null; events of unknown types are dropped. */
 const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
 
 /** The clips map of a log. Entries that are not tags are dropped, and so are unknown kinds. */
@@ -146,6 +145,7 @@ function parseClips(value: unknown): Record<string, ClipTags> | undefined {
   return out;
 }
 
+/** Reads a log file. Anything that is not a log → null; events of unknown types are dropped. */
 export function parseLog(text: string): ReviewLog | null {
   let data: unknown;
   try {
