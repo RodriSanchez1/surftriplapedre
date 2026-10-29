@@ -40,6 +40,22 @@ export function arrowTail(points: Point[], minDistance: number): Point {
   return points[0];
 }
 
+/**
+ * Whether a stroke was only a tap, which draws nothing. The pen keeps a wobbly tap as a dot. A free arrow needs a path
+ * at least as long as its head: every pointer move adds a point, so a wobbly tap would otherwise leave a stray head.
+ */
+export function isTap(s: Shape): boolean {
+  const [a, b] = [s.points[0], s.points[s.points.length - 1]];
+  const moved = Math.hypot(a[0] - b[0], a[1] - b[1]) > 0.005;
+  if (s.tool === 'pen') return !moved && s.points.length <= 3;
+  if (s.tool !== 'freeArrow') return !moved;
+  let path = 0;
+  for (let i = 1; i < s.points.length; i++) {
+    path += Math.hypot(s.points[i][0] - s.points[i - 1][0], s.points[i][1] - s.points[i - 1][1]);
+  }
+  return path < STROKE * 5;
+}
+
 /** Size of the capture: the video's own size, scaled down to CAPTURE_MAX_WIDTH. */
 export function captureSize(width: number, height: number): { width: number; height: number } {
   const scale = Math.min(1, CAPTURE_MAX_WIDTH / width);
@@ -183,9 +199,8 @@ export class Sketch {
     const s = this.#current;
     this.#current = null;
     if (!s) return;
-    const [a, b] = [s.points[0], s.points[s.points.length - 1]];
     // A tap without dragging draws nothing.
-    if (Math.hypot(a[0] - b[0], a[1] - b[1]) > 0.005 || s.points.length > 3) this.#history.add(s);
+    if (!isTap(s)) this.#history.add(s);
     this.redraw();
     this.onChange(this.shapes.length);
   }

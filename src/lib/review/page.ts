@@ -146,6 +146,7 @@ export function init(root: HTMLElement): void {
     root.dataset.view = view;
     // Greyed out by CSS; inert keeps the keyboard and screen readers out of them too.
     for (const el of interactive) el.inert = view !== 'ready';
+    if (view !== 'ready') setArrowMenu(false);
     $('[data-next-clip]').hidden = clips.length < 2;
   }
 
@@ -1046,6 +1047,11 @@ export function init(root: HTMLElement): void {
 
   // The menu is placed for the layout it opened in.
   window.addEventListener('resize', () => setArrowMenu(false));
+  // Tabbing out of the menu puts it away, so it does not float over the picture with the focus elsewhere.
+  arrowMenu.addEventListener('focusout', (e) => {
+    const to = e.relatedTarget as Node | null;
+    if (to && !arrowMenu.contains(to) && to !== arrowButton) setArrowMenu(false);
+  });
 
   document.addEventListener('keydown', (e) => {
     // The tour's dialog handles its own keys (Esc is Saltar); none of the editor's shortcuts run under it.
@@ -1158,6 +1164,7 @@ export function init(root: HTMLElement): void {
     say: (text) => say(text),
     putAway: () => {
       setRecord(false);
+      setArrowMenu(false);
       if (compact.matches) root.dataset.list = 'closed';
     },
     closed: () => {
