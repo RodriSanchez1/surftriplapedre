@@ -4,6 +4,7 @@
  */
 import { format } from '../i18n';
 import {
+  available,
   cutout,
   intersect,
   locate,
@@ -134,6 +135,12 @@ export function initTour(root: HTMLElement, hooks: TourHooks): Tour {
     const el = root.querySelector(selector);
     return el && boxOf(el);
   };
+  const screen = () => ({
+    compact: compact(),
+    sessionLocked: root.querySelector<HTMLSelectElement>('[data-date]')?.disabled === true,
+  });
+  // A step's target may come or go after the part opened (clips loading, a restored analysis locking the day).
+  const can = (i: number) => available(steps[i], screen(), probe);
   const bodyKey = (step: Step) => (compact() && step.compactBody) || step.body;
   // Thumbnails, the restored banner, the drawer or late web fonts move things: place it all again.
   const resize = new ResizeObserver(() => layout());
@@ -153,8 +160,7 @@ export function initTour(root: HTMLElement, hooks: TourHooks): Tour {
   function start(flag: Flag): boolean {
     if (open || layer.open) return false;
     hooks.putAway();
-    const sessionLocked = root.querySelector<HTMLSelectElement>('[data-date]')?.disabled === true;
-    const list = stepsToShow(flag, { compact: compact(), sessionLocked }, probe);
+    const list = stepsToShow(flag, screen(), probe);
     if (!list.length) return false;
     open = flag;
     steps = list;
@@ -168,7 +174,7 @@ export function initTour(root: HTMLElement, hooks: TourHooks): Tour {
 
   /** Shows step i, or the next one in `dir` whose target is still there. */
   function show(i: number, dir: 1 | -1, announce = true) {
-    while (i >= 0 && i < steps.length && !locate(steps[i], compact(), probe)) i += dir;
+    while (i >= 0 && i < steps.length && !can(i)) i += dir;
     if (i < 0) return;
     if (i >= steps.length) return close(true);
     index = i;
@@ -187,19 +193,19 @@ export function initTour(root: HTMLElement, hooks: TourHooks): Tour {
     layout();
   }
 
-  /** The button the folder step presses: the target itself, or the one inside it. */
+  /** The button the folder step presses: the target itself, or the one inside it. None once a clip is ready. */
   function pressable(): HTMLElement | null {
-    if (!target) return null;
+    if (!target || !steps[index]?.act || root.dataset.view === 'ready') return null;
     return target.matches('button, label') ? target : target.querySelector<HTMLElement>('button, label.btn');
   }
 
   function paint(step: Step) {
     const tip = step.flag === 'upload';
-    const last = index === steps.length - 1;
+    const last = !steps.some((_, k) => k > index && can(k));
     kicker.hidden = tip;
     dots.hidden = tip;
     skip.hidden = tip;
-    back.hidden = tip || index === 0;
+    back.hidden = tip || !steps.some((_, k) => k < index && can(k));
     kicker.textContent = format(texts['tour.kicker'], { x: index + 1, y: steps.length });
     dots.replaceChildren(
       ...steps.map((_, k) => {
@@ -214,7 +220,7 @@ export function initTour(root: HTMLElement, hooks: TourHooks): Tour {
     note.textContent = step.note ? texts[step.note] : '';
     skip.textContent = texts[step.skip ?? 'tour.skip'];
     back.textContent = texts['tour.back'];
-    const pressed = step.act ? pressable() : null;
+    const pressed = pressable();
     next.textContent = pressed ? labelOf(pressed) : texts[step.next ?? (last ? 'tour.done' : 'tour.next')];
   }
 
@@ -260,7 +266,7 @@ export function initTour(root: HTMLElement, hooks: TourHooks): Tour {
   }
 
   next.addEventListener('click', () => {
-    const pressed = steps[index]?.act ? pressable() : null;
+    const pressed = pressable();
     if (!pressed) return show(index + 1, 1);
     close(true);
     // The same click opens the picker: the browser still counts it as the coach's own.

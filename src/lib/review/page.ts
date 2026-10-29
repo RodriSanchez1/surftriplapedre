@@ -148,16 +148,16 @@ export function init(root: HTMLElement): void {
 
   /** Messages float over the picture; the quick ones fade after 4 s, the others stay until dismissed. */
   let messageTimer = 0;
-  function say(text: string, kind: 'ok' | 'warn' | 'error' = 'ok', sticky = false) {
+  function say(text: string, kind: 'ok' | 'warn' | 'error' = 'ok', sticky = false, retry = false) {
     if (tour?.isOpen()) {
-      heldMessage = [text, kind, sticky];
+      heldMessage = [text, kind, sticky, retry];
       return;
     }
     clearTimeout(messageTimer);
     message.textContent = text;
     messageBox.className = `notice ${kind === 'ok' ? '' : kind}`;
     messageBox.hidden = !text;
-    retryButton.hidden = true;
+    retryButton.hidden = !retry;
     if (!sticky && text) messageTimer = window.setTimeout(() => (messageBox.hidden = true), 4000);
   }
 
@@ -628,8 +628,9 @@ export function init(root: HTMLElement): void {
         e instanceof PermissionError ? texts.errorPermission : e instanceof LoginError ? texts.errorLogin : texts.errorUpload,
         'error',
         true,
+        // With the retry button: a message held by the tour comes back with it.
+        true,
       );
-      retryButton.hidden = false;
     } finally {
       uploading = false;
       lock(false);

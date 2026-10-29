@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { t } from '../src/lib/i18n';
 import {
   STEPS,
+  available,
   cutout,
   intersect,
   locate,
@@ -84,6 +85,11 @@ describe('stepsToShow', () => {
   });
   it('keeps the four steps of part 2 when everything is there', () => {
     expect(stepsToShow('tools', open, all).map((s) => s.id)).toEqual(['clips', 'play', 'draw', 'capture']);
+  });
+  it('rules out the session step once an analysis locks it, even after the part opened', () => {
+    expect(available(step('day'), open, all)).toBe(true);
+    expect(available(step('day'), { ...open, sessionLocked: true }, all)).toBe(false);
+    expect(available(step('record'), { ...open, sessionLocked: true }, all)).toBe(true);
   });
   it('has no tip without the upload button', () => {
     expect(stepsToShow('upload', open, none)).toEqual([]);

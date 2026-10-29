@@ -150,11 +150,14 @@ export interface Screen {
   sessionLocked: boolean;
 }
 
+/** Whether a step can be shown now: its target is on screen and nothing rules it out. */
+export function available(step: Step, screen: Screen, probe: Probe): boolean {
+  return !(step.needsUnlocked && screen.sessionLocked) && locate(step, screen.compact, probe) !== null;
+}
+
 /** The steps of a part that can be shown now. The count "Paso X de Y" is taken from these. */
 export function stepsToShow(flag: Flag, screen: Screen, probe: Probe): Step[] {
-  return STEPS.filter(
-    (s) => s.flag === flag && !(s.needsUnlocked && screen.sessionLocked) && locate(s, screen.compact, probe) !== null,
-  );
+  return STEPS.filter((s) => s.flag === flag && available(s, screen, probe));
 }
 
 // --- When ---
