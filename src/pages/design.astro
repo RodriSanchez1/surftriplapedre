@@ -17,6 +17,9 @@ import TranslationBadge from '../components/TranslationBadge.astro';
 import AudioUploader from '../components/AudioUploader.astro';
 import FootageList from '../components/FootageList.astro';
 import VideoReview from '../components/VideoReview.astro';
+import TourOverlay from '../components/TourOverlay.astro';
+import ToolIcon from '../components/ToolIcon.astro';
+import { cursorSvg, ICONS, type IconName } from '../lib/review/icons';
 import { ACCENTS } from '../content.config';
 import { renderCard, type Card } from '../lib/og/card';
 
@@ -50,6 +53,11 @@ const demoSurfers = [
   { id: 'ana', name: 'Ana', color: 'sky' },
   { id: 'leo', name: 'Leo', color: 'green' },
 ];
+
+const toolIcons = Object.keys(ICONS) as IconName[];
+const cursorTools = ['pen', 'arrow', 'freeArrow', 'circle'] as const;
+/** The cursors drawn with the tokens (the page builds them with the computed colours). */
+const cursorColors = { ink: 'var(--c-ink)', paper: 'var(--c-paper)', accent: 'var(--c-yellow)' };
 ---
 
 <BaseLayout title="Design system" lang="es" team="Design system" langSwitch={false}>
@@ -188,6 +196,7 @@ const demoSurfers = [
         <button type="button" class="btn">.btn</button>
         <button type="button" class="btn primary">.btn.primary</button>
         <button type="button" class="btn record">● .btn.record</button>
+        <button type="button" class="btn small">.btn.small</button>
         <button type="button" class="btn" disabled>disabled</button>
       </div>
       <p class="notice">.notice</p>
@@ -245,6 +254,34 @@ const demoSurfers = [
       <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo="login" />
     </div>
   </div>
+  <div class="wrap">
+    <h2 class="section-title">TourOverlay</h2>
+    <p class="state">guided tour of /review/: the screen dims, the control gets an ink and yellow ring and the card explains it (step "capture"; on the page it is a modal dialog placed by tour-page.ts)</p>
+    <TourOverlay lang="es" demo="capture" />
+    <h2 class="section-title">ToolIcon</h2>
+    <p class="state">icons of the drawing rail on /review/ (src/lib/review/icons.ts)</p>
+    <div class="row">
+      {
+        toolIcons.map((name) => (
+          <figure class="icon-sample">
+            <ToolIcon name={name} />
+            <figcaption><code>{name}</code></figcaption>
+          </figure>
+        ))
+      }
+    </div>
+    <p class="state">drawing cursors (32 px, shown at double size here): they take the colour in use (yellow here)</p>
+    <div class="row cursor-samples">
+      {
+        cursorTools.map((tool) => (
+          <figure class="icon-sample">
+            <span class="cursor-sample" set:html={cursorSvg(tool, cursorColors)} />
+            <figcaption><code>{tool}</code></figcaption>
+          </figure>
+        ))
+      }
+    </div>
+  </div>
 </BaseLayout>
 
 <style>
@@ -262,6 +299,29 @@ const demoSurfers = [
   }
   .review-frame.short {
     height: 24rem;
+  }
+  .icon-sample {
+    margin: 0;
+    display: grid;
+    justify-items: center;
+    gap: var(--s-1);
+    padding: var(--s-2) var(--s-3);
+    background: var(--c-paper);
+    border: var(--border);
+    border-radius: var(--radius);
+  }
+  .icon-sample code {
+    font-size: 12px;
+  }
+  /* On the picture's own background, so the paper halo and the ink outline both show. */
+  .cursor-samples .icon-sample {
+    background: var(--c-ink);
+    color: var(--c-white);
+  }
+  .cursor-sample :global(svg) {
+    display: block;
+    width: 64px;
+    height: 64px;
   }
   .swatches {
     display: grid;

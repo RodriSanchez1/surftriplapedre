@@ -94,6 +94,8 @@ Each clip heading in `review-timeline.md` adds who surfs it and its kinds, for e
 
 The tour (spec `2026-10-28-review-tour-design.md`, being built on another branch) points its "marcar y guardar" step at the dock. It must point at the pill and at 📸 instead, and the "subida" tip at "⬆ Subir". Whichever branch merges second updates the selectors.
 
+Done when merging `main` (tour and drawing cursors) into this branch: the "Marcá quién surfea y guardá" step points at the pill (`.tag-pill`) and its copy names 📸, which the "Dibujá" step already rings as part of the rail, so part 2 keeps four steps. The upload tip points at the bar's "⬆ Subir (n)" (`[data-outbox-toggle]`) and says it opens what is pending. The tour also closes the tag selector and the pending panel when it opens.
+
 ## Out of scope
 
 - Deleting from Drive or anywhere other than the local folder.

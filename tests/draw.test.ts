@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arrowHead, captureSize, ShapeHistory, type Shape } from '../src/lib/review/draw';
+import { arrowHead, arrowTail, captureSize, isTap, ShapeHistory, type Shape } from '../src/lib/review/draw';
 
 describe('captureSize', () => {
   it('scales 4K down to 1600 px wide and keeps small frames as they are', () => {
@@ -14,6 +14,35 @@ describe('arrowHead', () => {
     expect(a[0]).toBeLessThan(100);
     expect(b[0]).toBeLessThan(100);
     expect(Math.sign(a[1])).toBe(-Math.sign(b[1]));
+  });
+});
+
+describe('arrowTail', () => {
+  it('skips the points too close to the tip', () => {
+    expect(arrowTail([[0, 0], [50, 0], [95, 0], [99, 0], [100, 0]], 10)).toEqual([50, 0]);
+  });
+  it('returns the start of a stroke shorter than the distance', () => {
+    expect(arrowTail([[0, 0], [3, 0], [5, 0]], 10)).toEqual([0, 0]);
+  });
+  it('works with two points', () => {
+    expect(arrowTail([[0, 0], [100, 0]], 10)).toEqual([0, 0]);
+  });
+});
+
+describe('isTap', () => {
+  const shape = (tool: Shape['tool'], points: Shape['points']): Shape => ({ tool, color: '#ffd400', points });
+  it('drops a straight arrow or a circle that did not move', () => {
+    expect(isTap(shape('arrow', [[0.5, 0.5], [0.501, 0.5]]))).toBe(true);
+    expect(isTap(shape('circle', [[0.5, 0.5], [0.6, 0.6]]))).toBe(false);
+  });
+  it('keeps a pen dot that wobbled a little', () => {
+    expect(isTap(shape('pen', [[0.5, 0.5], [0.5, 0.5], [0.501, 0.5], [0.5, 0.501]]))).toBe(false);
+  });
+  it('drops a free arrow from a tap that wobbled, which would leave a stray head', () => {
+    expect(isTap(shape('freeArrow', [[0.5, 0.5], [0.5, 0.5], [0.501, 0.5], [0.5, 0.501], [0.502, 0.501]]))).toBe(true);
+  });
+  it('keeps a free arrow that loops back to where it started', () => {
+    expect(isTap(shape('freeArrow', [[0.5, 0.5], [0.6, 0.5], [0.6, 0.6], [0.5, 0.6], [0.5, 0.501]]))).toBe(false);
   });
 });
 

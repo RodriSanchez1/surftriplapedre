@@ -11,6 +11,8 @@ import { WEEKDAYS, format, t, type Lang } from '../lib/i18n';
 import type { Texts } from '../lib/review/page';
 import AudioUploader from './AudioUploader.astro';
 import Avatar from './Avatar.astro';
+import TourOverlay from './TourOverlay.astro';
+import ToolIcon from './ToolIcon.astro';
 
 interface Props {
   lang: Lang;
@@ -73,11 +75,6 @@ const colors = [
   { value: '#ffffff', token: 'var(--c-white)' },
 ];
 const speeds = [0.25, 0.5, 1];
-const tools = [
-  { id: 'pen', icon: '✎', label: t(lang, 'review.pen') },
-  { id: 'arrow', icon: '➚', label: t(lang, 'review.arrow') },
-  { id: 'circle', icon: '◯', label: t(lang, 'review.circle') },
-] as const;
 const kinds = [
   { id: 'landscape', icon: '🏞', label: t(lang, 'review.kindLandscape') },
   { id: 'extras', icon: '🎉', label: t(lang, 'review.kindExtras') },
@@ -158,6 +155,7 @@ const demoClips = [
     </label>
     <button type="button" class="btn reopen" data-action="reopen" hidden></button>
     <span class="spacer"></span>
+    <button type="button" class="btn tour-replay" data-tour-replay title={t(lang, 'tour.replay')} aria-label={t(lang, 'tour.replay')}>?</button>
     <button
       type="button"
       class="btn rec-toggle"
@@ -254,29 +252,38 @@ const demoClips = [
     >
       📁 <span data-pick-label>{t(lang, 'review.pickFolder')}</span>
     </button>
+    <button type="button" class="btn drawer-replay" data-tour-replay>
+      <span aria-hidden="true">?</span>
+      {t(lang, 'tour.replay')}
+    </button>
     <p class="keys help">{t(lang, 'review.keys')}</p>
   </aside>
 
   <div class="rail" role="group" aria-label={t(lang, 'review.tools')}>
     <div class="tools">
-      {
-        tools.map((tool) => (
-          <button
-            type="button"
-            class="tool"
-            data-action="tool"
-            data-tool={tool.id}
-            title={tool.label}
-            aria-label={tool.label}
-            aria-pressed={demo && tool.id === 'arrow' ? 'true' : 'false'}
-          >
-            {tool.icon}
-          </button>
-        ))
-      }
-      <button type="button" class="tool" data-action="undo" title={t(lang, 'review.undo')} aria-label={t(lang, 'review.undo')}>↶</button>
-      <button type="button" class="tool" data-action="clear" title={t(lang, 'review.clear')} aria-label={t(lang, 'review.clear')}>⌫</button>
-      <button type="button" class="tool" data-action="pin" title={t(lang, 'review.pin')} aria-label={t(lang, 'review.pin')} aria-pressed="false">📌</button>
+      <button type="button" class="tool" data-action="tool" data-tool="pen" title={t(lang, 'review.pen')} aria-label={t(lang, 'review.pen')} aria-pressed="false">
+        <ToolIcon name="pen" />
+      </button>
+      <button
+        type="button"
+        class="tool has-menu"
+        data-action="arrow"
+        data-tool="arrow"
+        title={t(lang, 'review.arrowStraight')}
+        aria-label={t(lang, 'review.arrowStraight')}
+        aria-pressed={demo ? 'true' : 'false'}
+        aria-haspopup="menu"
+        aria-expanded="false"
+        aria-controls="arrow-menu"
+      >
+        <ToolIcon name="arrow" />
+      </button>
+      <button type="button" class="tool" data-action="tool" data-tool="circle" title={t(lang, 'review.circle')} aria-label={t(lang, 'review.circle')} aria-pressed="false">
+        <ToolIcon name="circle" />
+      </button>
+      <button type="button" class="tool" data-action="undo" title={t(lang, 'review.undo')} aria-label={t(lang, 'review.undo')}><ToolIcon name="undo" /></button>
+      <button type="button" class="tool" data-action="clear" title={t(lang, 'review.clear')} aria-label={t(lang, 'review.clear')}><ToolIcon name="clear" /></button>
+      <button type="button" class="tool" data-action="pin" title={t(lang, 'review.pin')} aria-label={t(lang, 'review.pin')} aria-pressed="false"><ToolIcon name="pin" /></button>
     </div>
     <div class="colors">
       <button
@@ -303,6 +310,15 @@ const demoClips = [
         📸
       </button>
     </div>
+  </div>
+
+  <div class="arrow-menu" id="arrow-menu" data-arrow-menu role="menu" aria-label={t(lang, 'review.arrow')} hidden>
+    <button type="button" class="menu-item" role="menuitemradio" aria-checked="true" data-action="arrow-kind" data-kind="arrow" data-label={t(lang, 'review.arrowStraight')}>
+      <ToolIcon name="arrow" /><span>{t(lang, 'review.arrowStraightShort')}</span>
+    </button>
+    <button type="button" class="menu-item" role="menuitemradio" aria-checked="false" data-action="arrow-kind" data-kind="freeArrow" data-label={t(lang, 'review.arrowFree')}>
+      <ToolIcon name="freeArrow" /><span>{t(lang, 'review.arrowFreeShort')}</span>
+    </button>
   </div>
 
   <div class="viewer" data-viewer>
@@ -553,7 +569,7 @@ const demoClips = [
       )
     }
   </section>
-
+  {!demo && <TourOverlay lang={lang} />}
 </section>
 
 <script>
@@ -722,6 +738,24 @@ const demoClips = [
     flex: none;
     margin-top: var(--s-2);
     min-height: var(--hit);
+  }
+  .drawer-replay {
+    display: none;
+    flex: none;
+    margin-top: var(--s-2);
+    min-height: var(--hit);
+  }
+  @media (max-width: 479px) {
+    [data-has-clips='true'] .bar > .tour-replay {
+      display: none;
+    }
+    [data-has-clips='true'] .drawer-replay {
+      display: inline-flex;
+    }
+  }
+  /* One card at a time: while the tour's welcome is open, the empty-state card waits under it. */
+  [data-tour-step='welcome'] [data-state='empty'] .card {
+    visibility: hidden;
   }
   .finish-short {
     font: 14px var(--font-strong);
@@ -985,6 +1019,60 @@ const demoClips = [
   .tool[aria-pressed='true'] {
     background: var(--c-yellow);
   }
+  /* The arrow button opens a menu: a small ink corner says so. */
+  .tool.has-menu {
+    position: relative;
+  }
+  .tool.has-menu::after {
+    content: '';
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 7px;
+    height: 7px;
+    background: var(--c-ink);
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  }
+  /* Straight or free arrow. Outside the rail (which scrolls on a laptop); page.ts places it next to the button. */
+  .arrow-menu {
+    position: absolute;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-1);
+    min-width: 11rem;
+    padding: var(--s-1);
+    background: var(--c-paper);
+    border: var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .arrow-menu[hidden] {
+    display: none;
+  }
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    min-height: var(--hit);
+    padding: 0 var(--s-3);
+    font: 14px/1 var(--font-head);
+    color: var(--c-ink);
+    text-align: left;
+    background: var(--c-white);
+    border: 2px solid var(--c-ink);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .menu-item span {
+    flex: 1;
+  }
+  .menu-item[aria-checked='true'] {
+    background: var(--c-yellow);
+  }
+  .menu-item[aria-checked='true']::after {
+    content: '✓';
+  }
   /* One button for the colour: it shows the colour in use and each tap goes to the next. */
   .swatch {
     padding: 0;
@@ -1187,12 +1275,6 @@ const demoClips = [
     gap: var(--s-3);
     min-width: 0;
   }
-  .btn.small {
-    min-width: var(--hit);
-    min-height: var(--hit);
-    padding: var(--s-1) var(--s-2);
-    font-size: 14px;
-  }
   .when-playing,
   [data-playing='true'] .when-paused {
     display: none;
@@ -1251,9 +1333,6 @@ const demoClips = [
   /* Three speeds fit on a laptop; elsewhere one button steps through them. */
   .rates {
     display: none;
-  }
-  .rate-cycle {
-    min-width: 4.5rem;
   }
   .readout {
     font: 14px var(--font-strong);

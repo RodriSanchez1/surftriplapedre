@@ -1,0 +1,244 @@
+---
+/**
+ * The guided tour's layer on /review/: a modal dialog with the dimmed screen, the ring around one control and the
+ * card. src/lib/review/tour-page.ts fills and places it. With `demo` (a step id) it is drawn in place, still and
+ * not modal, for /design/.
+ */
+import { format, t, type Lang } from '../lib/i18n';
+import { STEPS, parseRich, tourKeys } from '../lib/review/tour';
+
+interface Props {
+  lang: Lang;
+  demo?: string;
+}
+
+const { lang, demo } = Astro.props;
+const id = demo ? 'tour-demo' : 'tour';
+const texts = Object.fromEntries(tourKeys().map((k) => [k, t(lang, k)]));
+const step = demo ? STEPS.find((s) => s.id === demo) : undefined;
+const part = step ? STEPS.filter((s) => s.flag === step.flag) : [];
+const at = step ? part.indexOf(step) : 0;
+const last = at === part.length - 1;
+const Tag = demo ? 'div' : 'dialog';
+---
+
+<Tag
+  class:list={['tour', { demo: !!demo }]}
+  data-tour={demo ? undefined : ''}
+  data-tour-texts={demo ? undefined : JSON.stringify(texts)}
+  aria-labelledby={demo ? undefined : `${id}-title`}
+  aria-describedby={demo ? undefined : `${id}-body`}
+>
+  {
+    demo ? (
+      <span class="tour-hole">
+        <span class="btn demo-target">👥 {t(lang, 'review.whoSurfs')} ▾</span>
+      </span>
+    ) : (
+      <span class="tour-hole" data-tour-hole hidden />
+    )
+  }
+  <div class="tour-card" data-tour-card>
+    <div class="tour-scroll">
+      <p class="tour-kicker" data-tour-kicker>{step && format(t(lang, 'tour.kicker'), { x: at + 1, y: part.length })}</p>
+      <ol class="tour-dots" data-tour-dots aria-hidden="true">
+        {part.map((s) => <li class:list={{ on: s === step }} />)}
+      </ol>
+      <h2 class="tour-title" id={`${id}-title`} data-tour-title>{step && t(lang, step.title)}</h2>
+      <p class="tour-body" id={`${id}-body`} data-tour-body>
+        {
+          step &&
+            parseRich(t(lang, step.body)).map((r) =>
+              typeof r === 'string' ? (
+                r
+              ) : (
+                <>
+                  <span aria-hidden="true">{r.glyph}</span>
+                  {r.label && <span class="visually-hidden">{r.label}</span>}
+                </>
+              ),
+            )
+        }
+      </p>
+      <p class="notice warn tour-note" data-tour-note hidden={!step?.note}>{step?.note && t(lang, step.note)}</p>
+    </div>
+    <div class="tour-actions">
+      <button type="button" class="tour-skip" data-tour-skip>{t(lang, step?.skip ?? 'tour.skip')}</button>
+      <button type="button" class="btn small" data-tour-back hidden={!step || at === 0}>{t(lang, 'tour.back')}</button>
+      <button type="button" class="btn small primary" data-tour-next>
+        {t(lang, step?.next ?? (last ? 'tour.done' : 'tour.next'))}
+      </button>
+    </div>
+    <p class="visually-hidden" aria-live="polite" data-tour-live></p>
+  </div>
+</Tag>
+
+<style>
+  /* The dialog is the whole screen, in the browser's top layer: above every card, popover and toast. */
+  .tour {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    overflow: hidden;
+    color: var(--c-ink);
+  }
+  .tour::backdrop {
+    background: transparent;
+  }
+  /* With no target (the welcome) the whole screen dims; otherwise the hole's shadow does it. */
+  .tour[data-centered] {
+    background: var(--scrim);
+  }
+  /* An ink line inside a yellow ring, and the dim all around. */
+  .tour-hole {
+    position: absolute;
+    border-radius: calc(var(--radius) + 6px);
+    pointer-events: none;
+    box-shadow:
+      0 0 0 var(--border-w) var(--c-ink),
+      0 0 0 calc(var(--border-w) + 4px) var(--c-yellow),
+      0 0 0 9999px var(--scrim);
+  }
+  .tour-card {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    width: min(22rem, calc(100vw - 2 * var(--s-3)));
+    max-height: calc(100dvh - 2 * var(--s-3));
+    background: var(--c-paper);
+    border: var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .tour[data-centered] .tour-card {
+    width: min(26rem, calc(100vw - 2 * var(--s-3)));
+  }
+  /* The text scrolls when it does not fit; the buttons always show. */
+  .tour-scroll {
+    min-height: 0;
+    overflow: auto;
+    padding: var(--s-4) var(--s-5) 0;
+  }
+  .tour-kicker {
+    margin: 0;
+    font: 12px var(--font-head);
+    color: var(--c-muted);
+  }
+  .tour-dots {
+    display: flex;
+    gap: var(--s-1);
+    margin: var(--s-2) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tour-dots :global(li) {
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--c-ink);
+    border-radius: 50%;
+  }
+  .tour-dots :global(li.on) {
+    background: var(--c-ink);
+  }
+  .tour-title {
+    margin: var(--s-3) 0 var(--s-2);
+    font: 20px/1.2 var(--font-strong);
+  }
+  .tour-body {
+    margin: 0;
+    font: 16px/1.6 var(--font-body);
+  }
+  .tour-note {
+    margin: var(--s-3) 0 0;
+    font-size: 14px;
+  }
+  .tour-actions {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: var(--s-3) var(--s-5) var(--s-4);
+  }
+  .tour-skip {
+    margin-right: auto;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: 14px var(--font-body);
+    color: var(--c-ink);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  /* A phone on its side: the card beside the target, narrower. */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .tour-card {
+      width: min(22rem, 45vw);
+    }
+  }
+  /* A phone held upright: a full-width sheet at the top or the bottom. */
+  .tour[data-layout='sheet'] .tour-card {
+    left: var(--s-3);
+    right: var(--s-3);
+    width: auto;
+    max-height: 50dvh;
+  }
+  .tour[data-layout='sheet'] .tour-card[data-side='sheet-top'] {
+    top: max(var(--s-3), env(safe-area-inset-top));
+  }
+  .tour[data-layout='sheet'] .tour-card[data-side='sheet-bottom'] {
+    bottom: max(var(--s-3), env(safe-area-inset-bottom));
+  }
+  /* High contrast drops box shadows: the ring becomes an outline. */
+  @media (forced-colors: active) {
+    .tour-hole {
+      outline: 3px solid CanvasText;
+    }
+  }
+  .tour[open] {
+    animation: tour-in 0.15s ease-out;
+  }
+  @keyframes tour-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tour[open] {
+      animation: none;
+    }
+  }
+
+  /* /design/: the same pieces, still, in the flow of the page. */
+  .tour.demo {
+    position: relative;
+    inset: auto;
+    height: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-5);
+    padding: var(--s-6) var(--s-5);
+    background: var(--scrim);
+    border-radius: var(--radius);
+  }
+  .tour.demo .tour-hole {
+    position: relative;
+    display: inline-block;
+    padding: var(--s-2);
+    background: var(--c-orange);
+    box-shadow:
+      0 0 0 var(--border-w) var(--c-ink),
+      0 0 0 calc(var(--border-w) + 4px) var(--c-yellow);
+  }
+  .tour.demo .tour-card {
+    position: relative;
+  }
+</style>

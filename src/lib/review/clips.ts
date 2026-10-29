@@ -27,8 +27,8 @@ export function stepFrame(t: number, fps: number, dir: number, duration: number)
   return (Math.min(last, Math.max(0, frame)) + 0.5) / fps;
 }
 
-/** Drag distance on the paused picture for each frame: fine enough to go through a wave frame by frame. */
-export const SCRUB_PX_PER_FRAME = 8;
+/** Drag distance on the paused picture for each frame: a short drag goes through a whole wave. */
+export const SCRUB_PX_PER_FRAME = 3;
 
 /** Frames to move for a horizontal drag of dx pixels: right goes forward, left goes back. */
 export function scrubFrames(dx: number): number {
