@@ -109,6 +109,24 @@ describe('buildTimeline', () => {
     expect(md).toContain('- 03:22 capture 183012-3 · Juan · wave time 10:42:18 · file 2026-10-27_183012_cap-3.jpg');
   });
 
+  it('names who surfs each clip and what it is in its heading', () => {
+    const log = {
+      ...sampleLog(),
+      clips: { 'C0232.MP4': { surfers: ['juan', 'ciro'], kinds: ['landscape' as const, 'delete' as const] } },
+    };
+    const md = buildTimeline([log], parts, TZ, { juan: 'Juan' });
+    expect(md).toContain(
+      '## 02:30 · C0232.MP4 · surfers Juan, ciro · landscape · deleted after the review · wave filmed 26/10 10:42:05',
+    );
+  });
+
+  it('takes the tags of the latest log when several logs tag the same clip', () => {
+    const first = { ...sampleLog(), clips: { 'C0232.MP4': { surfers: ['juan'], kinds: [] } } };
+    const second = { ...sampleLog(), events: [], clips: { 'C0232.MP4': { surfers: [], kinds: ['extras' as const] } } };
+    const md = buildTimeline([first, second], parts, TZ, { juan: 'Juan' });
+    expect(md).toContain('## 02:30 · C0232.MP4 · extras · wave filmed');
+  });
+
   it('marks approximate values with ≈', () => {
     const approx = parts.map((p) => ({ ...p, approximate: true }));
     const md = buildTimeline([sampleLog('file-date')], approx, TZ, { juan: 'Juan' });

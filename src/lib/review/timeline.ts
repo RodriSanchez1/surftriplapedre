@@ -3,7 +3,7 @@
  * the minute of the talk (as in raw-transcript.md) and the moment of the surf session it showed.
  * Used by scripts/review-timeline.mjs. It only imports ./log.ts, with the extension so Node can run it.
  */
-import { filmedMoment, type ReviewEvent, type ReviewLog } from './log.ts';
+import { filmedMoment, type ClipTags, type ReviewEvent, type ReviewLog } from './log.ts';
 
 export interface AudioPart {
   file: string;
@@ -150,8 +150,26 @@ function describe(event: ReviewEvent, open: OpenEvent | undefined, timeZone: str
   }
 }
 
-function heading(at: string, clip: string, open: OpenEvent | undefined, parts: AudioPart[], timeZone: string): string {
-  const bits = [talkLabel(at, parts), clip];
+/** Who surfs in the clip and what it is, for its heading. */
+function tagBits(tags: ClipTags | undefined, names: Record<string, string>): string[] {
+  if (!tags) return [];
+  const bits = tags.surfers.length ? [`surfers ${tags.surfers.map((id) => names[id] ?? id).join(', ')}`] : [];
+  if (tags.kinds.includes('landscape')) bits.push('landscape');
+  if (tags.kinds.includes('extras')) bits.push('extras');
+  if (tags.kinds.includes('delete')) bits.push('deleted after the review');
+  return bits;
+}
+
+function heading(
+  at: string,
+  clip: string,
+  open: OpenEvent | undefined,
+  parts: AudioPart[],
+  timeZone: string,
+  tags: ClipTags | undefined,
+  names: Record<string, string>,
+): string {
+  const bits = [talkLabel(at, parts), clip, ...tagBits(tags, names)];
   const wave = waveMoment(open, 0);
   if (wave) {
     const f = zonedFields(wave.date, timeZone);
@@ -181,11 +199,13 @@ export function buildTimeline(
   ];
   const events = logs.flatMap((l) => l.events).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const lastOpen = new Map<string, OpenEvent>();
+  // A later log of the same day has the newer tags.
+  const tags: Record<string, ClipTags> = Object.assign({}, ...logs.map((l) => l.clips ?? {}));
   let currentClip: string | null = null;
   for (const event of events) {
     if (event.type === 'open') lastOpen.set(event.clip, event);
     if (event.type === 'open' || event.clip !== currentClip) {
-      out.push('', heading(event.at, event.clip, lastOpen.get(event.clip), parts, timeZone));
+      out.push('', heading(event.at, event.clip, lastOpen.get(event.clip), parts, timeZone, tags[event.clip], surferNames));
       currentClip = event.clip;
     }
     if (event.type === 'open') continue;

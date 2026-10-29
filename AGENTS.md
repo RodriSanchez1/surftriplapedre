@@ -127,6 +127,13 @@ On `/review/` the coach (or the organizer) picks the folder with the day's clips
 
 Use Chrome or Edge on a computer: they can open a whole folder and remember it (other browsers pick files one by one). The clip times come from the camera's own header (`src/lib/review/mp4.ts`); `≈` means the file had none and the file date was used. Clips the browser can't decode (HEVC, ProRes) are struck through: export them as H.264 MP4. To record the talk on the same computer, open the "Grabar el audio en esta compu" panel (it is the `/upload/` recorder); with a phone, record on `/upload/` as usual. Both line up with the log by the device clock.
 
+Each clip carries tags, set with the 👥 pill: who surfs in it, and whether it is landscape, extras or to delete. The tags go into the log (`clips`), so `review-timeline.md` names who surfs each clip even without a capture. ⬆ Subir opens "Pendiente de subir", which filters by surfer and lists:
+- the captures;
+- the tagged clips;
+- the clips to delete.
+
+Clips marked to delete are removed from the computer's folder only after the upload succeeds, and only in Chrome or Edge with the folder opened and write access granted. They do not go to the trash.
+
 The videos themselves are never uploaded. `npm run session-auto` (or `/process-session <date>`) turns the logs into `review-timeline.md`, and the insights can cite the wave ("En tu ola de las 10:42...") and carry a `**Capturas**` block that `import-session` publishes. By hand: `npm run review-timeline -- <date>` after transcribing.
 
 ### Load or change a calendar day  ·  Haiku

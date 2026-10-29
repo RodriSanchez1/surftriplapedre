@@ -21,12 +21,13 @@ interface Props {
   spots?: string[];
   surfers: { id: string; name: string; color: string }[];
   audio?: { driveFolder: string; googleClientId: string; contact: string };
-  demo?: boolean | 'login';
+  demo?: boolean | 'login' | 'pending';
 }
 
 const { lang, dates, timeZone, spots = [], surfers, audio, demo: demoProp = false } = Astro.props;
 const gated = audio !== undefined && (demoProp === 'login' || !demoProp);
 const demo = demoProp !== false;
+const demoPending = demoProp === 'pending';
 const texts: Texts = {
   reopen: t(lang, 'review.reopen'),
   noVideos: t(lang, 'review.noVideos'),
@@ -35,6 +36,7 @@ const texts: Texts = {
   captureTagged: t(lang, 'review.captureTagged'),
   captureUntagged: t(lang, 'review.captureUntagged'),
   openCapture: t(lang, 'review.openCapture'),
+  clipTagged: t(lang, 'review.clipTagged'),
   deleteCapture: t(lang, 'review.deleteCapture'),
   deleteCaptureConfirm: t(lang, 'review.deleteCaptureConfirm'),
   finishCount: t(lang, 'review.finishCount'),
@@ -47,6 +49,25 @@ const texts: Texts = {
   errorUpload: t(lang, 'review.errorUpload'),
   errorPermission: format(t(lang, 'audio.errorPermission'), { contact: audio?.contact ?? '' }),
   errorLogin: t(lang, 'audio.errorLogin'),
+  whoSurfs: t(lang, 'review.whoSurfs'),
+  tags: t(lang, 'review.tags'),
+  willDelete: t(lang, 'review.willDelete'),
+  kindNames: {
+    landscape: t(lang, 'review.kindLandscape'),
+    extras: t(lang, 'review.kindExtras'),
+    delete: t(lang, 'review.kindDelete'),
+  },
+  keep: t(lang, 'review.keep'),
+  upload: t(lang, 'review.upload'),
+  uploadAndDelete: t(lang, 'review.uploadAndDelete'),
+  uploadAndDeleteOne: t(lang, 'review.uploadAndDeleteOne'),
+  deleteWarn: t(lang, 'review.deleteWarn'),
+  deleteCant: t(lang, 'review.deleteCant'),
+  doneDeleted: t(lang, 'review.doneDeleted'),
+  doneDeletedOne: t(lang, 'review.doneDeletedOne'),
+  deleteStays: t(lang, 'review.deleteStays'),
+  deleteDenied: t(lang, 'review.deleteDenied'),
+  deleteFailed: t(lang, 'review.deleteFailed'),
 };
 const colors = [
   { value: '#ffd400', token: 'var(--c-yellow)' },
@@ -54,11 +75,17 @@ const colors = [
   { value: '#ffffff', token: 'var(--c-white)' },
 ];
 const speeds = [0.25, 0.5, 1];
+const kinds = [
+  { id: 'landscape', icon: '🏞', label: t(lang, 'review.kindLandscape') },
+  { id: 'extras', icon: '🎉', label: t(lang, 'review.kindExtras') },
+  { id: 'delete', icon: '🗑', label: t(lang, 'review.kindDelete') },
+] as const;
 const demoClips = [
-  { time: '10:38', name: 'C0231.MP4', length: '0:24' },
-  { time: '10:42', name: 'C0232.MP4', length: '0:31', active: true, capture: true },
-  { time: '10:47', name: 'C0233.MP4', length: '0:19' },
+  { time: '10:38', name: 'C0231.MP4', length: '0:24', tags: surfers.slice(1, 3) },
+  { time: '10:42', name: 'C0232.MP4', length: '0:31', active: true, capture: true, tags: surfers.slice(0, 1) },
+  { time: '10:47', name: 'C0233.MP4', length: '0:19', kinds: '🏞' },
   { time: '≈10:55', name: 'C0234.MOV', length: '0:40', broken: true },
+  { time: '11:06', name: 'C0236.MP4', length: '0:22', kinds: '🗑', remove: true },
 ];
 ---
 
@@ -72,6 +99,8 @@ const demoClips = [
   data-texts={JSON.stringify(texts)}
   data-list={demo ? 'open' : undefined}
   data-record="closed"
+  data-tags={demo && !demoPending ? 'open' : 'closed'}
+  data-outbox={demoPending ? 'open' : 'closed'}
   data-tool={demo ? 'arrow' : ''}
   data-has-clips={demo ? 'true' : 'false'}
   data-view={demo ? 'ready' : 'empty'}
@@ -149,9 +178,11 @@ const demoClips = [
         <button
           type="button"
           class="btn primary"
-          data-action="finish"
-          data-lock
-          title={t(lang, 'review.finish')}
+          data-action="toggle-outbox"
+          data-outbox-toggle
+          aria-expanded={demoPending ? 'true' : 'false'}
+          aria-controls="outbox"
+          title={t(lang, 'review.openPending')}
           aria-label={demo ? format(t(lang, 'review.finishCount'), { n: 3 }) : undefined}
           hidden={!demo}
         >
@@ -174,7 +205,7 @@ const demoClips = [
       {
         demo &&
           demoClips.map((c) => (
-            <li class:list={[{ active: c.active, 'has-capture': c.capture, broken: c.broken }]}>
+            <li class:list={[{ active: c.active, 'has-capture': c.capture, broken: c.broken, 'to-delete': c.remove }]}>
               <button type="button" class="clip" aria-current={c.active ? 'true' : undefined}>
                 <span class="thumb demo-thumb" />
                 <span class="meta">
@@ -183,6 +214,14 @@ const demoClips = [
                   </strong>
                   <small>{c.name}</small>
                 </span>
+                {c.tags && (
+                  <span class="clip-tags" aria-hidden="true">
+                    {c.tags.map((s) => (
+                      <span class="dot" style={`--accent: var(--c-${s.color})`} />
+                    ))}
+                  </span>
+                )}
+                {c.kinds && <span class="clip-kinds" aria-hidden="true">{c.kinds}</span>}
               </button>
             </li>
           ))
@@ -196,7 +235,10 @@ const demoClips = [
             <strong><span data-clip-time></span> <span class="len" data-clip-length></span></strong>
             <small aria-hidden="true" data-clip-name></small>
           </span>
+          <span class="clip-tags" data-clip-tags aria-hidden="true"></span>
+          <span class="clip-kinds" data-clip-kinds aria-hidden="true"></span>
           <span class="visually-hidden" data-clip-full></span>
+          <span class="visually-hidden" data-clip-who></span>
           <span class="visually-hidden" data-clip-note></span>
         </button>
       </li>
@@ -254,6 +296,18 @@ const demoClips = [
         title={t(lang, 'review.color')}
         aria-label={t(lang, 'review.color')}
       >
+      </button>
+    </div>
+    <div class="snap">
+      <button
+        type="button"
+        class="tool snap-btn"
+        data-action="capture"
+        data-lock
+        title={t(lang, 'review.saveCapture')}
+        aria-label={t(lang, 'review.saveCapture')}
+      >
+        📸
       </button>
     </div>
   </div>
@@ -363,49 +417,158 @@ const demoClips = [
     </div>
   </div>
 
-  <div class="dock">
-    <div class="capture">
-      <span class="whose" id="whose">{t(lang, 'review.whose')}</span>
-      <span class="surfers" role="group" aria-labelledby="whose">
+  <div class="tagger" data-tagger>
+    <button
+      type="button"
+      class="tag-pill"
+      data-action="toggle-tags"
+      aria-expanded={demo && !demoPending ? 'true' : 'false'}
+      aria-controls="tag-pop"
+      title={t(lang, 'review.tags')}
+    >
+      <span class="visually-hidden">{t(lang, 'review.tags')}:</span>
+      <span aria-hidden="true">👥</span>
+      <span class="pill-dots" data-pill-dots aria-hidden="true">
+        {demo && surfers[0] && <span class="dot" style={`--accent: var(--c-${surfers[0].color})`} />}
+      </span>
+      <span class="pill-label" data-pill-label>{demo ? (surfers[0]?.name ?? '') : t(lang, 'review.whoSurfs')}</span>
+      <span class="chev" aria-hidden="true">▾</span>
+    </button>
+    <div class="tag-pop" id="tag-pop" data-tag-pop role="group" aria-label={t(lang, 'review.tags')}>
+      <p class="pop-title" id="who-title">{t(lang, 'review.whoSurfs')}</p>
+      <div class="surfers" role="group" aria-labelledby="who-title">
         {
           surfers.map((s, i) => (
             <label class="pick" style={`--accent: var(--c-${s.color})`}>
-              <input type="checkbox" class="visually-hidden" value={s.id} data-surfer checked={demo && i === 0} />
+              <input type="checkbox" class="visually-hidden" value={s.id} data-surfer data-lock checked={demo && i === 0} />
               <Avatar id={s.id} name="" size="sm" />
               <span class="pick-name">{s.name}</span>
             </label>
           ))
         }
-      </span>
-      <button type="button" class="btn primary" data-action="capture" data-lock title={t(lang, 'review.saveCapture')}>
-        <span aria-hidden="true">📸</span> <span class="capture-label">{t(lang, 'review.saveCapture')}</span></button>
-    </div>
-    <div class="shots-box" data-shots-box hidden={!demo}>
-      <span class="shots-head" data-shots-head title={t(lang, 'review.captures')}>
-        <span class="visually-hidden">{t(lang, 'review.captures')}</span>
-        <span aria-hidden="true">📷</span>
-        <b class="count" data-shots-count>{demo ? 3 : 0}</b>
-      </span>
-      <div class="shots" data-shots>
+      </div>
+      <p class="pop-title kinds-title" id="kind-title">{t(lang, 'review.clipIs')}</p>
+      <div class="kinds" role="group" aria-labelledby="kind-title">
         {
-          demo &&
-            [1, 2, 3].map((n) => (
-              <figure class="shot">
-                <span class="shot-open">
-                  <span class="demo-thumb" />
-                </span>
-                {n === 1 && surfers[0] && (
-                  <span class="shot-tags" aria-hidden="true">
-                    <Avatar id={surfers[0].id} name="" size="sm" />
-                  </span>
-                )}
-                <button type="button" class="shot-remove">✕</button>
-              </figure>
+          kinds.map((k) => (
+            <label class:list={['pick', 'kind', `kind-${k.id}`]}>
+              <input type="checkbox" class="visually-hidden" value={k.id} data-kind data-lock />
+              <span aria-hidden="true">{k.icon}</span>
+              <span class="pick-name">{k.label}</span>
+            </label>
+          ))
+        }
+      </div>
+      <p class="help delete-note" data-delete-note hidden>{t(lang, 'review.deleteNote')}</p>
+    </div>
+  </div>
+
+  <section class="outbox" id="outbox" data-outbox-panel aria-labelledby="outbox-title">
+    <div class="outbox-head">
+      <h2 id="outbox-title">{t(lang, 'review.pending')}</h2>
+      <button type="button" class="dismiss" data-action="toggle-outbox" aria-label={t(lang, 'review.dismiss')} title={t(lang, 'review.dismiss')}>
+        ✕
+      </button>
+    </div>
+    <div class="outbox-body">
+      <div class="filters" role="group" aria-label={t(lang, 'review.filter')}>
+        <button type="button" class="filter" data-action="filter" data-filter="all" aria-pressed="true">
+          <span class="filter-text">{t(lang, 'review.filterAll')}</span>
+        </button>
+        {
+          surfers.map((s) => (
+            <button
+              type="button"
+              class="filter"
+              data-action="filter"
+              data-filter={s.id}
+              aria-pressed="false"
+              title={s.name}
+              aria-label={s.name}
+              style={`--accent: var(--c-${s.color})`}
+            >
+              <Avatar id={s.id} name="" size="sm" />
+            </button>
+          ))
+        }
+        {
+          kinds
+            .filter((k) => k.id !== 'delete')
+            .map((k) => (
+              <button type="button" class="filter" data-action="filter" data-filter={k.id} aria-pressed="false" title={k.label} aria-label={k.label}>
+                <span class="filter-text" aria-hidden="true">{k.icon}</span>
+              </button>
             ))
         }
       </div>
+      <p class="help none" data-none hidden>{t(lang, 'review.noneFiltered')}</p>
+      <div class="outbox-part">
+        <h3><span aria-hidden="true">📷</span> {t(lang, 'review.capturesTitle')} <b class="count" data-count-captures>{demo ? 3 : 0}</b></h3>
+        <div class="shots" data-shots>
+          {
+            demo &&
+              [1, 2, 3].map((n) => (
+                <figure class="shot">
+                  <span class="shot-open">
+                    <span class="demo-thumb" />
+                  </span>
+                  {n < 3 && surfers[0] && (
+                    <span class="shot-tags" aria-hidden="true">
+                      <span class="dot" style={`--accent: var(--c-${surfers[0].color})`} />
+                    </span>
+                  )}
+                  <button type="button" class="shot-remove">✕</button>
+                </figure>
+              ))
+          }
+        </div>
+      </div>
+      <div class="outbox-part">
+        <h3><span aria-hidden="true">🏷</span> {t(lang, 'review.taggedTitle')} <b class="count" data-count-tagged>{demo ? 3 : 0}</b></h3>
+        <ul class="tagged" data-tagged>
+          {
+            demo &&
+              demoClips
+                .filter((c) => (c.tags || c.kinds) && !c.remove)
+                .map((c) => (
+                  <li>
+                    <strong>{c.time}</strong>
+                    <span class="tagged-who">{c.tags ? c.tags.map((s) => s.name).join(', ') : t(lang, 'review.kindLandscape')}</span>
+                    <span class="tagged-marks" aria-hidden="true">
+                      {c.tags?.map((s) => <span class="dot" style={`--accent: var(--c-${s.color})`} />)}
+                      {c.kinds}
+                    </span>
+                  </li>
+                ))
+          }
+        </ul>
+      </div>
+      <div class="outbox-part deletes" data-deletes hidden={!demo}>
+        <h3><span aria-hidden="true">🗑</span> {t(lang, 'review.deleteTitle')} <b class="count" data-count-deletes>{demo ? 1 : 0}</b></h3>
+        <p class="delete-warn" data-delete-warn>{t(lang, 'review.deleteWarn')}</p>
+        <p class="delete-warn" data-delete-cant hidden>{t(lang, 'review.deleteCant')}</p>
+        <ul class="delete-list" data-delete-list>
+          {
+            demo && (
+              <li>
+                <span class="del-name"><strong>11:06</strong> C0236.MP4</span>
+                <button type="button" class="btn small">{t(lang, 'review.keep')}</button>
+              </li>
+            )
+          }
+        </ul>
+      </div>
     </div>
-  </div>
+    {
+      audio && (
+        <div class="outbox-foot">
+          <button type="button" class="btn primary" data-action="finish" data-lock>
+            <span aria-hidden="true">⬆</span> <span data-upload-label>{demo ? t(lang, 'review.uploadAndDeleteOne') : t(lang, 'review.upload')}</span>
+          </button>
+        </div>
+      )
+    }
+  </section>
   {!demo && <TourOverlay lang={lang} />}
 </section>
 
@@ -428,7 +591,7 @@ const demoClips = [
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr) auto auto auto;
-    grid-template-areas: 'bar' 'viewer' 'rail' 'transport' 'dock';
+    grid-template-areas: 'bar' 'viewer' 'tag' 'rail' 'transport';
     gap: var(--s-2);
     overflow: hidden;
     /* Dragging to draw must not select text. */
@@ -769,6 +932,43 @@ const demoClips = [
     line-height: 1.2;
     min-width: 0;
   }
+  /* Who surfs in the clip: the chips picked on it, remembered while the review lasts. */
+  .clip-tags {
+    flex: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    max-width: 42px;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+  .clip-tags:empty {
+    display: none;
+  }
+  /* Landscape, extras or to delete: an icon after the dots. */
+  .clip-kinds {
+    flex: none;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .clip-kinds:empty {
+    display: none;
+  }
+  .clip-tags:empty + .clip-kinds {
+    margin-left: auto;
+  }
+  /* Marked to delete: it stays in the list until the upload deletes it, struck and faded. */
+  li.to-delete .clip {
+    background: var(--c-paper);
+    border-style: dashed;
+    color: var(--c-muted);
+  }
+  li.to-delete .clip :is(strong, small) {
+    text-decoration: line-through;
+  }
+  li.to-delete :is(.thumb, .demo-thumb) {
+    opacity: 0.4;
+  }
   .meta small {
     color: var(--c-muted);
     font-size: 12px;
@@ -792,8 +992,13 @@ const demoClips = [
     min-height: 0;
   }
   .tools,
-  .colors {
+  .colors,
+  .snap {
     display: contents;
+  }
+  .snap-btn {
+    background: var(--c-yellow);
+    box-shadow: 3px 3px 0 var(--c-ink);
   }
   .tool,
   .swatch {
@@ -1031,9 +1236,9 @@ const demoClips = [
   }
 
   /* While loading, or with nothing to play, the controls are there but off. */
-  [data-view='empty'] :is(.rail, .transport, .capture),
-  [data-view='loading'] :is(.rail, .transport, .capture),
-  [data-view='error'] :is(.rail, .transport, .capture) {
+  [data-view='empty'] :is(.rail, .transport, .tagger),
+  [data-view='loading'] :is(.rail, .transport, .tagger),
+  [data-view='error'] :is(.rail, .transport, .tagger) {
     opacity: 0.45;
     pointer-events: none;
   }
@@ -1138,61 +1343,106 @@ const demoClips = [
     background: var(--c-yellow);
   }
 
-  /* Dock: whose wave, the capture button and the captures taken so far. */
-  .dock {
-    grid-area: dock;
-    display: grid;
-    gap: var(--s-2);
-    min-width: 0;
-    min-height: 0;
+  /* Each surfer is a colour: a dot on the pill, in the clip list, the panel and each capture. */
+  .review :global(.dot) {
+    flex: none;
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    box-sizing: border-box;
+    border: 2px solid var(--c-ink);
+    border-radius: 50%;
+    background: var(--accent);
   }
-  .capture {
+
+  /* Clip tags: on a portrait phone a row between the picture and the tools; elsewhere over the picture's corner. */
+  .tagger {
+    grid-area: tag;
+    position: relative;
+    z-index: 6;
     display: flex;
     align-items: center;
-    gap: var(--s-2);
-    padding: var(--s-1) var(--s-2);
-    background: var(--c-white);
-    border: var(--border);
-    border-style: dashed;
-    border-radius: var(--radius);
     min-width: 0;
   }
-  .capture > .btn {
-    flex: none;
+  .tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    max-width: 100%;
     min-height: var(--hit);
-    min-width: 3.5rem;
-    padding-block: var(--s-1);
+    padding: var(--s-1) var(--s-3) var(--s-1) var(--s-2);
+    background: var(--c-paper);
+    color: var(--c-ink);
+    border: var(--border);
+    border-radius: 999px;
+    box-shadow: var(--shadow);
+    font: 13px var(--font-strong);
+    cursor: pointer;
   }
-  /* The roster row takes what the button leaves; on a narrow phone the button is only the camera. */
-  .capture-label {
-    display: none;
-  }
-  .whose {
-    display: none;
+  .pill-dots {
     flex: none;
-    font: 14px var(--font-head);
-  }
-  .surfers {
     display: flex;
-    gap: var(--s-2);
-    flex: 1;
+    gap: 3px;
+  }
+  .pill-dots:empty {
+    display: none;
+  }
+  .pill-label {
     min-width: 0;
-    overflow-x: auto;
-    padding: 5px 6px;
-    scrollbar-width: thin;
-    /* An edge fade says the row scrolls; the script sets the two sizes only while there is more to see. */
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-start, 0px), #000 calc(100% - var(--fade-end, 0px)), transparent);
-    mask-image: linear-gradient(to right, transparent, #000 var(--fade-start, 0px), #000 calc(100% - var(--fade-end, 0px)), transparent);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chev {
+    flex: none;
+    transition: transform 0.15s;
+  }
+  [data-tags='open'] .tag-pill .chev {
+    transform: rotate(180deg);
+  }
+  /* Opens upwards on a portrait phone (over the picture), downwards elsewhere. */
+  .tag-pop {
+    display: none;
+    position: absolute;
+    z-index: 6;
+    left: 0;
+    bottom: calc(100% + var(--s-2));
+    width: min(24rem, calc(100vw - 2 * var(--s-2)));
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: var(--s-3);
+    background: var(--c-paper);
+    border: var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  [data-tags='open'] .tag-pop {
+    display: block;
+  }
+  .pop-title {
+    margin: 0 0 var(--s-2);
+    font: 13px var(--font-head);
+  }
+  .kinds-title {
+    margin-top: var(--s-3);
+    padding-top: var(--s-2);
+    border-top: 2px solid var(--c-ink);
+  }
+  .surfers,
+  .kinds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
   }
   .pick {
     flex: none;
     display: inline-flex;
     align-items: center;
     gap: var(--s-1);
-    padding: 2px;
+    padding: 2px var(--s-2) 2px 2px;
     border: 2px solid var(--c-ink);
     border-radius: 999px;
-    background: var(--c-paper);
+    background: var(--c-white);
     cursor: pointer;
     font: 13px var(--font-strong);
   }
@@ -1200,30 +1450,175 @@ const demoClips = [
     width: 36px;
     height: 36px;
   }
-  .pick-name {
-    /* Avatar only on a phone; the name stays for screen readers. */
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+  .pick:has(input:disabled) {
+    opacity: 0.5;
   }
   .pick:has(input:checked) {
     background: var(--accent);
   }
+  .pick.kind {
+    min-height: 40px;
+    padding: var(--s-1) var(--s-3);
+  }
+  .kind:has(input:checked) {
+    background: var(--c-yellow);
+  }
+  .kind-delete:has(input:checked) {
+    background: var(--c-red);
+    color: var(--c-white);
+  }
+  .delete-note {
+    margin: var(--s-2) 0 0;
+  }
 
-  .shots-box {
+  /* What waits to be uploaded: the whole screen on a phone, a panel on the right elsewhere. */
+  .outbox {
+    display: none;
+    position: absolute;
+    z-index: 25;
+    inset: var(--s-2);
+    flex-direction: column;
+    background: var(--c-paper);
+    border: var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  [data-outbox='open'] .outbox {
+    display: flex;
+  }
+  .outbox-head {
     display: flex;
     align-items: center;
     gap: var(--s-2);
-    min-width: 0;
+    padding: var(--s-1) var(--s-1) var(--s-1) var(--s-3);
+    border-bottom: var(--border);
   }
-  .shots-head {
-    flex: none;
+  .outbox-head h2 {
+    flex: 1;
+    margin: 0;
+    font: 16px var(--font-head);
+  }
+  .outbox-head .dismiss {
+    width: var(--hit);
+    height: var(--hit);
+  }
+  .outbox-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--s-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
+  }
+  .outbox-part h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    margin: 0 0 var(--s-2);
+    font: 13px var(--font-head);
+  }
+  .outbox-foot {
+    padding: var(--s-3);
+    border-top: var(--border);
+  }
+  .outbox-foot .btn {
+    width: 100%;
+  }
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1);
+  }
+  .filter {
     display: inline-flex;
     align-items: center;
+    min-height: 40px;
+    padding: 2px;
+    border: 2px solid var(--c-ink);
+    border-radius: 999px;
+    background: var(--c-white);
+    color: var(--c-ink);
+    font: 13px var(--font-strong);
+    cursor: pointer;
+  }
+  .filter :global(.avatar) {
+    width: 32px;
+    height: 32px;
+  }
+  .filter-text {
+    padding: 0 var(--s-2);
+  }
+  .filter[aria-pressed='true'] {
+    background: var(--accent, var(--c-yellow));
+  }
+  .none {
+    margin: 0;
+  }
+  .tagged,
+  .delete-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
     gap: var(--s-1);
+  }
+  /* The rows are built by the page script, so they need :global to get these styles. */
+  .tagged :global(li) {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: var(--s-1) var(--s-2);
+    background: var(--c-white);
+    border: 2px solid var(--c-ink);
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .tagged :global(strong),
+  .delete-list :global(.del-name strong) {
+    font: 13px var(--font-strong);
+    color: var(--c-ink);
+  }
+  .tagged :global(.tagged-who) {
+    flex: 1;
+    min-width: 0;
+    color: var(--c-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tagged :global(.tagged-marks) {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  /* The clips that the upload will delete: red, with what cannot be undone said before the tap. */
+  .deletes {
+    padding: var(--s-2) var(--s-3);
+    background: var(--c-white);
+    border: var(--border-w) solid var(--c-red);
+    border-radius: var(--radius);
+  }
+  .delete-warn {
+    margin: 0 0 var(--s-2);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .delete-list :global(li) {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    font-size: 14px;
+  }
+  .delete-list :global(.stays .del-stays) {
+    color: var(--c-muted);
+    font-style: italic;
+  }
+  .delete-list :global(.del-name) {
+    flex: 1;
+    min-width: 0;
+    color: var(--c-muted);
   }
   .count {
     min-width: 24px;
@@ -1234,37 +1629,39 @@ const demoClips = [
     background: var(--c-ink);
     border-radius: 999px;
   }
-  .shots-head.pulse .count {
-    animation: pulse 0.6s;
+  /* A new capture nudges the upload button, which is always in view (a toast would cover a short picture). */
+  [data-outbox-toggle].pulse {
+    animation: nudge 0.6s;
   }
-  @keyframes pulse {
+  @keyframes nudge {
     30% {
-      transform: scale(1.6);
-      background: var(--c-red);
+      transform: scale(1.12);
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .shots-head.pulse .count,
+    .chev {
+      transition: none;
+    }
+    [data-outbox-toggle].pulse,
     .spinner,
     .rec-dot {
       animation: none;
     }
   }
-  /* Room above and to the right so the delete buttons stay inside the strip. */
+  /* Room above and to the right so the delete buttons stay inside the grid. */
   .shots {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
     gap: var(--s-3);
-    flex: 1;
-    min-width: 0;
-    overflow-x: auto;
     padding: 10px 10px 2px 2px;
   }
   .shots :global(.shot) {
     position: relative;
-    flex: none;
     margin: 0;
-    height: 56px;
     aspect-ratio: 16 / 9;
+  }
+  .shots :global(.shot[hidden]) {
+    display: none;
   }
   .shots :global(.shot-open) {
     display: block;
@@ -1303,19 +1700,14 @@ const demoClips = [
     position: absolute;
     inset: calc((var(--hit) - 100%) / -2);
   }
-  /* Who the wave was: small avatars on the corner of the capture. */
+  /* Who surfs in the capture's clip: the surfers' dots on its corner. */
   .shots :global(.shot-tags) {
     position: absolute;
-    left: 3px;
-    bottom: 3px;
+    left: 4px;
+    bottom: 4px;
     display: flex;
+    gap: 2px;
     pointer-events: none;
-  }
-  .shots :global(.shot-tags .avatar) {
-    width: 22px;
-    height: 22px;
-    border-width: 2px;
-    margin-right: -6px;
   }
 
   /* Only for /design/ */
@@ -1332,7 +1724,8 @@ const demoClips = [
 
   /* "Immersive": only the picture, the tools and the controls (the site header is hidden by the page). */
   [data-immersive] .bar,
-  [data-immersive] .clips {
+  [data-immersive] .clips,
+  [data-immersive] .outbox {
     display: none !important;
   }
 
@@ -1349,21 +1742,6 @@ const demoClips = [
 
   /* Wider than a phone: names show, labels show. */
   @media (min-width: 480px) {
-    .pick {
-      padding-right: var(--s-2);
-    }
-    .pick-name {
-      position: static;
-      width: auto;
-      height: auto;
-      clip-path: none;
-    }
-    .whose {
-      display: block;
-    }
-    .capture-label {
-      display: inline;
-    }
     .finish-long {
       display: inline;
     }
@@ -1388,26 +1766,20 @@ const demoClips = [
     }
   }
 
-  /* Laptop: clips on the left, tools in a column next to the picture. */
+  /* Laptop: clips on the left, tools in a column next to the picture, clip tags over its corner. */
   @media (min-width: 761px) and (min-height: 501px) {
     .review {
       padding: var(--s-3) var(--s-4);
       gap: var(--s-2) 0;
       grid-template-columns: auto auto minmax(0, 1fr);
-      grid-template-rows: auto minmax(0, 1fr) auto auto;
+      grid-template-rows: auto minmax(0, 1fr) auto;
       grid-template-areas:
         'bar bar bar'
         'clips rail viewer'
-        'clips transport transport'
-        'clips dock dock';
+        'clips transport transport';
     }
-    .bar,
-    .transport,
-    .dock {
+    .bar {
       margin-bottom: var(--s-2);
-    }
-    .dock {
-      margin-bottom: 0;
     }
     .field {
       flex: none;
@@ -1438,13 +1810,15 @@ const demoClips = [
       max-height: 100%;
     }
     .tools,
-    .colors {
+    .colors,
+    .snap {
       display: flex;
       flex-direction: column;
       gap: var(--s-1);
       flex: none;
     }
-    .colors {
+    .colors,
+    .snap {
       margin: var(--s-1) 0 0;
       padding: var(--s-2) 0 0;
       border-top: 2px solid var(--c-ink);
@@ -1468,6 +1842,20 @@ const demoClips = [
     [data-list='closed'] .clips {
       display: none;
     }
+    .tagger {
+      grid-area: viewer;
+      align-self: start;
+      justify-self: start;
+      margin: var(--s-2);
+    }
+    .tag-pop {
+      top: calc(100% + var(--s-2));
+      bottom: auto;
+    }
+    .outbox {
+      inset: calc(var(--s-3) + var(--hit) + var(--s-3)) var(--s-4) var(--s-3) auto;
+      width: min(26rem, 45%);
+    }
     .transport {
       grid-template-columns: auto minmax(0, 1fr) auto;
       grid-template-areas: 'step seek opts';
@@ -1489,10 +1877,12 @@ const demoClips = [
       align-content: start;
     }
     .tools,
-    .colors {
+    .colors,
+    .snap {
       display: contents;
     }
-    .colors {
+    .colors,
+    .snap {
       border: 0;
       margin: 0;
       padding: 0;
@@ -1504,17 +1894,17 @@ const demoClips = [
     }
   }
 
-  /* A phone on its side: the picture gets the full height; tools left, captures right, thin timeline below. */
+  /* A phone on its side: the picture gets the full height; tools left, clip tags over the picture, timeline below. */
   @media (orientation: landscape) and (max-height: 500px) {
     .review {
       padding: var(--s-1) var(--s-2);
       gap: var(--s-1) var(--s-2);
-      grid-template-columns: auto minmax(0, 1fr) 9.5rem;
+      grid-template-columns: auto minmax(0, 1fr);
       grid-template-rows: auto minmax(0, 1fr) auto;
       grid-template-areas:
-        'rail bar dock'
-        'rail viewer dock'
-        'rail transport dock';
+        'rail bar'
+        'rail viewer'
+        'rail transport';
     }
     .rail {
       display: grid;
@@ -1524,10 +1914,12 @@ const demoClips = [
       overflow-y: auto;
     }
     .tools,
-    .colors {
+    .colors,
+    .snap {
       display: contents;
     }
-    .colors {
+    .colors,
+    .snap {
       border: 0;
       margin: 0;
       padding: 0;
@@ -1536,6 +1928,20 @@ const demoClips = [
     .swatch {
       width: var(--hit);
       max-width: none;
+    }
+    .tagger {
+      grid-area: viewer;
+      align-self: start;
+      justify-self: start;
+      margin: var(--s-1);
+    }
+    .tag-pop {
+      top: calc(100% + var(--s-1));
+      bottom: auto;
+      max-height: calc(100vh - 6rem);
+    }
+    .outbox {
+      inset: var(--s-1);
     }
     .transport {
       grid-template-columns: auto minmax(0, 1fr) auto;
@@ -1548,75 +1954,6 @@ const demoClips = [
     /* No room for the time of day next to the timeline. */
     .wave {
       display: none;
-    }
-    .dock {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    /* With a long roster the chips scroll inside their box instead of pushing the captures out. */
-    .capture {
-      flex-direction: column;
-      align-items: stretch;
-      flex: 0 1 auto;
-      min-height: 0;
-    }
-    .whose {
-      display: none;
-    }
-    .surfers {
-      flex: 0 1 auto;
-      flex-wrap: wrap;
-      min-height: 0;
-      overflow-x: hidden;
-      overflow-y: auto;
-      justify-content: flex-start;
-      padding: 5px;
-      -webkit-mask-image: none;
-      mask-image: none;
-    }
-    .pick {
-      padding-right: 2px;
-    }
-    .pick-name {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-    }
-    .shots-box {
-      flex: 1;
-      min-height: 5rem;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0;
-    }
-    .shots {
-      flex-wrap: wrap;
-      overflow-y: auto;
-      overflow-x: hidden;
-      max-height: 100%;
-      align-content: flex-start;
-    }
-    .shots {
-      gap: var(--s-3);
-      padding: 8px 8px 2px 2px;
-    }
-    .shots :global(.shot) {
-      height: 36px;
-    }
-    .shots :global(.shot-remove) {
-      top: -6px;
-      right: -6px;
-      width: 20px;
-      height: 20px;
-    }
-    .shots :global(.shot-tags .avatar) {
-      width: 16px;
-      height: 16px;
-      border-width: 1px;
-      margin-right: -4px;
     }
     .clips {
       max-height: 100%;

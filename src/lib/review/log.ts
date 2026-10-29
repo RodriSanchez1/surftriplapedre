@@ -40,6 +40,16 @@ export type ReviewEvent =
       surfers: string[];
     });
 
+/** What a clip is, besides who surfs in it. 'delete' = remove the file from the folder after uploading. */
+export const CLIP_KINDS = ['landscape', 'extras', 'delete'] as const;
+export type ClipKind = (typeof CLIP_KINDS)[number];
+
+/** The tags of a clip: who surfs in it (ids from surfers.yaml, in roster order) and what it is (in CLIP_KINDS order). */
+export interface ClipTags {
+  surfers: string[];
+  kinds: ClipKind[];
+}
+
 export interface ReviewLog {
   version: 1;
   /** Date of the talk, 'YYYY-MM-DD' (the session the review belongs to). */
@@ -48,6 +58,8 @@ export interface ReviewLog {
   group: string;
   startedAt: string;
   events: ReviewEvent[];
+  /** Tags of each clip when the review was uploaded, by clip file name. Clips with no tags are left out. Missing in older logs. */
+  clips?: Record<string, ClipTags>;
 }
 
 const GROUP = /^(\d{4}-\d{2}-\d{2})_(\d{6})$/;
@@ -119,6 +131,20 @@ export function filmedMoment(filmedAt: string | null, t: number): Date | null {
   return filmedAt ? new Date(Date.parse(filmedAt) + Math.round(t * 1000)) : null;
 }
 
+const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
+
+/** The clips map of a log. Entries that are not tags are dropped, and so are unknown kinds. */
+function parseClips(value: unknown): Record<string, ClipTags> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const out: Record<string, ClipTags> = {};
+  for (const [clip, tags] of Object.entries(value)) {
+    const { surfers, kinds } = (tags ?? {}) as Record<string, unknown>;
+    if (!isStrings(surfers) || !isStrings(kinds)) continue;
+    out[clip] = { surfers, kinds: kinds.filter((k): k is ClipKind => (CLIP_KINDS as readonly string[]).includes(k)) };
+  }
+  return out;
+}
+
 /** Reads a log file. Anything that is not a log → null; events of unknown types are dropped. */
 export function parseLog(text: string): ReviewLog | null {
   let data: unknown;
@@ -136,7 +162,8 @@ export function parseLog(text: string): ReviewLog | null {
     (e): e is ReviewEvent =>
       !!e && typeof e === 'object' && types.has(e.type) && typeof e.at === 'string' && typeof e.clip === 'string',
   );
-  return { version: 1, talkDate, group, startedAt, events: valid };
+  const clips = parseClips((data as Record<string, unknown>).clips);
+  return { version: 1, talkDate, group, startedAt, events: valid, ...(clips ? { clips } : {}) };
 }
 
 export function toJson(log: ReviewLog): string {

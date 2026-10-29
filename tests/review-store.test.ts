@@ -1,7 +1,7 @@
 import { IDBFactory as FakeIDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
 import { newLog } from '../src/lib/review/log';
-import { openReviewStore } from '../src/lib/review/store';
+import { clipTags, openReviewStore, type Draft } from '../src/lib/review/store';
 
 const fresh = () => new FakeIDBFactory() as unknown as IDBFactory;
 
@@ -25,5 +25,39 @@ describe('review store', () => {
     await again.clear();
     expect(await again.draft()).toBeUndefined();
     expect(await again.capture('b.jpg')).toBeUndefined();
+  });
+});
+
+describe('clipTags', () => {
+  const log = newLog('2026-10-27', '2026-10-27_183012', new Date('2026-10-27T21:30:12Z'));
+  const capture = (clip: string, surfers: string[], n: number) => ({
+    type: 'capture' as const,
+    at: '2026-10-27T21:31:00.000Z',
+    clip,
+    t: 1,
+    id: `183012-${n}`,
+    file: `2026-10-27_183012_cap-${n}.jpg`,
+    surfers,
+  });
+  const draft = (clips?: Draft['clips']): Draft => ({
+    log: { ...log, events: [capture('a.mp4', ['juan'], 1), capture('a.mp4', ['juan', 'rodo'], 2), capture('b.mp4', [], 3)] },
+    sessions: {},
+    uploaded: [],
+    clips,
+  });
+
+  it('gives the tags picked on the clip', () => {
+    expect(clipTags(draft({ 'a.mp4': { surfers: ['rodo'], kinds: ['extras'] } }), 'a.mp4')).toEqual({ surfers: ['rodo'], kinds: ['extras'] });
+    expect(clipTags(draft({ 'a.mp4': { surfers: [], kinds: [] } }), 'a.mp4')).toEqual({ surfers: [], kinds: [] });
+  });
+
+  it('falls back to everyone in the clip captures for an older draft', () => {
+    expect(clipTags(draft(), 'a.mp4')).toEqual({ surfers: ['juan', 'rodo'], kinds: [] });
+    expect(clipTags(draft({}), 'b.mp4')).toEqual({ surfers: [], kinds: [] });
+  });
+
+  it('is empty without a draft or for a clip never tagged', () => {
+    expect(clipTags(null, 'a.mp4')).toEqual({ surfers: [], kinds: [] });
+    expect(clipTags(draft(), 'c.mp4')).toEqual({ surfers: [], kinds: [] });
   });
 });

@@ -91,15 +91,15 @@ export const STEPS: Step[] = [
   {
     id: 'capture',
     flag: 'tools',
-    targets: ['.capture'],
-    side: 'above',
+    targets: ['.tag-pill'],
+    side: 'below',
     title: 'tour.capture.title',
     body: 'tour.capture.body',
   },
   {
     id: 'upload',
     flag: 'upload',
-    targets: ['[data-action="finish"]'],
+    targets: ['[data-outbox-toggle]'],
     side: 'below',
     title: 'tour.upload.title',
     body: 'tour.upload.body',
