@@ -68,10 +68,14 @@ export function pinch(start: View, a0: Point, b0: Point, a1: Point, b1: Point, a
   return holding(toFrame(start, middle(a0, b0)), middle(a1, b1), start.scale * factor);
 }
 
-/** How much one wheel event zooms: about ×1.2 per mouse notch (100 px), smooth on a trackpad. */
-export function wheelFactor(deltaY: number, deltaMode: number): number {
+/**
+ * How much one wheel event zooms: about ×1.2 per mouse notch (100 px), smooth on a trackpad. A trackpad pinch comes as
+ * Ctrl + wheel in small steps, so those count 8 times more; a Ctrl + mouse notch (100 px) does not.
+ */
+export function wheelFactor(deltaY: number, deltaMode: number, ctrl = false): number {
   const px = deltaMode === 1 ? deltaY * 16 : deltaMode === 2 ? deltaY * 400 : deltaY;
-  return Math.exp(-px * 0.0018);
+  const pinching = ctrl && deltaMode === 0 && Math.abs(deltaY) < 50;
+  return Math.exp(-px * 0.0018 * (pinching ? 8 : 1));
 }
 
 /** The part in view of a video of width × height, in its own pixels: what a capture keeps. */

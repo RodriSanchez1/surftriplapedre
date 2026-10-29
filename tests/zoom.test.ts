@@ -102,6 +102,10 @@ describe('wheelFactor', () => {
     expect(wheelFactor(-100, 0)).toBeLessThan(1.25);
     expect(wheelFactor(100, 0)).toBeCloseTo(1 / wheelFactor(-100, 0), 9);
   });
+  it('makes a trackpad pinch (Ctrl + small steps) 8 times stronger, but not a Ctrl + mouse notch', () => {
+    expect(wheelFactor(-10, 0, true)).toBeCloseTo(wheelFactor(-80, 0), 9);
+    expect(wheelFactor(-100, 0, true)).toBeCloseTo(wheelFactor(-100, 0), 9);
+  });
   it('counts lines and pages as pixels', () => {
     expect(wheelFactor(-3, 1)).toBeCloseTo(wheelFactor(-48, 0), 9);
     expect(wheelFactor(-1, 2)).toBeCloseTo(wheelFactor(-400, 0), 9);

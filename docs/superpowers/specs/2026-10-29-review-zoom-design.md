@@ -14,10 +14,10 @@ On `/review/` the coach (laptop) and the surfers (phone) can zoom into the pictu
 |---|---|
 | Range | From 1× (the whole frame) to 4×. |
 | Rail button | A new **Zoom** button with a magnifier icon, after pin. At 1× a tap zooms to 2× at the centre; zoomed, a tap goes back to 1×. `aria-pressed` is true while zoomed. |
-| Wheel | Over the picture, the mouse wheel (or a trackpad pinch, which the browser sends as a wheel with Ctrl) zooms in and out around the pointer, with or without a drawing tool. The page does not scroll or zoom itself. |
-| Two fingers | On a phone, two fingers on the picture zoom (spreading) and move the picture (both moving), with or without a drawing tool. A second finger cancels what the first one was doing: a stroke not finished yet is dropped, and a scrub stops where it is. |
+| Wheel | Over the picture, the mouse wheel (or a trackpad pinch, which Chrome and Edge send as a wheel with Ctrl, in small steps that count 8 times more) zooms in and out around the pointer, with or without a drawing tool. The page does not scroll or zoom itself. Safari sends a trackpad pinch as its own gesture and zooms the page; the review asks for Chrome or Edge anyway. |
+| Two fingers | On a phone, two fingers on the picture zoom (spreading) and move the picture (both moving), with or without a drawing tool. A second finger cancels what the first one was doing: a stroke not finished yet is dropped, and a scrub stops where it is (and the log records where). A third finger is ignored. |
 | One pointer, zoomed | With no drawing tool on, dragging the picture moves it (paused or playing). Scrub (drag to go frame by frame) only works at 1×; zoomed, frame by frame is still on ← →, the \|◀ ▶\| buttons and the timeline. A drag that moved the picture is not a tap: it does not play. With a drawing tool on, one pointer draws as always. |
-| Keys | `+` (or `=`) zooms in ×2 at the centre of what is in view, `-` zooms out ÷2, `0` goes back to 1×. |
+| Keys | `+` (or `=`) zooms in ×2 at the centre of what is in view, `-` zooms out ÷2, `0` goes back to 1×. The button and the keys only work with a clip on screen. |
 | Label | While zoomed, a small ink label with the scale ("2×", "2,5×") sits in the top right corner of the picture. It takes no input. Hidden at 1×. |
 | Cursor | Zoomed, with no tool: `grab`, and `grabbing` while dragging. At 1× the cursors stay as they are. |
 | Playing | The zoom stays while the clip plays. |
@@ -31,7 +31,7 @@ On `/review/` the coach (laptop) and the surfers (phone) can zoom into the pictu
 | Key | es | pt |
 |---|---|---|
 | `review.zoom` (new: the button's `title` and `aria-label`) | Zoom: acercar o volver al cuadro entero (+ − 0) | Zoom: aproximar ou voltar ao quadro inteiro (+ − 0) |
-| `review.keys` (existing; one sentence added at the end) | … Rueda, pellizco o + − hacen zoom y 0 vuelve; con zoom, arrastrar mueve la imagen. | … Roda do mouse, pinça ou + − dão zoom e 0 volta; com zoom, arrastar move a imagem. |
+| `review.keys` (existing; one sentence added at the end) | … Rueda, pellizco o + − hacen zoom y 0 vuelve; con zoom, arrastrar mueve la imagen. | … Roda do mouse, gesto de pinça ou + − dão zoom e 0 volta; com zoom, arrastar move a imagem. |
 
 ## Architecture
 
@@ -43,7 +43,7 @@ On `/review/` the coach (laptop) and the surfers (phone) can zoom into the pictu
 - `zoomAt(v, factor, at)`: multiplies the scale and keeps the frame point under `at` where it was.
 - `panBy(v, dx, dy)`: the frame follows a drag of `(dx, dy)` screen units.
 - `pinch(start, a0, b0, a1, b1, aspect)`: the view that keeps the frame points under two fingers under them. Distances are measured with x scaled by the picture's aspect ratio.
-- `wheelFactor(deltaY, deltaMode)`: about ×1.2 per mouse notch, smooth on a trackpad.
+- `wheelFactor(deltaY, deltaMode, ctrl)`: about ×1.2 per mouse notch, smooth on a trackpad; a trackpad pinch (Ctrl, small steps) counts 8 times more.
 - `sourceRect(v, width, height)`: the part in view, in video pixels.
 
 **`src/lib/review/draw.ts`**

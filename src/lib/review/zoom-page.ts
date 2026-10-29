@@ -41,8 +41,8 @@ export function initZoom(root: HTMLElement, sketch: Sketch, hooks: ZoomHooks): Z
   let panned = false;
   /** Fingers on the picture, in screen units. */
   const touches = new Map<number, Point>();
-  /** Two fingers: the view and where they were when the second one came down. */
-  let gesture: { view: View; a: Point; b: Point } | null = null;
+  /** Two fingers: which ones, the view and where they were when the second one came down. */
+  let gesture: { ids: [number, number]; view: View; a: Point; b: Point } | null = null;
   /** One pointer dragging the zoomed picture. */
   let drag: { id: number; at: Point; moved: boolean } | null = null;
 
@@ -74,10 +74,10 @@ export function initZoom(root: HTMLElement, sketch: Sketch, hooks: ZoomHooks): Z
   stage.addEventListener(
     'wheel',
     (e) => {
-      if (!hooks.ready()) return;
+      if (!hooks.ready() || !onPicture(e)) return;
       // Neither the page nor the browser's own zoom (Ctrl + wheel, a trackpad pinch) takes it.
       e.preventDefault();
-      set(zoomAt(view, wheelFactor(e.deltaY, e.deltaMode), at(e)));
+      set(zoomAt(view, wheelFactor(e.deltaY, e.deltaMode, e.ctrlKey), at(e)));
     },
     { passive: false },
   );
@@ -88,8 +88,8 @@ export function initZoom(root: HTMLElement, sketch: Sketch, hooks: ZoomHooks): Z
     if (e.pointerType === 'touch') {
       touches.set(e.pointerId, at(e));
       if (touches.size === 2) {
-        const [a, b] = [...touches.values()];
-        gesture = { view, a, b };
+        const [[ia, a], [ib, b]] = [...touches];
+        gesture = { ids: [ia, ib], view, a, b };
         drag = null;
         delete root.dataset.panning;
         panned = true;
@@ -102,12 +102,16 @@ export function initZoom(root: HTMLElement, sketch: Sketch, hooks: ZoomHooks): Z
 
   stage.addEventListener('pointermove', (e) => {
     if (touches.has(e.pointerId)) touches.set(e.pointerId, at(e));
-    if (gesture && touches.size >= 2) {
-      const [a, b] = [...touches.values()];
+    if (gesture) {
+      // A third finger does not take part.
+      if (!gesture.ids.includes(e.pointerId)) return;
+      const [a, b] = gesture.ids.map((id) => touches.get(id)!);
       set(pinch(gesture.view, gesture.a, gesture.b, a, b, aspect()));
       return;
     }
     if (!drag || e.pointerId !== drag.id) return;
+    // A mouse button let go outside the stage never sent its pointerup here: hovering must not pan.
+    if (e.pointerType === 'mouse' && !(e.buttons & 1)) return endDrag();
     const p = at(e);
     if (!drag.moved) {
       const r = frame.getBoundingClientRect();
@@ -120,13 +124,16 @@ export function initZoom(root: HTMLElement, sketch: Sketch, hooks: ZoomHooks): Z
     drag.at = p;
   });
 
-  function up(e: PointerEvent) {
-    touches.delete(e.pointerId);
-    if (touches.size < 2) gesture = null;
-    if (drag?.id !== e.pointerId) return;
-    if (drag.moved) panned = true;
+  function endDrag() {
     drag = null;
     delete root.dataset.panning;
+  }
+  function up(e: PointerEvent) {
+    touches.delete(e.pointerId);
+    if (gesture?.ids.includes(e.pointerId)) gesture = null;
+    if (drag?.id !== e.pointerId) return;
+    if (drag.moved) panned = true;
+    endDrag();
   }
   stage.addEventListener('pointerup', up);
   stage.addEventListener('pointercancel', up);
@@ -139,7 +146,8 @@ export function initZoom(root: HTMLElement, sketch: Sketch, hooks: ZoomHooks): Z
       return panned;
     },
     reset: () => set(FULL),
-    toggle: () => set(isZoomed(view) ? FULL : zoomAt(view, STEP, CENTRE)),
-    step: (direction) => set(zoomAt(view, direction > 0 ? STEP : 1 / STEP, CENTRE)),
+    // Only with a clip on screen: a clip still loading starts on the whole frame.
+    toggle: () => hooks.ready() && set(isZoomed(view) ? FULL : zoomAt(view, STEP, CENTRE)),
+    step: (direction) => hooks.ready() && set(zoomAt(view, direction > 0 ? STEP : 1 / STEP, CENTRE)),
   };
 }

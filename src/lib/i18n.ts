@@ -336,7 +336,7 @@ const pt: Record<UiKey, string> = {
   'review.recording': 'Gravando',
   'review.recordTitle': 'Gravar a conversa neste aparelho',
   'review.recordHelp': 'Se outro aparelho já grava o áudio (por exemplo um celular na página de envio de áudio), não precisa gravar aqui.',
-  'review.keys': 'Atalhos: espaço reproduz, ← → quadro a quadro, ⇧+←/→ pulam 5 s, S salva a captura, T etiquetas do clipe, L lista, F tela cheia. Pausado, arraste sobre o vídeo para a direita ou para a esquerda para avançar ou voltar. Roda do mouse, pinça ou + − dão zoom e 0 volta; com zoom, arrastar move a imagem.',
+  'review.keys': 'Atalhos: espaço reproduz, ← → quadro a quadro, ⇧+←/→ pulam 5 s, S salva a captura, T etiquetas do clipe, L lista, F tela cheia. Pausado, arraste sobre o vídeo para a direita ou para a esquerda para avançar ou voltar. Roda do mouse, gesto de pinça ou + − dão zoom e 0 volta; com zoom, arrastar move a imagem.',
   'tour.replay': 'Ver como usar',
   'tour.replayHint': 'Para ver de novo, toque em ?',
   'tour.kicker': 'Passo {x} de {y}',

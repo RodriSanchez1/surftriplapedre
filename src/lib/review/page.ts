@@ -1151,7 +1151,8 @@ export function init(root: HTMLElement): void {
     twoFingers: () => {
       sketch.cancel();
       if (scrub.id === null) return;
-      const moved = scrub.moved;
+      // The scrub's own pointerdown already reset scrub.moved for this second finger; the flag on the root still says.
+      const moved = root.dataset.scrubbing === 'true';
       scrub.id = null;
       scrub.moved = true;
       delete root.dataset.scrubbing;
