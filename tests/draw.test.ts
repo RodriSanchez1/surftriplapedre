@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arrowHead, captureSize, ShapeHistory, type Shape } from '../src/lib/review/draw';
+import { arrowHead, arrowTail, captureSize, ShapeHistory, type Shape } from '../src/lib/review/draw';
 
 describe('captureSize', () => {
   it('scales 4K down to 1600 px wide and keeps small frames as they are', () => {
@@ -14,6 +14,18 @@ describe('arrowHead', () => {
     expect(a[0]).toBeLessThan(100);
     expect(b[0]).toBeLessThan(100);
     expect(Math.sign(a[1])).toBe(-Math.sign(b[1]));
+  });
+});
+
+describe('arrowTail', () => {
+  it('skips the points too close to the tip', () => {
+    expect(arrowTail([[0, 0], [50, 0], [95, 0], [99, 0], [100, 0]], 10)).toEqual([50, 0]);
+  });
+  it('returns the start of a stroke shorter than the distance', () => {
+    expect(arrowTail([[0, 0], [3, 0], [5, 0]], 10)).toEqual([0, 0]);
+  });
+  it('works with two points', () => {
+    expect(arrowTail([[0, 0], [100, 0]], 10)).toEqual([0, 0]);
   });
 });
 

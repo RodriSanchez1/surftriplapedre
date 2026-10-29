@@ -1,16 +1,16 @@
 /**
- * Drawing on the paused frame: pen, arrow and circle.
+ * Drawing on the paused frame: pen, straight arrow, free arrow and circle.
  * Shapes are kept in frame coordinates (0 to 1), so they survive a resize or fullscreen
  * and the capture draws them again at the video's own resolution.
  */
 
-export type Tool = 'pen' | 'arrow' | 'circle';
+export type Tool = 'pen' | 'arrow' | 'freeArrow' | 'circle';
 export type Point = [number, number];
 
 export interface Shape {
   tool: Tool;
   color: string;
-  /** Pen: every point. Arrow: tail and tip. Circle: two opposite corners of its box. */
+  /** Pen and free arrow: every point. Arrow: tail and tip. Circle: two opposite corners of its box. */
   points: Point[];
 }
 
@@ -25,6 +25,19 @@ export function arrowHead(from: Point, to: Point, size: number): [Point, Point] 
   const spread = Math.PI / 7;
   const end = (a: number): Point => [to[0] - size * Math.cos(a), to[1] - size * Math.sin(a)];
   return [end(angle - spread), end(angle + spread)];
+}
+
+/**
+ * Where a free arrow's head takes its direction from: walking back from the tip, the first point at least
+ * `minDistance` away from it (or the start of the stroke), so a shaky last pixel does not turn the head.
+ */
+export function arrowTail(points: Point[], minDistance: number): Point {
+  const tip = points[points.length - 1];
+  for (let i = points.length - 2; i >= 0; i--) {
+    const p = points[i];
+    if (Math.hypot(p[0] - tip[0], p[1] - tip[1]) >= minDistance) return p;
+  }
+  return points[0];
 }
 
 /** Size of the capture: the video's own size, scaled down to CAPTURE_MAX_WIDTH. */
@@ -47,10 +60,18 @@ export function paint(ctx: CanvasRenderingContext2D, shapes: Shape[], w: number,
     ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
     ctx.shadowBlur = line * 1.5;
     ctx.beginPath();
-    if (s.tool === 'pen') {
-      const [first, ...rest] = s.points.map(px);
+    if (s.tool === 'pen' || s.tool === 'freeArrow') {
+      const points = s.points.map(px);
+      const [first, ...rest] = points;
       ctx.moveTo(...first);
       for (const p of rest) ctx.lineTo(...p);
+      if (s.tool === 'freeArrow') {
+        const tip = points[points.length - 1];
+        const [a, b] = arrowHead(arrowTail(points, line * 5), tip, line * 5);
+        ctx.moveTo(...a);
+        ctx.lineTo(...tip);
+        ctx.lineTo(...b);
+      }
     } else if (s.tool === 'arrow') {
       const from = px(s.points[0]);
       const to = px(s.points[s.points.length - 1]);
@@ -153,7 +174,7 @@ export class Sketch {
     const s = this.#current;
     if (!s) return;
     const p = this.#point(e);
-    if (s.tool === 'pen') s.points.push(p);
+    if (s.tool === 'pen' || s.tool === 'freeArrow') s.points.push(p);
     else s.points[1] = p;
     this.redraw();
   }
