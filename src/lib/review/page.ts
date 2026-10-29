@@ -258,7 +258,8 @@ export function init(root: HTMLElement): void {
     // Some can go and some cannot (other folder, file picker, same name twice): say both, and mark the ones that stay.
     $('[data-delete-warn]').hidden = !deletable.length;
     $('[data-delete-cant]').hidden = deletable.length === box.deletes.length;
-    $('[data-delete-list]').replaceChildren(...box.deletes.map((c) => deleteRow(c, !deletable.includes(c))));
+    // The note on a row only matters when some of the others do go.
+    $('[data-delete-list]').replaceChildren(...box.deletes.map((c) => deleteRow(c, deletable.length > 0 && !deletable.includes(c))));
     const n = deletable.length;
     const label = n === 0 ? texts.upload : n === 1 ? texts.uploadAndDeleteOne : format(texts.uploadAndDelete, { n });
     const upload = root.querySelector('[data-upload-label]');
