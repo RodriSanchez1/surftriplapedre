@@ -9,6 +9,8 @@ import { googleAccount, loadGoogle, LoginError, SIGNED_IN } from '../audio/googl
 import { folderIn, send, verifyAccess, PermissionError, type Dependencies } from '../audio/upload';
 import { clock, DEFAULT_FPS, length, middleEllipsis, position, scrubFrames, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
+import { cursorFor, ICONS } from './icons';
+import { placeMenu } from './menu';
 import { canPickFolder, canRead, isVideo, pickFolder, videosIn } from './folder';
 import {
   addEvent,
@@ -119,7 +121,8 @@ export function init(root: HTMLElement): void {
   const compact = matchMedia('(max-width: 760px), (orientation: landscape) and (max-height: 500px)');
   /** A phone on its side: the picture is short, so nothing may cover it. */
   const landscape = matchMedia('(orientation: landscape) and (max-height: 500px)');
-  const sketch = new Sketch($<HTMLCanvasElement>('[data-sketch]'));
+  const sketchCanvas = $<HTMLCanvasElement>('[data-sketch]');
+  const sketch = new Sketch(sketchCanvas);
 
   let store: ReviewStore | null = null;
   let draft: Draft | null = null;
@@ -410,16 +413,65 @@ export function init(root: HTMLElement): void {
 
   // --- Drawing ---
 
+  const rail = $('.rail');
+  const arrowButton = $('[data-action="arrow"]');
+  const arrowMenu = $('[data-arrow-menu]');
+  /** The arrow the arrow button turns on: the last one picked in its menu (straight at first). */
+  let lastArrow: Tool = 'arrow';
+  const isArrow = (tool: Tool | null) => tool === 'arrow' || tool === 'freeArrow';
+
   function setTool(tool: Tool | null) {
     sketch.tool = sketch.tool === tool ? null : tool;
     root.dataset.tool = sketch.tool ?? '';
     for (const b of root.querySelectorAll<HTMLElement>('[data-tool]')) {
       b.setAttribute('aria-pressed', String(b.dataset.tool === sketch.tool));
     }
+    setArrowMenu(false);
+    paintCursor();
     if (sketch.tool) {
       video.pause();
       ensureOpened();
     }
+  }
+
+  /** The page's colours for the cursor: an SVG cursor cannot read CSS variables. */
+  function cursorColors() {
+    const css = getComputedStyle(root);
+    return { ink: css.getPropertyValue('--c-ink').trim(), paper: css.getPropertyValue('--c-paper').trim(), accent: sketch.color };
+  }
+
+  /** Over the picture, the pointer shows the tool in use and its colour; without a tool, the CSS cursors. */
+  function paintCursor() {
+    sketchCanvas.style.cursor = sketch.tool ? cursorFor(sketch.tool, cursorColors()) : '';
+  }
+
+  /** Opens the straight / free menu next to the arrow button (to the side of a column rail, above a row). */
+  function setArrowMenu(open: boolean) {
+    if (arrowMenu.hidden === !open) return;
+    arrowMenu.hidden = !open;
+    arrowButton.setAttribute('aria-expanded', String(open));
+    if (!open) return;
+    const gap = parseFloat(getComputedStyle(root).getPropertyValue('--s-2')) || 8;
+    const place = placeMenu(
+      arrowButton.getBoundingClientRect(),
+      rail.getBoundingClientRect(),
+      { width: arrowMenu.offsetWidth, height: arrowMenu.offsetHeight },
+      root.getBoundingClientRect(),
+      gap,
+    );
+    arrowMenu.style.left = `${place.left}px`;
+    arrowMenu.style.top = `${place.top}px`;
+  }
+
+  /** The arrow button shows, names and turns on the arrow picked in the menu. */
+  function setArrow(kind: Tool) {
+    lastArrow = kind;
+    const item = arrowMenu.querySelector<HTMLElement>(`[data-kind="${kind}"]`)!;
+    arrowButton.dataset.tool = kind;
+    arrowButton.title = item.dataset.label!;
+    arrowButton.setAttribute('aria-label', item.dataset.label!);
+    arrowButton.querySelector('svg')!.innerHTML = ICONS[kind];
+    for (const i of arrowMenu.querySelectorAll<HTMLElement>('[data-kind]')) i.setAttribute('aria-checked', String(i === item));
   }
 
   /** The colour button shows the colour in use. */
@@ -430,6 +482,7 @@ export function init(root: HTMLElement): void {
       b.dataset.color = color;
       b.style.setProperty('--swatch', all.find((c) => c.value === color)?.token ?? color);
     }
+    paintCursor();
   }
 
   // --- Captures ---
@@ -902,6 +955,21 @@ export function init(root: HTMLElement): void {
     },
     fullscreen: () => setImmersive(!root.hasAttribute('data-immersive')),
     tool: (b) => setTool(b.dataset.tool as Tool),
+    // Off: turns on the last arrow. On: opens the straight / free menu, with the focus on the arrow in use.
+    arrow: () => {
+      if (!isArrow(sketch.tool)) return setTool(lastArrow);
+      const open = arrowMenu.hidden === true;
+      setArrowMenu(open);
+      if (open) arrowMenu.querySelector<HTMLElement>('[aria-checked="true"]')!.focus();
+    },
+    'arrow-kind': (b) => {
+      const kind = b.dataset.kind as Tool;
+      const fromKeyboard = b.matches(':focus-visible');
+      setArrow(kind);
+      setArrowMenu(false);
+      if (sketch.tool !== kind) setTool(kind);
+      if (fromKeyboard) arrowButton.focus();
+    },
     // One button that steps through the colours (the list is in the markup).
     color: (b) => {
       const all = JSON.parse(b.dataset.colors!) as { value: string; token: string }[];
@@ -962,6 +1030,10 @@ export function init(root: HTMLElement): void {
   // A tap outside puts away the recording popover and, on a phone, the clip drawer.
   document.addEventListener('pointerdown', (e) => {
     const target = e.target as Element;
+    if (!arrowMenu.hidden && !target.closest('[data-arrow-menu], [data-action="arrow"]')) {
+      setArrowMenu(false);
+      swallowNextTap();
+    }
     if (root.dataset.record === 'open' && !target.closest('[data-record-pop], [data-action="toggle-record"]')) {
       setRecord(false);
       swallowNextTap();
@@ -972,11 +1044,30 @@ export function init(root: HTMLElement): void {
     }
   });
 
+  // The menu is placed for the layout it opened in.
+  window.addEventListener('resize', () => setArrowMenu(false));
+
   document.addEventListener('keydown', (e) => {
     // The tour's dialog handles its own keys (Esc is Saltar); none of the editor's shortcuts run under it.
     if (tour?.isOpen()) return;
     if (root.dataset.signedIn === 'false') return;
     const target = e.target as HTMLElement;
+    // Escape puts away the arrow menu first and gives the focus back to its button.
+    if (e.key === 'Escape' && !arrowMenu.hidden) {
+      setArrowMenu(false);
+      arrowButton.focus();
+      return;
+    }
+    // In the arrow menu, ↑ and ↓ go between the two arrows, and Enter or Space press the button; no shortcut runs.
+    if (target.closest('[data-arrow-menu]')) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const items = [...arrowMenu.querySelectorAll<HTMLElement>('[data-kind]')];
+        const i = items.indexOf(target.closest<HTMLElement>('[data-kind]')!);
+        items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+      }
+      return;
+    }
     if (e.key === 'Escape' && root.hasAttribute('data-immersive')) return setImmersive(false);
     // Escape puts away the recording popover, then the clip drawer, and gives the focus back to their buttons.
     if (e.key === 'Escape' && root.dataset.record === 'open') {
