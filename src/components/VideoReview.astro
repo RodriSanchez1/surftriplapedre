@@ -55,6 +55,15 @@ const texts: Texts = {
     extras: t(lang, 'review.kindExtras'),
     delete: t(lang, 'review.kindDelete'),
   },
+  keep: t(lang, 'review.keep'),
+  upload: t(lang, 'review.upload'),
+  uploadAndDelete: t(lang, 'review.uploadAndDelete'),
+  uploadAndDeleteOne: t(lang, 'review.uploadAndDeleteOne'),
+  deleteWarn: t(lang, 'review.deleteWarn'),
+  deleteCant: t(lang, 'review.deleteCant'),
+  doneDeleted: t(lang, 'review.doneDeleted'),
+  deleteDenied: t(lang, 'review.deleteDenied'),
+  deleteFailed: t(lang, 'review.deleteFailed'),
 };
 const colors = [
   { value: '#ffd400', token: 'var(--c-yellow)' },
@@ -444,6 +453,37 @@ const demoClips = [
       </button>
     </div>
     <div class="outbox-body">
+      <div class="filters" role="group" aria-label={t(lang, 'review.filter')}>
+        <button type="button" class="filter" data-action="filter" data-filter="all" aria-pressed="true">
+          <span class="filter-text">{t(lang, 'review.filterAll')}</span>
+        </button>
+        {
+          surfers.map((s) => (
+            <button
+              type="button"
+              class="filter"
+              data-action="filter"
+              data-filter={s.id}
+              aria-pressed="false"
+              title={s.name}
+              aria-label={s.name}
+              style={`--accent: var(--c-${s.color})`}
+            >
+              <Avatar id={s.id} name="" size="sm" />
+            </button>
+          ))
+        }
+        {
+          kinds
+            .filter((k) => k.id !== 'delete')
+            .map((k) => (
+              <button type="button" class="filter" data-action="filter" data-filter={k.id} aria-pressed="false" title={k.label} aria-label={k.label}>
+                <span class="filter-text" aria-hidden="true">{k.icon}</span>
+              </button>
+            ))
+        }
+      </div>
+      <p class="help none" data-none hidden>{t(lang, 'review.noneFiltered')}</p>
       <div class="outbox-part">
         <h3><span aria-hidden="true">📷</span> {t(lang, 'review.capturesTitle')} <b class="count" data-count-captures>{demo ? 3 : 0}</b></h3>
         <div class="shots" data-shots>
@@ -465,12 +505,46 @@ const demoClips = [
           }
         </div>
       </div>
+      <div class="outbox-part">
+        <h3><span aria-hidden="true">🏷</span> {t(lang, 'review.taggedTitle')} <b class="count" data-count-tagged>{demo ? 3 : 0}</b></h3>
+        <ul class="tagged" data-tagged>
+          {
+            demo &&
+              demoClips
+                .filter((c) => (c.tags || c.kinds) && !c.remove)
+                .map((c) => (
+                  <li>
+                    <strong>{c.time}</strong>
+                    <span class="tagged-who">{c.tags ? c.tags.map((s) => s.name).join(', ') : t(lang, 'review.kindLandscape')}</span>
+                    <span class="tagged-marks" aria-hidden="true">
+                      {c.tags?.map((s) => <span class="dot" style={`--accent: var(--c-${s.color})`} />)}
+                      {c.kinds}
+                    </span>
+                  </li>
+                ))
+          }
+        </ul>
+      </div>
+      <div class="outbox-part deletes" data-deletes hidden={!demo}>
+        <h3><span aria-hidden="true">🗑</span> {t(lang, 'review.deleteTitle')} <b class="count" data-count-deletes>{demo ? 1 : 0}</b></h3>
+        <p class="delete-warn" data-delete-warn>{t(lang, 'review.deleteWarn')}</p>
+        <ul class="delete-list" data-delete-list>
+          {
+            demo && (
+              <li>
+                <span class="del-name"><strong>11:06</strong> C0236.MP4</span>
+                <button type="button" class="btn small">{t(lang, 'review.keep')}</button>
+              </li>
+            )
+          }
+        </ul>
+      </div>
     </div>
     {
       audio && (
         <div class="outbox-foot">
           <button type="button" class="btn primary" data-action="finish" data-lock>
-            <span aria-hidden="true">⬆</span> <span data-upload-label>{t(lang, 'review.upload')}</span>
+            <span aria-hidden="true">⬆</span> <span data-upload-label>{demo ? t(lang, 'review.uploadAndDeleteOne') : t(lang, 'review.upload')}</span>
           </button>
         </div>
       )
@@ -1365,6 +1439,96 @@ const demoClips = [
   }
   .outbox-foot .btn {
     width: 100%;
+  }
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1);
+  }
+  .filter {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 2px;
+    border: 2px solid var(--c-ink);
+    border-radius: 999px;
+    background: var(--c-white);
+    color: var(--c-ink);
+    font: 13px var(--font-strong);
+    cursor: pointer;
+  }
+  .filter :global(.avatar) {
+    width: 32px;
+    height: 32px;
+  }
+  .filter-text {
+    padding: 0 var(--s-2);
+  }
+  .filter[aria-pressed='true'] {
+    background: var(--accent, var(--c-yellow));
+  }
+  .none {
+    margin: 0;
+  }
+  .tagged,
+  .delete-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--s-1);
+  }
+  .tagged li {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: var(--s-1) var(--s-2);
+    background: var(--c-white);
+    border: 2px solid var(--c-ink);
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .tagged strong,
+  .del-name strong {
+    font: 13px var(--font-strong);
+    color: var(--c-ink);
+  }
+  .tagged-who {
+    flex: 1;
+    min-width: 0;
+    color: var(--c-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tagged-marks {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  /* The clips that the upload will delete: red, with what cannot be undone said before the tap. */
+  .deletes {
+    padding: var(--s-2) var(--s-3);
+    background: var(--c-white);
+    border: 3px solid var(--c-red);
+    border-radius: var(--radius);
+  }
+  .delete-warn {
+    margin: 0 0 var(--s-2);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .delete-list li {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    font-size: 14px;
+  }
+  .del-name {
+    flex: 1;
+    min-width: 0;
+    color: var(--c-muted);
   }
   .count {
     min-width: 24px;

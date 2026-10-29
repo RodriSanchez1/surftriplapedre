@@ -222,11 +222,19 @@ const demoSurfers = [
     <AudioUploader lang="es" dates={demoDates} timeZone="UTC" />
 
     <h2 class="section-title">VideoReview</h2>
-    <p class="state">app screen with a fixed-height frame here: clip open, arrow tool, recording audio, three captures</p>
+    <p class="state">app screen with a fixed-height frame here: clip open, arrow tool, recording audio, the clip tags open</p>
   </div>
   <div class="wide-demo">
     <div class="review-frame">
       <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo />
+    </div>
+  </div>
+  <div class="wrap">
+    <p class="state">pending upload: ⬆ Subir opens this panel, with filters by surfer, landscape and extras, the captures, the tagged clips and the clips the upload will delete</p>
+  </div>
+  <div class="wide-demo">
+    <div class="review-frame">
+      <VideoReview lang="es" dates={demoDates} timeZone="UTC" surfers={demoSurfers} audio={audioDemo} demo="pending" />
     </div>
   </div>
   <div class="wrap">

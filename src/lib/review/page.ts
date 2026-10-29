@@ -9,7 +9,7 @@ import { googleAccount, loadGoogle, LoginError, SIGNED_IN } from '../audio/googl
 import { folderIn, send, verifyAccess, PermissionError, type Dependencies } from '../audio/upload';
 import { clock, DEFAULT_FPS, length, middleEllipsis, position, scrubFrames, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
-import { canPickFolder, canRead, isVideo, pickFolder, videosIn } from './folder';
+import { canPickFolder, canRead, canWrite, isVideo, pickFolder, removeVideos, videosIn } from './folder';
 import {
   addEvent,
   captureId,
@@ -21,10 +21,11 @@ import {
   reviewName,
   toJson,
   type ClipKind,
+  type ClipTags,
   type ReviewEvent,
 } from './log';
 import { fileReader, readClipInfo } from './mp4';
-import { hasTags } from './outbox';
+import { finalLog, hasTags, outbox, type Filter } from './outbox';
 import { clipTags, openReviewStore, type Draft, type ReviewStore } from './store';
 
 /** Texts built by the script; the rest already comes in the HTML. */
@@ -53,6 +54,15 @@ export interface Texts {
   tags: string;
   willDelete: string;
   kindNames: Record<ClipKind, string>;
+  keep: string;
+  upload: string;
+  uploadAndDelete: string;
+  uploadAndDeleteOne: string;
+  deleteWarn: string;
+  deleteCant: string;
+  doneDeleted: string;
+  deleteDenied: string;
+  deleteFailed: string;
 }
 
 /** An event as the page records it: the time and the clip are filled in by record(). */
@@ -145,6 +155,11 @@ export function init(root: HTMLElement): void {
   let pinned = false;
   let uploading = false;
   let lastRate = 1;
+  /** What the pending panel shows: everything, one surfer, landscape or extras. */
+  let filter: Filter = 'all';
+  /** The folder the clips came from and, by file name, the subfolder of each: deleting a clip needs both. */
+  let folderHandle: FileSystemDirectoryHandle | null = null;
+  let dirs = new Map<string, FileSystemDirectoryHandle>();
 
   // --- Messages and state ---
 
@@ -169,8 +184,72 @@ export function init(root: HTMLElement): void {
     if (!sticky && text) messageTimer = window.setTimeout(() => (messageBox.hidden = true), 4000);
   }
 
+  /** The time a clip shows in the list, or nothing when it is not in the list. */
+  function clipTime(clip: string): string {
+    const entry = clips.find((c) => c.file.name === clip);
+    return entry?.item.querySelector('[data-clip-time]')?.textContent ?? '';
+  }
+
+  function taggedRow(clip: string, tags: ClipTags): HTMLElement {
+    const li = document.createElement('li');
+    const time = document.createElement('strong');
+    time.textContent = clipTime(clip) || clip;
+    const who = document.createElement('span');
+    who.className = 'tagged-who';
+    who.textContent = [surfersOf(tags.surfers).map((w) => w.name).join(', '), ...tags.kinds.map((k) => texts.kindNames[k])]
+      .filter(Boolean)
+      .join(' · ');
+    const marks = document.createElement('span');
+    marks.className = 'tagged-marks';
+    marks.setAttribute('aria-hidden', 'true');
+    marks.append(...dotsOf(tags.surfers), kindIcons(tags.kinds));
+    li.append(time, who, marks);
+    return li;
+  }
+
+  function deleteRow(clip: string): HTMLElement {
+    const li = document.createElement('li');
+    const label = document.createElement('span');
+    label.className = 'del-name';
+    const time = document.createElement('strong');
+    time.textContent = clipTime(clip);
+    label.append(time, ` ${clip}`);
+    const keep = document.createElement('button');
+    keep.type = 'button';
+    keep.className = 'btn small';
+    keep.textContent = texts.keep;
+    keep.dataset.action = 'keep-clip';
+    keep.dataset.clip = clip;
+    keep.dataset.lock = '';
+    li.append(label, keep);
+    return li;
+  }
+
+  /** The pending panel: filters, captures, tagged clips, clips to delete and the label of its button. */
   function paintShots() {
-    $('[data-count-captures]').textContent = String(shots.children.length);
+    const box = outbox(draft, clips.map((c) => c.file.name), filter);
+    const shown = new Set(box.captures.map((e) => e.file));
+    for (const f of shots.querySelectorAll<HTMLElement>('.shot')) {
+      f.hidden = !shown.has(f.dataset.file!);
+      paintShotTags(f);
+    }
+    for (const b of root.querySelectorAll<HTMLElement>('[data-filter]')) {
+      b.setAttribute('aria-pressed', String(b.dataset.filter === filter));
+    }
+    $('[data-count-captures]').textContent = String(box.captures.length);
+    $('[data-none]').hidden = box.captures.length > 0 || box.tagged.length > 0;
+    $('[data-count-tagged]').textContent = String(box.tagged.length);
+    $('[data-tagged]').replaceChildren(...box.tagged.map(({ clip, tags }) => taggedRow(clip, tags)));
+    // Deleting needs the folder (Chrome and Edge); clips picked one by one are only marked.
+    const deletable = box.deletes.filter((c) => folderHandle && dirs.has(c));
+    $('[data-deletes]').hidden = !box.deletes.length;
+    $('[data-count-deletes]').textContent = String(box.deletes.length);
+    $('[data-delete-warn]').textContent = deletable.length ? texts.deleteWarn : texts.deleteCant;
+    $('[data-delete-list]').replaceChildren(...box.deletes.map(deleteRow));
+    const n = deletable.length;
+    const label = n === 0 ? texts.upload : n === 1 ? texts.uploadAndDeleteOne : format(texts.uploadAndDelete, { n });
+    const upload = root.querySelector('[data-upload-label]');
+    if (upload && !uploading) upload.textContent = label;
   }
 
   function captureEvents() {
@@ -197,7 +276,7 @@ export function init(root: HTMLElement): void {
       c.item.classList.toggle('has-capture', captureEvents().some((e) => e.clip === c.file.name));
       paintClipTags(c);
     }
-    for (const f of shots.querySelectorAll<HTMLElement>('.shot')) paintShotTags(f);
+    paintShots();
   }
 
   /** Who surfs in a clip and what it is, next to it in the list. */
@@ -514,6 +593,19 @@ export function init(root: HTMLElement): void {
     paintStatus();
   }
 
+  /** Takes the delete mark off a clip, from the panel. */
+  function keepClip(clip: string) {
+    if (!draft || uploading) return;
+    const tags = clipTags(draft, clip);
+    draft.clips = { ...draft.clips, [clip]: { ...tags, kinds: tags.kinds.filter((k) => k !== 'delete') } };
+    persist();
+    if (current?.file.name === clip) {
+      for (const c of kindChips()) if (c.value === 'delete') c.checked = false;
+      paintPill();
+    }
+    paintStatus();
+  }
+
   /** The dots of who surfs in the capture's clip: captures follow their clip's tags. */
   function paintShotTags(figure: HTMLElement) {
     const ids = clipTags(draft, figure.dataset.clip!).surfers;
@@ -634,11 +726,37 @@ export function init(root: HTMLElement): void {
     paintFinish(text, `${i}/${n}`);
   }
 
+  /** Deletes the clips marked to delete from the folder, once the review is safe in Drive. */
+  async function deleteClips(names: string[]) {
+    const { removed, failed } = await removeVideos(names.map((name) => ({ name, dir: dirs.get(name)! })));
+    for (const name of removed) {
+      const entry = clips.find((c) => c.file.name === name);
+      dirs.delete(name);
+      if (!entry) continue;
+      URL.revokeObjectURL(entry.url);
+      entry.item.remove();
+      clips = clips.filter((c) => c !== entry);
+      if (current === entry) {
+        current = null;
+        video.removeAttribute('src');
+        video.load();
+      }
+    }
+    if (!current && clips.length) void open(clips[0], false);
+    if (!clips.length) {
+      root.dataset.hasClips = 'false';
+      setView('empty');
+    }
+    return { removed, failed };
+  }
+
   async function finish() {
     const d = draft;
     if (!d || !d.log.events.length) return say(texts.nothing, 'warn');
     if (!deps || !folderId || uploading) return;
-    // Ask for the token now, while the tap still counts as a gesture (Google may open a popup).
+    const toDelete = outbox(d, clips.map((c) => c.file.name), 'all').deletes.filter((c) => dirs.has(c));
+    // Ask now, while the tap still counts as a gesture: to write in the folder, then for the token (Google may open a popup).
+    const writable = toDelete.length && folderHandle ? canWrite(folderHandle, true).catch(() => false) : Promise.resolve(false);
     account!.token().catch(() => {});
     uploading = true;
     lock(true);
@@ -668,7 +786,8 @@ export function init(root: HTMLElement): void {
       }
       progress(total, total);
       const name = reviewName(d.log.group);
-      const blob = new Blob([toJson(d.log)], { type: 'application/json' });
+      // The tags of each clip and the surfers of each capture as they are now.
+      const blob = new Blob([toJson(finalLog(d))], { type: 'application/json' });
       await send(deps, {
         file: { name, mime: 'application/json', size: blob.size, folder },
         blob,
@@ -683,10 +802,18 @@ export function init(root: HTMLElement): void {
       draft = null;
       blobs.clear();
       shots.replaceChildren();
-      paintShots();
       $('[data-restored]').hidden = true;
       setOutbox(false);
-      say(texts.done, 'ok', true);
+      // Only now, with everything in Drive, the marked clips leave the folder.
+      if (!toDelete.length) {
+        say(texts.done, 'ok', true);
+      } else if (!(await writable)) {
+        say(texts.deleteDenied, 'warn', true);
+      } else {
+        const { removed, failed } = await deleteClips(toDelete);
+        if (failed.length) say(format(texts.deleteFailed, { names: failed.join(', ') }), 'warn', true);
+        else say(format(texts.doneDeleted, { n: removed.length }), 'ok', true);
+      }
     } catch (e) {
       console.error(e);
       say(
@@ -735,12 +862,19 @@ export function init(root: HTMLElement): void {
 
   // --- Folder ---
 
+  async function loadFolder(handle: FileSystemDirectoryHandle) {
+    const found = await videosIn(handle);
+    folderHandle = handle;
+    dirs = new Map(found.map((v) => [v.file.name, v.dir]));
+    await loadFiles(found.map((v) => v.file));
+  }
+
   async function chooseFolder() {
     try {
       const handle = await pickFolder();
       void store?.saveFolder(handle).catch(() => {});
       $('[data-action="reopen"]').hidden = true;
-      await loadFiles((await videosIn(handle)).map((v) => v.file));
+      await loadFolder(handle);
     } catch (e) {
       if ((e as DOMException).name !== 'AbortError') console.error(e);
     }
@@ -751,7 +885,7 @@ export function init(root: HTMLElement): void {
     if (!handle) return;
     if (await canRead(handle, true)) {
       $('[data-action="reopen"]').hidden = true;
-      await loadFiles((await videosIn(handle)).map((v) => v.file));
+      await loadFolder(handle);
     }
   }
 
@@ -775,7 +909,7 @@ export function init(root: HTMLElement): void {
     const handle = await store.folder();
     if (!handle || !canPickFolder()) return;
     if (await canRead(handle, false)) {
-      await loadFiles((await videosIn(handle)).map((v) => v.file));
+      await loadFolder(handle);
     } else {
       const button = $('[data-action="reopen"]');
       button.textContent = format(texts.reopen, { name: handle.name });
@@ -935,6 +1069,7 @@ export function init(root: HTMLElement): void {
   function setOutbox(open: boolean) {
     root.dataset.outbox = open ? 'open' : 'closed';
     outboxToggle?.setAttribute('aria-expanded', String(open));
+    if (open) paintShots();
   }
 
   function focusFirstIn(container: HTMLElement) {
@@ -1003,6 +1138,11 @@ export function init(root: HTMLElement): void {
       if (open) focusFirstIn(outboxPanel);
       else outboxToggle?.focus();
     },
+    filter: (b) => {
+      filter = b.dataset.filter as Filter;
+      paintShots();
+    },
+    'keep-clip': (b) => keepClip(b.dataset.clip!),
     capture: () => void saveCapture(),
     'open-capture': (b) => void openCapture(b.dataset.file!),
     'delete-capture': (b) => void deleteCapture(b.dataset.file!),
@@ -1033,6 +1173,8 @@ export function init(root: HTMLElement): void {
 
   filesInput.addEventListener('change', (e) => {
     const input = e.target as HTMLInputElement;
+    folderHandle = null;
+    dirs = new Map();
     void loadFiles([...(input.files ?? [])]);
   });
 
@@ -1047,6 +1189,8 @@ export function init(root: HTMLElement): void {
     e.preventDefault();
     viewer.removeAttribute('data-dragging');
     const dropped = [...(e.dataTransfer?.files ?? [])];
+    folderHandle = null;
+    dirs = new Map();
     if (dropped.length) void loadFiles(dropped.filter((f) => isVideo(f.name)));
   });
 
