@@ -41,7 +41,7 @@ Laptop 1280×800, portrait phone 390×844 and landscape phone 844×390 (not draw
 - Pending upload, unfiltered and filtered by one surfer.
 - Pending upload with clips to delete (drawn), and the same when the folder cannot be written (not drawn: see "Deleting files").
 
-Full screen (immersive) hides the pill and 📸 with the rest of the chrome, as today. The selector and the panel close with Esc, with ✕ (panel), by tapping outside (selector) or by tapping their button again. Keyboard: `T` opens and closes the clip tags; it joins the shortcuts line.
+Full screen (immersive) keeps the pill and 📸, as it keeps the rail and the transport today; it hides the bar and the clip list, so the pending panel is closed and out of reach there. The selector and the panel close with Esc, with ✕ (panel), by tapping outside (selector) or by tapping their button again. Keyboard: `T` opens and closes the clip tags; it joins the shortcuts line.
 
 ## Data
 
