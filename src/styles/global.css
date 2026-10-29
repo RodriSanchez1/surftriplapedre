@@ -185,6 +185,13 @@ td:first-child {
 .btn.primary {
   background: var(--c-yellow);
 }
+/* Toolbar button: smaller text and padding, the touch area stays 44 px. */
+.btn.small {
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--s-1) var(--s-2);
+  font-size: 14px;
+}
 .btn.record {
   background: var(--c-red);
   color: var(--c-white);
