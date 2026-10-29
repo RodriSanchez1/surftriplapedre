@@ -5,7 +5,7 @@
  */
 import type { Tool } from './draw';
 
-export type IconName = Tool | 'undo' | 'clear' | 'pin';
+export type IconName = Tool | 'undo' | 'clear' | 'pin' | 'zoom';
 
 /** The inside of each icon's `<svg viewBox="0 0 24 24">`. */
 export const ICONS: Record<IconName, string> = {
@@ -16,6 +16,7 @@ export const ICONS: Record<IconName, string> = {
   undo: '<path d="M9 13L4 8l5-5M4 8h10a6 6 0 0 1 0 12h-4"/>',
   clear: '<path d="M14 4l6 6-9 9H7l-3-3a1.4 1.4 0 0 1 0-2zM9 9l6 6M14 19h6"/>',
   pin: '<path d="M9 3h6M10 3v6l-3 4h10l-3-4V3M12 13v8"/>',
+  zoom: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20M10.5 7.5v6M7.5 10.5h6"/>',
 };
 
 /** The same drawings a little tighter, for the badge of the cross cursor. */

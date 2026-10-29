@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arrowHead, arrowTail, captureSize, isTap, ShapeHistory, type Shape } from '../src/lib/review/draw';
+import { arrowHead, arrowTail, captureSize, isTap, paint, ShapeHistory, type Shape } from '../src/lib/review/draw';
 
 describe('captureSize', () => {
   it('scales 4K down to 1600 px wide and keeps small frames as they are', () => {
@@ -85,5 +85,39 @@ describe('ShapeHistory', () => {
     while (h.undo()) undone++;
     expect(undone).toBeLessThan(100);
     expect(undone).toBeGreaterThan(10);
+  });
+});
+
+describe('paint with a view', () => {
+  /** A context that only records the points a path goes through. */
+  function recorder() {
+    const points: [number, number][] = [];
+    const ctx = {
+      beginPath() {},
+      stroke() {},
+      moveTo: (x: number, y: number) => points.push([x, y]),
+      lineTo: (x: number, y: number) => points.push([x, y]),
+      ellipse() {},
+    } as unknown as CanvasRenderingContext2D;
+    return { ctx, points };
+  }
+  const line: Shape = { tool: 'pen', color: '#fff', points: [[0.25, 0.5], [0.5, 0.75]] };
+
+  it('paints frame points where the view shows them', () => {
+    const { ctx, points } = recorder();
+    paint(ctx, [line], 100, 100, { scale: 2, x: 0.25, y: 0.5 });
+    expect(points).toEqual([[0, 0], [50, 50]]);
+  });
+  it('paints the whole frame without a view', () => {
+    const { ctx, points } = recorder();
+    paint(ctx, [line], 100, 100);
+    expect(points).toEqual([[25, 50], [50, 75]]);
+  });
+  it('keeps the line width at any zoom', () => {
+    const a = recorder();
+    paint(a.ctx, [line], 1000, 500);
+    const b = recorder();
+    paint(b.ctx, [line], 1000, 500, { scale: 4, x: 0, y: 0 });
+    expect(b.ctx.lineWidth).toBe(a.ctx.lineWidth);
   });
 });
