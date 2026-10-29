@@ -72,7 +72,7 @@ clips?: Record<string, { surfers: string[]; kinds: ClipKind[] }>;
 
 ### Timeline (`src/lib/review/timeline.ts`, `scripts/review-timeline.mjs`)
 
-Each clip heading in `review-timeline.md` adds who surfs it and its kinds, for example `### 10:42 · C0232.MP4 · Juan · landscape`, and `deleted after the review` for clips marked to delete. The capture lines keep naming their surfers. The process-session skill needs no change: it already reads the headings.
+Each clip heading in `review-timeline.md` adds who surfs it and its kinds, for example `## 02:30 · C0232.MP4 · surfers Juan · landscape`, and `deleted after the review` for clips marked to delete. The capture lines keep naming their surfers. The process-session skill needs no change: it already reads the headings.
 
 ## Deleting files
 
