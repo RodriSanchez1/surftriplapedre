@@ -1,8 +1,10 @@
 /**
  * Drawing on the paused frame: pen, straight arrow, free arrow and circle.
- * Shapes are kept in frame coordinates (0 to 1), so they survive a resize or fullscreen
+ * Shapes are kept in frame coordinates (0 to 1), so they survive a resize, fullscreen and the zoom,
  * and the capture draws them again at the video's own resolution.
  */
+
+import { FULL, sourceRect, toFrame, toScreen, type View } from './zoom';
 
 export type Tool = 'pen' | 'arrow' | 'freeArrow' | 'circle';
 export type Point = [number, number];
@@ -62,9 +64,12 @@ export function captureSize(width: number, height: number): { width: number; hei
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 
-/** Paints the shapes on a context of size w × h. */
-export function paint(ctx: CanvasRenderingContext2D, shapes: Shape[], w: number, h: number): void {
-  const px = ([x, y]: Point): Point => [x * w, y * h];
+/** Paints the shapes on a context of size w × h, as the view shows them (the whole frame by default). */
+export function paint(ctx: CanvasRenderingContext2D, shapes: Shape[], w: number, h: number, view: View = FULL): void {
+  const px = (p: Point): Point => {
+    const [x, y] = toScreen(view, p);
+    return [x * w, y * h];
+  };
   const line = Math.max(2, STROKE * w);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -154,8 +159,12 @@ export class Sketch {
   readonly #canvas: HTMLCanvasElement;
   #history = new ShapeHistory();
   #current: Shape | null = null;
+  /** The pointer drawing the current shape: a second finger does not draw. */
+  #pointer: number | null = null;
   tool: Tool | null = null;
   color = '#ffd400';
+  /** The part of the frame in view; set by the zoom. */
+  view: View = FULL;
   /** Called after every change, with the number of shapes. */
   onChange: (count: number) => void = () => {};
 
@@ -163,8 +172,8 @@ export class Sketch {
     this.#canvas = canvas;
     canvas.addEventListener('pointerdown', (e) => this.#down(e));
     canvas.addEventListener('pointermove', (e) => this.#move(e));
-    canvas.addEventListener('pointerup', () => this.#up());
-    canvas.addEventListener('pointercancel', () => this.#up());
+    canvas.addEventListener('pointerup', (e) => this.#up(e));
+    canvas.addEventListener('pointercancel', (e) => this.#up(e));
     new ResizeObserver(() => this.redraw()).observe(canvas);
   }
 
@@ -175,12 +184,13 @@ export class Sketch {
   #point(e: PointerEvent): Point {
     const r = this.#canvas.getBoundingClientRect();
     const clamp = (v: number) => Math.min(1, Math.max(0, v));
-    return [clamp((e.clientX - r.left) / r.width), clamp((e.clientY - r.top) / r.height)];
+    return toFrame(this.view, [clamp((e.clientX - r.left) / r.width), clamp((e.clientY - r.top) / r.height)]);
   }
 
   #down(e: PointerEvent) {
-    if (!this.tool) return;
+    if (!this.tool || !e.isPrimary) return;
     this.#canvas.setPointerCapture(e.pointerId);
+    this.#pointer = e.pointerId;
     const p = this.#point(e);
     this.#current = { tool: this.tool, color: this.color, points: [p, p] };
     this.redraw();
@@ -188,14 +198,16 @@ export class Sketch {
 
   #move(e: PointerEvent) {
     const s = this.#current;
-    if (!s) return;
+    if (!s || e.pointerId !== this.#pointer) return;
     const p = this.#point(e);
     if (s.tool === 'pen' || s.tool === 'freeArrow') s.points.push(p);
     else s.points[1] = p;
     this.redraw();
   }
 
-  #up() {
+  #up(e: PointerEvent) {
+    if (e.pointerId !== this.#pointer) return;
+    this.#pointer = null;
     const s = this.#current;
     this.#current = null;
     if (!s) return;
@@ -203,6 +215,14 @@ export class Sketch {
     if (!isTap(s)) this.#history.add(s);
     this.redraw();
     this.onChange(this.shapes.length);
+  }
+
+  /** Drops a shape that is still being drawn (a second finger came down to zoom). */
+  cancel() {
+    if (!this.#current) return;
+    this.#current = null;
+    this.#pointer = null;
+    this.redraw();
   }
 
   /** Takes back the last change; after a clear, brings the drawing back. */
@@ -230,18 +250,19 @@ export class Sketch {
     }
     const ctx = c.getContext('2d')!;
     ctx.clearRect(0, 0, w, h);
-    paint(ctx, this.#current ? [...this.shapes, this.#current] : this.shapes, w, h);
+    paint(ctx, this.#current ? [...this.shapes, this.#current] : this.shapes, w, h, this.view);
   }
 
-  /** The current frame of the video with the drawing on top, as a JPEG. */
+  /** What is in view of the current frame, with the drawing on top, as a JPEG. */
   capture(video: HTMLVideoElement): Promise<Blob> {
-    const { width, height } = captureSize(video.videoWidth, video.videoHeight);
+    const src = sourceRect(this.view, video.videoWidth, video.videoHeight);
+    const { width, height } = captureSize(src.width, src.height);
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(video, 0, 0, width, height);
-    paint(ctx, this.shapes, width, height);
+    ctx.drawImage(video, src.x, src.y, src.width, src.height, 0, 0, width, height);
+    paint(ctx, this.shapes, width, height, this.view);
     return new Promise((resolve, reject) =>
       canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not encode the capture'))), 'image/jpeg', 0.85),
     );
