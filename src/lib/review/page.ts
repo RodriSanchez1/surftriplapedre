@@ -20,9 +20,11 @@ import {
   nextCaptureNumber,
   reviewName,
   toJson,
+  type ClipKind,
   type ReviewEvent,
 } from './log';
 import { fileReader, readClipInfo } from './mp4';
+import { hasTags } from './outbox';
 import { clipTags, openReviewStore, type Draft, type ReviewStore } from './store';
 
 /** Texts built by the script; the rest already comes in the HTML. */
@@ -47,6 +49,10 @@ export interface Texts {
   errorUpload: string;
   errorPermission: string;
   errorLogin: string;
+  whoSurfs: string;
+  tags: string;
+  willDelete: string;
+  kindNames: Record<ClipKind, string>;
 }
 
 /** An event as the page records it: the time and the clip are filled in by record(). */
@@ -61,6 +67,11 @@ interface Entry extends Clip {
 
 /** Characters of a file name shown in the clip list before the middle is cut. */
 const NAME_MAX = 14;
+/** Landscape, extras and delete as icons, in the order of the kinds. */
+const KIND_ICONS: Record<ClipKind, string> = { landscape: '🏞', extras: '🎉', delete: '🗑' };
+function kindIcons(kinds: ClipKind[]): string {
+  return kinds.map((k) => KIND_ICONS[k]).join('');
+}
 
 /** Waits for a media event, or fails after `ms`. */
 function once(el: HTMLMediaElement, event: string, ms = 8000): Promise<void> {
@@ -109,12 +120,13 @@ export function init(root: HTMLElement): void {
   const message = $('[data-message]');
   const messageBox = $('[data-message-box]');
   const retryButton = $('[data-action="retry"]');
-  const shotsBox = $('[data-shots-box]');
-  const dockPanel = $('[data-dock-panel]');
-  const dockToggle = $('.dock-toggle');
+  const tagPop = $('[data-tag-pop]');
+  const tagPill = $('[data-action="toggle-tags"]');
+  const outboxPanel = $('[data-outbox-panel]');
+  const outboxToggle = root.querySelector<HTMLElement>('[data-outbox-toggle]');
   const viewer = $('[data-viewer]');
   const locked = () => [...root.querySelectorAll<HTMLButtonElement>('[data-lock]')];
-  const interactive = [...root.querySelectorAll<HTMLElement>('.rail, .transport, .capture')];
+  const interactive = [...root.querySelectorAll<HTMLElement>('.rail, .transport, .tagger')];
   const clipsPanel = $('[data-clip-list]').closest<HTMLElement>('.clips')!;
   const filesInput = $<HTMLInputElement>('[data-files]');
   /** A phone: the clip list is a drawer over the picture instead of a column. */
@@ -142,7 +154,7 @@ export function init(root: HTMLElement): void {
     root.dataset.view = view;
     // Greyed out by CSS; inert keeps the keyboard and screen readers out of them too.
     for (const el of interactive) el.inert = view !== 'ready';
-    if (view !== 'ready') setDock(false);
+    if (view !== 'ready') setTags(false);
     $('[data-next-clip]').hidden = clips.length < 2;
   }
 
@@ -158,10 +170,7 @@ export function init(root: HTMLElement): void {
   }
 
   function paintShots() {
-    const n = shots.children.length;
-    shotsBox.hidden = !n;
-    $('[data-shots-head]').hidden = !n;
-    $('[data-shots-count]').textContent = String(n);
+    $('[data-count-captures]').textContent = String(shots.children.length);
   }
 
   function captureEvents() {
@@ -170,10 +179,9 @@ export function init(root: HTMLElement): void {
 
   function paintStatus() {
     const captures = captureEvents().length;
-    // Nothing to upload until there is a capture.
-    const finishButton = root.querySelector<HTMLElement>('[data-action="finish"]');
-    if (finishButton) {
-      finishButton.hidden = !captures;
+    // Nothing to upload until there is a capture or a tagged clip.
+    if (outboxToggle) {
+      outboxToggle.hidden = !captures && !Object.values(draft?.clips ?? {}).some(hasTags);
       if (!uploading) paintFinish(format(texts.finishCount, { n: captures }), String(captures));
     }
     dateSelect.disabled = !!draft;
@@ -189,14 +197,21 @@ export function init(root: HTMLElement): void {
       c.item.classList.toggle('has-capture', captureEvents().some((e) => e.clip === c.file.name));
       paintClipTags(c);
     }
+    for (const f of shots.querySelectorAll<HTMLElement>('.shot')) paintShotTags(f);
   }
 
-  /** The avatars of who surfs in a clip, next to it in the list. */
+  /** Who surfs in a clip and what it is, next to it in the list. */
   function paintClipTags(entry: Entry) {
-    const ids = clipTags(draft, entry.file.name).surfers;
-    entry.item.querySelector('[data-clip-tags]')!.replaceChildren(...dotsOf(ids));
-    const names = surfersOf(ids).map((w) => w.name).join(', ');
-    entry.item.querySelector('[data-clip-who]')!.textContent = names ? format(texts.clipTagged, { names }) : '';
+    const tags = clipTags(draft, entry.file.name);
+    entry.item.querySelector('[data-clip-tags]')!.replaceChildren(...dotsOf(tags.surfers));
+    entry.item.querySelector('[data-clip-kinds]')!.textContent = kindIcons(tags.kinds);
+    entry.item.classList.toggle('to-delete', tags.kinds.includes('delete'));
+    const names = surfersOf(tags.surfers).map((w) => w.name).join(', ');
+    const words = [
+      names ? format(texts.clipTagged, { names }) : '',
+      ...tags.kinds.map((k) => (k === 'delete' ? texts.willDelete : texts.kindNames[k])),
+    ];
+    entry.item.querySelector('[data-clip-who]')!.textContent = words.filter(Boolean).join(' · ');
   }
 
   /** The text of the upload button: the long form, and the short one a narrow phone shows next to the icon. */
@@ -204,7 +219,7 @@ export function init(root: HTMLElement): void {
     $('[data-finish-label]').textContent = long;
     $('[data-finish-short]').textContent = short;
     // The long text is hidden on a phone: without this the button would be announced as just a number.
-    root.querySelector('[data-action="finish"]')?.setAttribute('aria-label', long);
+    outboxToggle?.setAttribute('aria-label', long);
   }
 
   /** While an upload runs, nothing that changes the draft can be touched. */
@@ -345,10 +360,11 @@ export function init(root: HTMLElement): void {
     // On a phone the list is a drawer: picking a clip puts it away.
     if (compact.matches) root.dataset.list = 'closed';
     sketch.clear();
-    // Each clip brings back who was tagged on it.
-    const tagged = clipTags(draft, entry.file.name).surfers;
-    for (const c of chips()) c.checked = tagged.includes(c.value);
-    paintWhose();
+    // Each clip brings back its tags.
+    const tags = clipTags(draft, entry.file.name);
+    for (const c of chips()) c.checked = tags.surfers.includes(c.value);
+    for (const c of kindChips()) c.checked = tags.kinds.includes(c.value as ClipKind);
+    paintPill();
     // The picture area stays in place; it only shows what is going on.
     setView('loading');
     video.src = entry.url;
@@ -448,6 +464,10 @@ export function init(root: HTMLElement): void {
     return [...root.querySelectorAll<HTMLInputElement>('[data-surfer]')];
   }
 
+  function kindChips() {
+    return [...root.querySelectorAll<HTMLInputElement>('[data-kind]')];
+  }
+
   /** Name and colour of each tagged surfer, from the roster chips on the page. */
   function surfersOf(ids: string[]) {
     return ids.map((id) => {
@@ -459,7 +479,7 @@ export function init(root: HTMLElement): void {
     });
   }
 
-  /** A dot in each surfer's colour, for the dock bar, the clip list and the captures. */
+  /** A dot in each surfer's colour, for the pill, the clip list and the captures. */
   function dotsOf(ids: string[]): HTMLElement[] {
     return surfersOf(ids).map((w) => {
       const dot = document.createElement('span');
@@ -469,51 +489,59 @@ export function init(root: HTMLElement): void {
     });
   }
 
-  /** The dock bar says who is tagged on this clip. */
-  function paintWhose() {
+  /** The pill says who surfs in this clip and what it is. */
+  function paintPill() {
     const ids = chips().filter((c) => c.checked).map((c) => c.value);
-    $('[data-whose-dots]').replaceChildren(...dotsOf(ids));
-    $('[data-whose-names]').textContent = surfersOf(ids).map((w) => w.name).join(', ');
+    const kinds = kindChips().filter((c) => c.checked).map((c) => c.value as ClipKind);
+    const names = surfersOf(ids).map((w) => w.name).join(', ');
+    $('[data-pill-dots]').replaceChildren(...dotsOf(ids));
+    $('[data-pill-label]').textContent = [names, kindIcons(kinds)].filter(Boolean).join(' · ') || texts.whoSurfs;
+    const words = [names, ...kinds.map((k) => texts.kindNames[k])].filter(Boolean).join(', ');
+    tagPill.setAttribute('aria-label', words ? `${texts.tags}: ${words}` : texts.tags);
+    $('[data-delete-note]').hidden = !kinds.includes('delete');
   }
 
-  /** The chips picked on a clip are kept with the draft, so going back to it brings them back. */
+  /** The tags picked on a clip are kept with the draft, so going back to it brings them back. */
   function tagClip() {
-    paintWhose();
+    paintPill();
     if (!current || uploading) return;
     ensureOpened();
     const d = ensureDraft();
     const surfers = chips().filter((c) => c.checked).map((c) => c.value);
-    d.clips = { ...d.clips, [current.file.name]: { surfers, kinds: clipTags(d, current.file.name).kinds } };
+    const kinds = kindChips().filter((c) => c.checked).map((c) => c.value as ClipKind);
+    d.clips = { ...d.clips, [current.file.name]: { surfers, kinds } };
     persist();
     paintStatus();
   }
 
-  function addShot(file: string, id: string, blob: Blob, surferIds: string[]) {
-    const who = surfersOf(surferIds);
-    const names = who.map((w) => w.name).join(', ');
+  /** The dots of who surfs in the capture's clip: captures follow their clip's tags. */
+  function paintShotTags(figure: HTMLElement) {
+    const ids = clipTags(draft, figure.dataset.clip!).surfers;
+    const names = surfersOf(ids).map((w) => w.name).join(', ');
+    const label = names ? `${texts.openCapture}: ${names}` : texts.openCapture;
+    const view = figure.querySelector<HTMLElement>('.shot-open')!;
+    view.title = label;
+    view.setAttribute('aria-label', label);
+    figure.querySelector('.shot-tags')!.replaceChildren(...dotsOf(ids));
+  }
+
+  function addShot(file: string, id: string, blob: Blob, clip: string) {
     const figure = document.createElement('figure');
     figure.className = 'shot';
     figure.dataset.file = file;
+    figure.dataset.clip = clip;
     const view = document.createElement('button');
     view.type = 'button';
     view.className = 'shot-open';
     view.dataset.action = 'open-capture';
     view.dataset.file = file;
-    const label = names ? `${texts.openCapture}: ${names}` : texts.openCapture;
-    view.title = label;
-    view.setAttribute('aria-label', label);
     const img = document.createElement('img');
     img.src = URL.createObjectURL(blob);
-    img.alt = names ? `${id}: ${names}` : id;
+    img.alt = id;
     view.append(img);
-    figure.append(view);
-    if (who.length) {
-      const tags = document.createElement('span');
-      tags.className = 'shot-tags';
-      tags.setAttribute('aria-hidden', 'true');
-      tags.append(...dotsOf(surferIds));
-      figure.append(tags);
-    }
+    const tags = document.createElement('span');
+    tags.className = 'shot-tags';
+    tags.setAttribute('aria-hidden', 'true');
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'shot-remove';
@@ -523,22 +551,24 @@ export function init(root: HTMLElement): void {
     remove.dataset.action = 'delete-capture';
     remove.dataset.file = file;
     remove.dataset.lock = '';
-    figure.append(remove);
+    figure.append(view, tags, remove);
     // Newest first.
     shots.prepend(figure);
+    paintShotTags(figure);
     paintShots();
   }
 
-  /** Confirms a capture on the 📷 counter, which is always in view (a toast would cover a short picture). */
+  /** Confirms a capture on the upload button, which is always in view (a toast would cover a short picture). */
   function pulseShots() {
-    const head = $('[data-shots-head]');
-    head.classList.remove('pulse');
-    void head.offsetWidth;
-    head.classList.add('pulse');
+    if (!outboxToggle) return;
+    outboxToggle.classList.remove('pulse');
+    void outboxToggle.offsetWidth;
+    outboxToggle.classList.add('pulse');
   }
 
   async function saveCapture() {
     if (!current || !video.videoWidth || uploading) return;
+    const clip = current.file.name;
     video.pause();
     ensureOpened();
     const blob = await sketch.capture(video);
@@ -549,8 +579,8 @@ export function init(root: HTMLElement): void {
     blobs.set(file, blob);
     const s = store;
     if (s) writes = writes.then(() => s.saveCapture(file, blob)).catch((e) => console.error(e));
-    // The tags stay with the clip: several captures of one wave are common.
-    const tagged = chips().filter((c) => c.checked).map((c) => c.value);
+    // A capture takes its clip's surfers; the upload writes them again in case the clip is tagged later.
+    const tagged = clipTags(d, clip).surfers;
     record({
       type: 'capture',
       t: Math.round(video.currentTime * 1000) / 1000,
@@ -558,7 +588,7 @@ export function init(root: HTMLElement): void {
       file,
       surfers: tagged,
     });
-    addShot(file, id, blob, tagged);
+    addShot(file, id, blob, clip);
     pulseShots();
     const names = surfersOf(tagged).map((w) => w.name).join(', ');
     const text = tagged.length ? format(texts.captureTagged, { n, names }) : format(texts.captureUntagged, { n });
@@ -584,6 +614,8 @@ export function init(root: HTMLElement): void {
     const event = captureEvents().find((e) => e.file === file);
     const entry = clips.find((c) => c.file.name === event?.clip);
     if (!event || !entry || uploading) return;
+    // On a phone the panel covers the picture: going to the moment puts it away.
+    if (compact.matches) setOutbox(false);
     video.pause();
     await open(entry);
     if (current === entry && root.dataset.view === 'ready') video.currentTime = event.t;
@@ -653,6 +685,7 @@ export function init(root: HTMLElement): void {
       shots.replaceChildren();
       paintShots();
       $('[data-restored]').hidden = true;
+      setOutbox(false);
       say(texts.done, 'ok', true);
     } catch (e) {
       console.error(e);
@@ -678,6 +711,7 @@ export function init(root: HTMLElement): void {
     shots.replaceChildren();
     paintShots();
     $('[data-restored]').hidden = true;
+    setOutbox(false);
     paintStatus();
   }
 
@@ -729,7 +763,7 @@ export function init(root: HTMLElement): void {
       dateSelect.value = d.log.talkDate;
       for (const e of captureEvents()) {
         const blob = await store.capture(e.file);
-        if (blob) addShot(e.file, e.id, blob, e.surfers);
+        if (blob) addShot(e.file, e.id, blob, e.clip);
       }
       $('[data-restored-text]').textContent = format(texts.restored, {
         date: dayMonth(d.log.talkDate),
@@ -891,10 +925,16 @@ export function init(root: HTMLElement): void {
     listToggle.setAttribute('aria-expanded', String(getComputedStyle(clipsPanel).display !== 'none'));
   }
 
-  /** The panel with the roster and the captures, over the bottom of the picture. */
-  function setDock(open: boolean) {
-    root.dataset.dock = open ? 'open' : 'closed';
-    dockToggle.setAttribute('aria-expanded', String(open));
+  /** The clip tags selector, next to its pill. */
+  function setTags(open: boolean) {
+    root.dataset.tags = open ? 'open' : 'closed';
+    tagPill.setAttribute('aria-expanded', String(open));
+  }
+
+  /** The panel with what waits to be uploaded. */
+  function setOutbox(open: boolean) {
+    root.dataset.outbox = open ? 'open' : 'closed';
+    outboxToggle?.setAttribute('aria-expanded', String(open));
   }
 
   function focusFirstIn(container: HTMLElement) {
@@ -951,12 +991,17 @@ export function init(root: HTMLElement): void {
       pinned = !pinned;
       b.setAttribute('aria-pressed', String(pinned));
     },
-    'toggle-dock': () => {
-      const open = root.dataset.dock !== 'open';
-      setDock(open);
-      // The panel comes before the bar in the tab order: the focus goes into it, and back to the bar on closing.
-      if (open) focusFirstIn(dockPanel);
-      else dockToggle.focus();
+    'toggle-tags': () => {
+      const open = root.dataset.tags !== 'open';
+      setTags(open);
+      if (open) focusFirstIn(tagPop);
+      else tagPill.focus();
+    },
+    'toggle-outbox': () => {
+      const open = root.dataset.outbox !== 'open';
+      setOutbox(open);
+      if (open) focusFirstIn(outboxPanel);
+      else outboxToggle?.focus();
     },
     capture: () => void saveCapture(),
     'open-capture': (b) => void openCapture(b.dataset.file!),
@@ -979,7 +1024,7 @@ export function init(root: HTMLElement): void {
     if (e.detail > 0) b.blur();
   });
 
-  for (const c of chips()) c.addEventListener('change', tagClip);
+  for (const c of [...chips(), ...kindChips()]) c.addEventListener('change', tagClip);
 
   // A disabled select takes no taps, so the label says why it is locked.
   field.addEventListener('click', () => {
@@ -1012,9 +1057,8 @@ export function init(root: HTMLElement): void {
       setRecord(false);
       swallowNextTap();
     }
-    // The bar does not count as outside: tagging and saving a capture go together.
-    if (root.dataset.dock === 'open' && !target.closest('[data-dock-panel], .dock')) {
-      setDock(false);
+    if (root.dataset.tags === 'open' && !target.closest('.tagger')) {
+      setTags(false);
       swallowNextTap();
     }
     if (compact.matches && root.dataset.list === 'open' && !target.closest('.clips, [data-action="toggle-list"]')) {
@@ -1026,9 +1070,14 @@ export function init(root: HTMLElement): void {
   document.addEventListener('keydown', (e) => {
     if (root.dataset.signedIn === 'false') return;
     const target = e.target as HTMLElement;
-    if (e.key === 'Escape' && root.dataset.dock === 'open') {
-      setDock(false);
-      dockToggle.focus();
+    if (e.key === 'Escape' && root.dataset.tags === 'open') {
+      setTags(false);
+      tagPill.focus();
+      return;
+    }
+    if (e.key === 'Escape' && root.dataset.outbox === 'open') {
+      setOutbox(false);
+      outboxToggle?.focus();
       return;
     }
     if (e.key === 'Escape' && root.hasAttribute('data-immersive')) return setImmersive(false);
@@ -1062,6 +1111,10 @@ export function init(root: HTMLElement): void {
       L: actions['toggle-list'] as () => void,
       f: actions.fullscreen as () => void,
       F: actions.fullscreen as () => void,
+      s: () => void saveCapture(),
+      S: () => void saveCapture(),
+      t: actions['toggle-tags'] as () => void,
+      T: actions['toggle-tags'] as () => void,
       Escape: () => setTool(null),
     };
     const run = keys[e.key];
@@ -1087,17 +1140,6 @@ export function init(root: HTMLElement): void {
     if (uploading) e.preventDefault();
   });
 
-  // The roster row fades at the edge where there is more to scroll to.
-  const surferRow = $('.surfers');
-  function paintFades() {
-    const max = surferRow.scrollWidth - surferRow.clientWidth;
-    const x = Math.abs(surferRow.scrollLeft);
-    surferRow.style.setProperty('--fade-start', max > 1 && x > 1 ? '28px' : '0px');
-    surferRow.style.setProperty('--fade-end', max > 1 && x < max - 1 ? '28px' : '0px');
-  }
-  surferRow.addEventListener('scroll', paintFades, { passive: true });
-  new ResizeObserver(paintFades).observe(surferRow);
-
   new MutationObserver(paintList).observe(root, { attributes: true, attributeFilter: ['data-list', 'data-has-clips'] });
   compact.addEventListener('change', paintList);
   matchMedia('(min-width: 761px) and (min-height: 501px)').addEventListener('change', paintList);
@@ -1112,9 +1154,9 @@ export function init(root: HTMLElement): void {
     for (const el of root.querySelectorAll('[data-pick-label]')) el.textContent = $('[data-action="pick"]').dataset.labelFiles!;
   }
   setView('empty');
-  setDock(false);
+  setTags(false);
+  setOutbox(false);
   paintList();
-  paintFades();
   setColor(sketch.color);
   if (account) loadGoogle().catch(() => {});
   openReviewStore()
