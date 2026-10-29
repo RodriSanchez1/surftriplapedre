@@ -24,6 +24,12 @@ export function clipTags(draft: Draft | null, clip: string): ClipTags {
   return { surfers: [...new Set(ids)], kinds: [] };
 }
 
+/** A clip's tags with the delete mark put on or taken off; the surfers and the other kinds stay. */
+export function withDelete(tags: ClipTags, on: boolean): ClipTags {
+  const kinds = tags.kinds.filter((k) => k !== 'delete');
+  return { surfers: tags.surfers, kinds: on ? [...kinds, 'delete'] : kinds };
+}
+
 const DB = 'surftrip-review';
 const VERSION = 1;
 const KV = 'kv';

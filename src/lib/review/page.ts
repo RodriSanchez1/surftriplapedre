@@ -29,7 +29,7 @@ import {
 } from './log';
 import { fileReader, readClipInfo } from './mp4';
 import { finalLog, hasTags, outbox, type Filter } from './outbox';
-import { clipTags, openReviewStore, type Draft, type ReviewStore } from './store';
+import { clipTags, openReviewStore, withDelete, type Draft, type ReviewStore } from './store';
 import { initTour, type Tour } from './tour-page';
 
 /** Texts built by the script; the rest already comes in the HTML. */
@@ -69,6 +69,9 @@ export interface Texts {
   deleteStays: string;
   deleteDenied: string;
   deleteFailed: string;
+  deleteClip: string;
+  keepClip: string;
+  deleteClipConfirm: string;
 }
 
 /** An event as the page records it: the time and the clip are filled in by record(). */
@@ -311,7 +314,7 @@ export function init(root: HTMLElement): void {
   function paintClipTags(entry: Entry) {
     const tags = clipTags(draft, entry.file.name);
     entry.item.querySelector('[data-clip-tags]')!.replaceChildren(...dotsOf(tags.surfers));
-    entry.item.querySelector('[data-clip-kinds]')!.textContent = kindIcons(tags.kinds);
+    entry.item.querySelector('[data-clip-kinds]')!.textContent = kindIcons(tags.kinds.filter((k) => k !== 'delete'));
     entry.item.classList.toggle('to-delete', tags.kinds.includes('delete'));
     const names = surfersOf(tags.surfers).map((w) => w.name).join(', ');
     const words = [
@@ -319,6 +322,12 @@ export function init(root: HTMLElement): void {
       ...tags.kinds.map((k) => (k === 'delete' ? texts.willDelete : texts.kindNames[k])),
     ];
     entry.item.querySelector('[data-clip-who]')!.textContent = words.filter(Boolean).join(' · ');
+    const del = entry.item.querySelector<HTMLButtonElement>('[data-clip-delete]')!;
+    const marked = tags.kinds.includes('delete');
+    del.setAttribute('aria-pressed', String(marked));
+    // A toggle keeps its name; the pressed state says it is marked, and the tooltip says what a tap does.
+    del.setAttribute('aria-label', format(texts.deleteClip, { name: entry.file.name }));
+    del.title = format(marked ? texts.keepClip : texts.deleteClip, { name: entry.file.name });
   }
 
   /** The text of the upload button: the long form, and the short one a narrow phone shows next to the icon. */
@@ -411,10 +420,11 @@ export function init(root: HTMLElement): void {
     clips = sortClips(read).map((clip) => {
       const item = itemTemplate.content.firstElementChild!.cloneNode(true) as HTMLElement;
       const entry: Entry = { ...clip, url: URL.createObjectURL(clip.file), duration: null, error: false, item };
-      item.addEventListener('click', (e) => {
+      const button = item.querySelector<HTMLButtonElement>('[data-clip-button]')!;
+      button.addEventListener('click', (e) => {
         void open(entry);
         // A mouse click keeps the focus on the button, and the space bar would press it again instead of playing.
-        if (e.detail > 0) item.querySelector('button')?.blur();
+        if (e.detail > 0) button.blur();
       });
       paintItem(entry);
       return entry;
@@ -651,12 +661,13 @@ export function init(root: HTMLElement): void {
   function paintPill() {
     const ids = chips().filter((c) => c.checked).map((c) => c.value);
     const kinds = kindChips().filter((c) => c.checked).map((c) => c.value as ClipKind);
+    // The delete mark is set from the clip list, not the selector; the pill still shows it, so Supr never acts unseen.
+    if (current && clipTags(draft, current.file.name).kinds.includes('delete')) kinds.push('delete');
     const names = surfersOf(ids).map((w) => w.name).join(', ');
     $('[data-pill-dots]').replaceChildren(...dotsOf(ids));
     $('[data-pill-label]').textContent = [names, kindIcons(kinds)].filter(Boolean).join(' · ') || texts.whoSurfs;
     const words = [names, ...kinds.map((k) => texts.kindNames[k])].filter(Boolean).join(', ');
     tagPill.setAttribute('aria-label', words ? `${texts.tags}: ${words}` : texts.tags);
-    $('[data-delete-note]').hidden = !kinds.includes('delete');
   }
 
   /** Shows the current clip's saved tags in the selector and the pill (none when there is no draft). */
@@ -675,22 +686,36 @@ export function init(root: HTMLElement): void {
     const d = ensureDraft();
     const surfers = chips().filter((c) => c.checked).map((c) => c.value);
     const kinds = kindChips().filter((c) => c.checked).map((c) => c.value as ClipKind);
-    d.clips = { ...d.clips, [current.file.name]: { surfers, kinds } };
+    d.clips = { ...d.clips, [current.file.name]: withDelete({ surfers, kinds }, clipTags(d, current.file.name).kinds.includes('delete')) };
     persist();
     paintStatus();
   }
 
-  /** Takes the delete mark off a clip, from the panel. */
+  /** Takes the delete mark off a clip, from the panel or the clip list. */
   function keepClip(clip: string) {
     if (!draft || uploading) return;
-    const tags = clipTags(draft, clip);
-    draft.clips = { ...draft.clips, [clip]: { ...tags, kinds: tags.kinds.filter((k) => k !== 'delete') } };
+    draft.clips = { ...draft.clips, [clip]: withDelete(clipTags(draft, clip), false) };
     persist();
-    if (current?.file.name === clip) {
-      for (const c of kindChips()) if (c.value === 'delete') c.checked = false;
-      paintPill();
-    }
+    paintPill();
     paintStatus();
+  }
+
+  /** From the clip list or the Delete key: marks the clip to delete after the upload (asking first), or takes the mark off. */
+  function toggleDelete(entry: Entry) {
+    if (uploading) return;
+    const name = entry.file.name;
+    if (clipTags(draft, name).kinds.includes('delete')) return keepClip(name);
+    if (!confirm(format(texts.deleteClipConfirm, { name }))) return;
+    const d = ensureDraft();
+    d.clips = { ...d.clips, [name]: withDelete(clipTags(d, name), true) };
+    persist();
+    paintPill();
+    paintStatus();
+  }
+
+  function toggleDeleteFrom(target: Element) {
+    const entry = clips.find((c) => c.item.contains(target)) ?? current;
+    if (entry) toggleDelete(entry);
   }
 
   /** The dots of who surfs in the capture's clip: captures follow their clip's tags. */
@@ -1274,6 +1299,10 @@ export function init(root: HTMLElement): void {
       paintShots();
     },
     'keep-clip': (b) => keepClip(b.dataset.clip!),
+    'delete-clip': (b) => {
+      const entry = clips.find((c) => c.item.contains(b));
+      if (entry) toggleDelete(entry);
+    },
     capture: () => void saveCapture(),
     'open-capture': (b) => void openCapture(b.dataset.file!),
     'delete-capture': (b) => void deleteCapture(b.dataset.file!),
@@ -1427,6 +1456,9 @@ export function init(root: HTMLElement): void {
       S: () => void saveCapture(),
       t: () => root.dataset.view === 'ready' && (actions['toggle-tags'] as () => void)(),
       T: () => root.dataset.view === 'ready' && (actions['toggle-tags'] as () => void)(),
+      // The row with the focus, or else the open clip. Backspace is the delete key on a Mac keyboard.
+      Delete: () => toggleDeleteFrom(target),
+      Backspace: () => toggleDeleteFrom(target),
       '+': () => zoom.step(1),
       '=': () => zoom.step(1),
       '-': () => zoom.step(-1),

@@ -68,6 +68,9 @@ const texts: Texts = {
   deleteStays: t(lang, 'review.deleteStays'),
   deleteDenied: t(lang, 'review.deleteDenied'),
   deleteFailed: t(lang, 'review.deleteFailed'),
+  deleteClip: t(lang, 'review.deleteClip'),
+  keepClip: t(lang, 'review.keepClip'),
+  deleteClipConfirm: t(lang, 'review.deleteClipConfirm'),
 };
 const colors = [
   { value: '#ffd400', token: 'var(--c-yellow)' },
@@ -78,14 +81,13 @@ const speeds = [0.25, 0.5, 1];
 const kinds = [
   { id: 'landscape', icon: '🏞', label: t(lang, 'review.kindLandscape') },
   { id: 'extras', icon: '🎉', label: t(lang, 'review.kindExtras') },
-  { id: 'delete', icon: '🗑', label: t(lang, 'review.kindDelete') },
 ] as const;
 const demoClips = [
   { time: '10:38', name: 'C0231.MP4', length: '0:24', tags: surfers.slice(1, 3) },
   { time: '10:42', name: 'C0232.MP4', length: '0:31', active: true, capture: true, tags: surfers.slice(0, 1) },
   { time: '10:47', name: 'C0233.MP4', length: '0:19', kinds: '🏞' },
   { time: '≈10:55', name: 'C0234.MOV', length: '0:40', broken: true },
-  { time: '11:06', name: 'C0236.MP4', length: '0:22', kinds: '🗑', remove: true },
+  { time: '11:06', name: 'C0236.MP4', length: '0:22', remove: true },
 ];
 ---
 
@@ -223,6 +225,18 @@ const demoClips = [
                 )}
                 {c.kinds && <span class="clip-kinds" aria-hidden="true">{c.kinds}</span>}
               </button>
+              <button
+                type="button"
+                class="clip-delete"
+                data-action="delete-clip"
+                data-clip-delete
+                data-lock
+                aria-pressed={c.remove ? 'true' : 'false'}
+                title={format(t(lang, c.remove ? 'review.keepClip' : 'review.deleteClip'), { name: c.name })}
+                aria-label={format(t(lang, 'review.deleteClip'), { name: c.name })}
+              >
+                <span aria-hidden="true">🗑</span>
+              </button>
             </li>
           ))
       }
@@ -240,6 +254,9 @@ const demoClips = [
           <span class="visually-hidden" data-clip-full></span>
           <span class="visually-hidden" data-clip-who></span>
           <span class="visually-hidden" data-clip-note></span>
+        </button>
+        <button type="button" class="clip-delete" data-action="delete-clip" data-clip-delete data-lock aria-pressed="false">
+          <span aria-hidden="true">🗑</span>
         </button>
       </li>
     </template>
@@ -461,7 +478,6 @@ const demoClips = [
           ))
         }
       </div>
-      <p class="help delete-note" data-delete-note hidden>{t(lang, 'review.deleteNote')}</p>
     </div>
   </div>
 
@@ -494,13 +510,11 @@ const demoClips = [
           ))
         }
         {
-          kinds
-            .filter((k) => k.id !== 'delete')
-            .map((k) => (
-              <button type="button" class="filter" data-action="filter" data-filter={k.id} aria-pressed="false" title={k.label} aria-label={k.label}>
-                <span class="filter-text" aria-hidden="true">{k.icon}</span>
-              </button>
-            ))
+          kinds.map((k) => (
+            <button type="button" class="filter" data-action="filter" data-filter={k.id} aria-pressed="false" title={k.label} aria-label={k.label}>
+              <span class="filter-text" aria-hidden="true">{k.icon}</span>
+            </button>
+          ))
         }
       </div>
       <p class="help none" data-none hidden>{t(lang, 'review.noneFiltered')}</p>
@@ -861,9 +875,13 @@ const demoClips = [
     margin: var(--s-2) 0 0;
   }
   .clips li {
-    display: block;
+    display: flex;
+    gap: var(--s-1);
+    align-items: stretch;
   }
   .clip {
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: var(--s-2);
@@ -884,6 +902,38 @@ const demoClips = [
   }
   li.active .clip {
     background: var(--c-yellow);
+  }
+  /* Marks the clip to delete when the review is uploaded: always there so touch reaches it, quiet until the row is hovered or open. */
+  .clip-delete {
+    flex: none;
+    width: 36px;
+    min-height: var(--hit);
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--c-muted);
+    font-size: 14px;
+    cursor: pointer;
+    opacity: 0.55;
+  }
+  .clips li:hover .clip-delete,
+  .clips li.active .clip-delete,
+  .clip-delete:focus-visible {
+    opacity: 1;
+    border-color: var(--c-ink);
+    background: var(--c-white);
+  }
+  /* Marked: red, also on hover (the selectors repeat the hover one so they win over it). */
+  .clips li .clip-delete[aria-pressed='true'] {
+    opacity: 1;
+    border-color: var(--c-ink);
+    background: var(--c-red);
+    color: var(--c-white);
+  }
+  .clips li .clip-delete:disabled {
+    opacity: 0.3;
+    cursor: default;
   }
   /* A clip that does not play: no fading (it must stay readable), a struck name and a red mark. */
   li.broken .clip {
@@ -1491,13 +1541,6 @@ const demoClips = [
   }
   .kind:has(input:checked) {
     background: var(--c-yellow);
-  }
-  .kind-delete:has(input:checked) {
-    background: var(--c-red);
-    color: var(--c-white);
-  }
-  .delete-note {
-    margin: var(--s-2) 0 0;
   }
 
   /* What waits to be uploaded: the whole screen on a phone, a panel on the right elsewhere. */
