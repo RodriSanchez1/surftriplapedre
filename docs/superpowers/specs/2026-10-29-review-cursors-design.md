@@ -57,12 +57,12 @@ The arrow button's `aria-label` and `title` are the full name of its current var
 
 - The `tools` list becomes pen, arrow and circle. Each button holds a `<ToolIcon>` instead of a glyph. Undo, clear and pin use `<ToolIcon>` too.
 - Arrow button: `data-action="arrow"`, `data-tool` set to the current variant (`arrow` or `freeArrow`), `aria-haspopup="menu"`, `aria-expanded` and the ◢ corner drawn in CSS. The existing `aria-pressed` logic, which reads `[data-tool]`, keeps working.
-- Menu: `<div role="menu" hidden>` next to the button, inside the rail, with two `<button role="menuitemradio" aria-checked data-action="arrow-kind" data-kind>`. Its position comes from the layout media queries that already exist (right of the button when the rail is a column, above it when it is a row).
+- Menu: `<div role="menu" hidden>` right after the rail, outside it (on a laptop the rail scrolls and would cut it), with two `<button role="menuitemradio" aria-checked data-action="arrow-kind" data-kind>`. `page.ts` places it with a pure function, `placeMenu` in `src/lib/review/menu.ts`: to the right of the rail when the rail is a column, above the button when it is a row (below if there is no room), always inside the editor.
 - `canvas { cursor: crosshair }` stays as the fallback; the script sets the real cursor inline.
 
 **`src/lib/review/page.ts`**
 
-- `setTool(tool)` also sets `canvas.style.cursor = tool ? cursorFor(tool, colors()) : ''`, and `setColor` refreshes it. `colors()` reads `--c-ink` and `--c-paper` from `getComputedStyle(root)`, and the accent from `sketch.color`.
+- `setTool(tool)` also sets `canvas.style.cursor = tool ? cursorFor(tool, cursorColors()) : ''`, and `setColor` refreshes it. `cursorColors()` reads `--c-ink` and `--c-paper` from `getComputedStyle(root)`, and the accent from `sketch.color`.
 - New action `arrow`: if the active tool is not an arrow, `setTool(lastArrow)`; otherwise toggle the menu. New action `arrow-kind`: `lastArrow = kind`, update the button (its `data-tool`, icon, label and title), `setTool(kind)` and close the menu.
 - Keyboard on the open menu: ↑/↓ move between the two items, Enter/Space picks, Esc closes it and puts focus back on the button. The page's own Esc (which turns the tool off) only runs when the menu is closed. Opening the menu by keyboard focuses the checked item.
 - A pointer down outside the menu and its button closes it.
