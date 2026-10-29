@@ -17,7 +17,8 @@ The site for the surftrip to La Pedrera (Oct 24 to Nov 1, 2026) with coach Dougl
 4. **Nothing visible from outside without confirmation.** Do not push, open or merge PRs, or change GitHub settings unless the human confirms it in that conversation.
 5. **Git.** Work on `feat/...` or `fix/...` branches. Commits in English, imperative mood, short.
 6. **Verify before saying "done".** Run `npm run check && npm test && npm run build`. If you touched anything visual, take screenshots (`npm run shots`) and look at them.
-7. **Everything in English.** Code, identifiers, comments, file names, docs and commits are in English. Only participant-facing content is in Spanish/Portuguese: the UI strings (values in `src/lib/i18n.ts`), session summaries and insights. The plans in `docs/superpowers/plans/` are historical and stay in Spanish; do not translate or update them.
+7. **New designs go in the shared design assets.** Every new UI design (screens, states, flows, mockups) is drawn in the Claude Design canvas [Surftrip: UI de la app](https://claude.ai/artifact/Skns4rC61JnapAUv48tScm), on its own page per feature, never in a new canvas. The canvas uses the design system artifact [Board Graphic](https://claude.ai/artifact/Pyi9YKiEivhnfXRAZju7kk), a mirror of `tokens.css` and `global.css`. The code is the source of truth: when those files change, re-sync the artifact. Reuse existing screens with `<dc-import>` instead of copying them.
+8. **Everything in English.** Code, identifiers, comments, file names, docs and commits are in English. Only participant-facing content is in Spanish/Portuguese: the UI strings (values in `src/lib/i18n.ts`), session summaries and insights. The plans in `docs/superpowers/plans/` are historical and stay in Spanish; do not translate or update them.
 
 ## Repo map
 

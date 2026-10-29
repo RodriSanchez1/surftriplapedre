@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clock, dayIn, length, middleEllipsis, position, sortClips, stepFrame, type Clip } from '../src/lib/review/clips';
+import { clock, dayIn, length, middleEllipsis, position, scrubFrames, SCRUB_PX_PER_FRAME, sortClips, stepFrame, type Clip } from '../src/lib/review/clips';
 
 const TZ = 'America/Montevideo';
 const clip = (name: string, iso: string): Clip => ({
@@ -30,6 +30,19 @@ describe('stepFrame', () => {
   it('stays inside the clip', () => {
     expect(stepFrame(0, 30, -1, 10)).toBeCloseTo(0.5 / 30);
     expect(stepFrame(10, 30, 1, 10)).toBeCloseTo(299.5 / 30);
+  });
+});
+
+describe('scrubFrames', () => {
+  it('moves one frame per step of drag, forward to the right and back to the left', () => {
+    expect(scrubFrames(0)).toBe(0);
+    expect(scrubFrames(SCRUB_PX_PER_FRAME - 1)).toBe(0);
+    expect(scrubFrames(SCRUB_PX_PER_FRAME * 3)).toBe(3);
+    expect(scrubFrames(-SCRUB_PX_PER_FRAME * 2 - 1)).toBe(-2);
+  });
+
+  it('lands inside the clip when the drag goes past an end', () => {
+    expect(stepFrame(1.5 / 30, 30, scrubFrames(-SCRUB_PX_PER_FRAME * 50), 10)).toBeCloseTo(0.5 / 30);
   });
 });
 
