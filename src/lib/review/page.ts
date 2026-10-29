@@ -324,9 +324,9 @@ export function init(root: HTMLElement): void {
     const del = entry.item.querySelector<HTMLButtonElement>('[data-clip-delete]')!;
     const marked = tags.kinds.includes('delete');
     del.setAttribute('aria-pressed', String(marked));
-    const label = format(marked ? texts.keepClip : texts.deleteClip, { name: entry.file.name });
-    del.title = label;
-    del.setAttribute('aria-label', label);
+    // A toggle keeps its name; the pressed state says it is marked, and the tooltip says what a tap does.
+    del.setAttribute('aria-label', format(texts.deleteClip, { name: entry.file.name }));
+    del.title = format(marked ? texts.keepClip : texts.deleteClip, { name: entry.file.name });
   }
 
   /** The text of the upload button: the long form, and the short one a narrow phone shows next to the icon. */
@@ -658,6 +658,8 @@ export function init(root: HTMLElement): void {
   function paintPill() {
     const ids = chips().filter((c) => c.checked).map((c) => c.value);
     const kinds = kindChips().filter((c) => c.checked).map((c) => c.value as ClipKind);
+    // The delete mark is set from the clip list, not the selector; the pill still shows it, so Supr never acts unseen.
+    if (current && clipTags(draft, current.file.name).kinds.includes('delete')) kinds.push('delete');
     const names = surfersOf(ids).map((w) => w.name).join(', ');
     $('[data-pill-dots]').replaceChildren(...dotsOf(ids));
     $('[data-pill-label]').textContent = [names, kindIcons(kinds)].filter(Boolean).join(' · ') || texts.whoSurfs;
@@ -691,6 +693,7 @@ export function init(root: HTMLElement): void {
     if (!draft || uploading) return;
     draft.clips = { ...draft.clips, [clip]: withDelete(clipTags(draft, clip), false) };
     persist();
+    paintPill();
     paintStatus();
   }
 
@@ -703,7 +706,13 @@ export function init(root: HTMLElement): void {
     const d = ensureDraft();
     d.clips = { ...d.clips, [name]: withDelete(clipTags(d, name), true) };
     persist();
+    paintPill();
     paintStatus();
+  }
+
+  function toggleDeleteFrom(target: Element) {
+    const entry = clips.find((c) => c.item.contains(target)) ?? current;
+    if (entry) toggleDelete(entry);
   }
 
   /** The dots of who surfs in the capture's clip: captures follow their clip's tags. */
@@ -1426,9 +1435,9 @@ export function init(root: HTMLElement): void {
       S: () => void saveCapture(),
       t: () => root.dataset.view === 'ready' && (actions['toggle-tags'] as () => void)(),
       T: () => root.dataset.view === 'ready' && (actions['toggle-tags'] as () => void)(),
-      // Backspace is the delete key on a Mac keyboard.
-      Delete: () => current && toggleDelete(current),
-      Backspace: () => current && toggleDelete(current),
+      // The row with the focus, or else the open clip. Backspace is the delete key on a Mac keyboard.
+      Delete: () => toggleDeleteFrom(target),
+      Backspace: () => toggleDeleteFrom(target),
       Escape: () => setTool(null),
     };
     const run = keys[e.key];

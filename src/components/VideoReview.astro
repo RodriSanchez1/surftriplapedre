@@ -233,7 +233,7 @@ const demoClips = [
                 data-lock
                 aria-pressed={c.remove ? 'true' : 'false'}
                 title={format(t(lang, c.remove ? 'review.keepClip' : 'review.deleteClip'), { name: c.name })}
-                aria-label={format(t(lang, c.remove ? 'review.keepClip' : 'review.deleteClip'), { name: c.name })}
+                aria-label={format(t(lang, 'review.deleteClip'), { name: c.name })}
               >
                 <span aria-hidden="true">🗑</span>
               </button>
@@ -922,13 +922,14 @@ const demoClips = [
     border-color: var(--c-ink);
     background: var(--c-white);
   }
-  .clip-delete[aria-pressed='true'] {
+  /* Marked: red, also on hover (the selectors repeat the hover one so they win over it). */
+  .clips li .clip-delete[aria-pressed='true'] {
     opacity: 1;
     border-color: var(--c-ink);
     background: var(--c-red);
     color: var(--c-white);
   }
-  .clip-delete:disabled {
+  .clips li .clip-delete:disabled {
     opacity: 0.3;
     cursor: default;
   }

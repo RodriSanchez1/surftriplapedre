@@ -9,11 +9,11 @@ The owner left right after asking and asked for the PR, so the open points below
 1. **Out of the selector.** The "El clip es" group of the tag selector (`.tag-pop`) keeps only 🏞 Paisaje and 🎉 Extras. The 🗑 Borrar chip and its note (`review.deleteNote`) go.
 2. **A 🗑 button on each clip row** of the clip list (`aside.clips`, the left sidebar on laptop, the drawer on a phone). It sits to the right of the clip button, inside the same `li`, as its own button (not nested in the clip button). Tapping it does not open the clip.
    - Not marked: muted, with a stronger look on row hover, on the active row and on focus. Always present, so touch can reach it.
-   - Marked: red with a white icon (`aria-pressed="true"`). The row keeps today's "to delete" look (dashed, struck, faded thumbnail).
-   - `title` / `aria-label`: "Borrar <name>" when not marked, "Conservar <name>" when marked.
+   - Marked: red background (`aria-pressed="true"`; the 🗑 emoji keeps its own colour). The row keeps today's "to delete" look (dashed, struck, faded thumbnail), and the tag pill shows 🗑 while that clip is open, so the mark is visible with the list closed.
+   - `aria-label` is always "Borrar <name>" (a toggle keeps its name; `aria-pressed` says it is marked). The `title` says what a tap does: "Borrar <name>" or "Conservar <name>".
    - Locked (`data-lock`) during an upload, like every other control that changes the draft.
 3. **Confirmation.** Marking asks first with the browser's `confirm()`, the same dialog the page already uses to delete a capture and to discard the review: "¿Borrar <name>? Se borra de la carpeta cuando subas la revisión." Taking the mark off does not ask (it loses nothing).
-4. **Supr key.** `Delete` (and `Backspace`, which is what the "delete" key sends on a Mac) toggles the mark on the clip that is open, with the same confirmation. It does nothing in text fields (the existing shortcut guard) or when no clip is open. The shortcuts line (`review.keys`) mentions it.
+4. **Supr key.** `Delete` (and `Backspace`, which is what the "delete" key sends on a Mac) toggles the mark on the clip row that has the focus, or else on the clip that is open, with the same confirmation. It does nothing in text fields (the existing shortcut guard) or when no clip is open. The shortcuts line (`review.keys`) mentions it.
 5. **Tour.** The "Tus clips" step body adds one sentence about 🗑 and Supr.
 
 ## What stays
