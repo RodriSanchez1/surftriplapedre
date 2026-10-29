@@ -1,7 +1,7 @@
 import { IDBFactory as FakeIDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
 import { newLog } from '../src/lib/review/log';
-import { clipTags, openReviewStore, type Draft } from '../src/lib/review/store';
+import { clipTags, openReviewStore, withDelete, type Draft } from '../src/lib/review/store';
 
 const fresh = () => new FakeIDBFactory() as unknown as IDBFactory;
 
@@ -59,5 +59,17 @@ describe('clipTags', () => {
   it('is empty without a draft or for a clip never tagged', () => {
     expect(clipTags(null, 'a.mp4')).toEqual({ surfers: [], kinds: [] });
     expect(clipTags(draft(), 'c.mp4')).toEqual({ surfers: [], kinds: [] });
+  });
+});
+
+describe('withDelete', () => {
+  it('puts the mark on at the end and keeps the surfers and the other kinds', () => {
+    expect(withDelete({ surfers: ['rodo'], kinds: ['extras'] }, true)).toEqual({ surfers: ['rodo'], kinds: ['extras', 'delete'] });
+  });
+  it('does not repeat the mark', () => {
+    expect(withDelete({ surfers: [], kinds: ['delete'] }, true)).toEqual({ surfers: [], kinds: ['delete'] });
+  });
+  it('takes the mark off and keeps the rest', () => {
+    expect(withDelete({ surfers: ['rodo'], kinds: ['delete', 'landscape'] }, false)).toEqual({ surfers: ['rodo'], kinds: ['landscape'] });
   });
 });
