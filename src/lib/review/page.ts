@@ -7,7 +7,7 @@ import { clampToTrip, dayMonth, todayIn } from '../calendar';
 import { format } from '../i18n';
 import { googleAccount, loadGoogle, LoginError, SIGNED_IN } from '../audio/google';
 import { folderIn, send, verifyAccess, PermissionError, type Dependencies } from '../audio/upload';
-import { clock, DEFAULT_FPS, length, middleEllipsis, position, sortClips, stepFrame, type Clip } from './clips';
+import { clock, DEFAULT_FPS, length, middleEllipsis, position, scrubFrames, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
 import { canPickFolder, canRead, isVideo, pickFolder, videosIn } from './folder';
 import {
@@ -781,10 +781,16 @@ export function init(root: HTMLElement): void {
     root.dataset.playing = 'false';
   });
   video.addEventListener('seeked', () => {
-    paintTime();
-    if (draft?.log.events.some((e) => e.clip === current?.file.name)) {
-      record({ type: 'seek', t: Math.round(video.currentTime * 1000) / 1000 });
+    // A drag asks for frames faster than the browser finds them: only the latest one is shown next.
+    if (scrub.pending !== null) {
+      video.currentTime = scrub.pending;
+      scrub.pending = null;
+      return;
     }
+    paintTime();
+    // A drag goes through many frames; the log keeps only where it stopped.
+    if (scrub.id !== null) return;
+    recordSeek();
   });
   video.addEventListener('ratechange', () => {
     for (const b of root.querySelectorAll<HTMLElement>('[data-rate]')) {
@@ -804,6 +810,12 @@ export function init(root: HTMLElement): void {
   };
   requestAnimationFrame(tick);
 
+  function recordSeek() {
+    if (draft?.log.events.some((e) => e.clip === current?.file.name)) {
+      record({ type: 'seek', t: Math.round(video.currentTime * 1000) / 1000 });
+    }
+  }
+
   seek.addEventListener('input', () => {
     video.pause();
     video.currentTime = Number(seek.value);
@@ -818,14 +830,51 @@ export function init(root: HTMLElement): void {
     swallowTimer = window.setTimeout(() => (swallowTap = false), 500);
   }
 
+  // Paused and without a tool, dragging across the picture goes through the clip frame by frame:
+  // to the right forward, to the left back. Declared here because a drag must not also count as a tap.
+  const scrub = { id: null as number | null, x: 0, from: 0, moved: false, pending: null as number | null };
+
   // Without a tool, a click on the picture plays or pauses.
   stage.addEventListener('click', (e) => {
     if (swallowTap) {
       swallowTap = false;
       return;
     }
+    // The end of a drag through the clip is not a tap.
+    if (scrub.moved) return;
     if (!sketch.tool && (e.target as Element).matches('[data-sketch], video')) toggle();
   });
+
+  stage.addEventListener('pointerdown', (e) => {
+    scrub.moved = false;
+    if (sketch.tool || !current || !video.duration || !video.paused || !e.isPrimary || e.button !== 0) return;
+    if (!(e.target as Element).matches('[data-sketch], video')) return;
+    Object.assign(scrub, { id: e.pointerId, x: e.clientX, from: video.currentTime, moved: false, pending: null });
+  });
+  stage.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== scrub.id || !current) return;
+    const frames = scrubFrames(e.clientX - scrub.x);
+    if (!scrub.moved) {
+      if (frames === 0) return;
+      scrub.moved = true;
+      stage.setPointerCapture(e.pointerId);
+      root.dataset.scrubbing = 'true';
+      ensureOpened();
+    }
+    const t = stepFrame(scrub.from, current.fps ?? DEFAULT_FPS, frames, video.duration);
+    if (video.seeking) scrub.pending = t;
+    else if (Math.abs(t - video.currentTime) > 1e-6) video.currentTime = t;
+  });
+  function endScrub(e: PointerEvent) {
+    if (e.pointerId !== scrub.id) return;
+    scrub.id = null;
+    if (!scrub.moved) return;
+    delete root.dataset.scrubbing;
+    // Still on the way to the last frame: seeked records it when it gets there.
+    if (!video.seeking && scrub.pending === null) recordSeek();
+  }
+  stage.addEventListener('pointerup', endScrub);
+  stage.addEventListener('pointercancel', endScrub);
 
   const recordPop = $('[data-record-pop]');
   const recordToggle = $('[data-action="toggle-record"]');
