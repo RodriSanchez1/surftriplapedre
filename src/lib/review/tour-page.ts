@@ -232,6 +232,9 @@ export function initTour(root: HTMLElement, hooks: TourHooks): Tour {
     layer.dataset.layout = sheet ? 'sheet' : 'float';
     const spot = place(ring, { w: card.offsetWidth, h: card.offsetHeight }, vp, sheet, step.side, GAP, MARGIN);
     card.dataset.side = spot.side;
+    // On a phone the sheet keeps to its side of the target; its text scrolls when it needs more room.
+    const room = !ring || !sheet ? null : spot.side === 'sheet-top' ? ring.y - GAP / 2 - MARGIN : vp.h - ring.y - ring.h - GAP / 2 - MARGIN;
+    card.style.maxHeight = room === null ? '' : `min(50dvh, ${Math.max(room, vp.h * 0.3)}px)`;
     card.style.left = 'x' in spot ? `${spot.x}px` : '';
     card.style.top = 'x' in spot ? `${spot.y}px` : '';
   }
