@@ -9,6 +9,7 @@ import { googleAccount, loadGoogle, LoginError, SIGNED_IN } from '../audio/googl
 import { folderIn, send, verifyAccess, PermissionError, type Dependencies } from '../audio/upload';
 import { clock, DEFAULT_FPS, length, middleEllipsis, position, scrubFrames, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
+import { initZoom } from './zoom-page';
 import { cursorFor, ICONS } from './icons';
 import { placeMenu } from './menu';
 import { askWrite, canPickFolder, canRead, isVideo, pickFolder, removeVideos, uniqueDirs, videosIn } from './folder';
@@ -468,6 +469,8 @@ export function init(root: HTMLElement): void {
     // On a phone the list is a drawer: picking a clip puts it away.
     if (compact.matches) root.dataset.list = 'closed';
     sketch.clear();
+    // A new clip starts on the whole frame.
+    zoom.reset();
     // Each clip brings back its tags.
     syncTags();
     // The picture area stays in place; it only shows what is going on.
@@ -1104,14 +1107,14 @@ export function init(root: HTMLElement): void {
       swallowTap = false;
       return;
     }
-    // The end of a drag through the clip is not a tap.
-    if (scrub.moved) return;
+    // The end of a drag through the clip, or of moving the zoomed picture, is not a tap.
+    if (scrub.moved || zoom.panned) return;
     if (!sketch.tool && (e.target as Element).matches('[data-sketch], video')) toggle();
   });
 
   stage.addEventListener('pointerdown', (e) => {
     scrub.moved = false;
-    if (sketch.tool || !current || !video.duration || !video.paused || !e.isPrimary || e.button !== 0) return;
+    if (sketch.tool || zoom.zoomed || !current || !video.duration || !video.paused || !e.isPrimary || e.button !== 0) return;
     if (!(e.target as Element).matches('[data-sketch], video')) return;
     Object.assign(scrub, { id: e.pointerId, x: e.clientX, from: video.currentTime, moved: false, pending: null });
   });
@@ -1139,6 +1142,22 @@ export function init(root: HTMLElement): void {
   }
   stage.addEventListener('pointerup', endScrub);
   stage.addEventListener('pointercancel', endScrub);
+
+  // Zoom: the rail button, + - 0, the wheel, two fingers and dragging the zoomed picture (zoom-page.ts).
+  // After the scrub's listeners, so a second finger's pointerdown reaches the scrub first and the zoom stops it.
+  const zoom = initZoom(root, sketch, {
+    ready: () => root.dataset.view === 'ready',
+    drawing: () => sketch.tool !== null,
+    twoFingers: () => {
+      sketch.cancel();
+      if (scrub.id === null) return;
+      const moved = scrub.moved;
+      scrub.id = null;
+      scrub.moved = true;
+      delete root.dataset.scrubbing;
+      if (moved && !video.seeking && scrub.pending === null) recordSeek();
+    },
+  });
 
   const recordPop = $('[data-record-pop]');
   const recordToggle = $('[data-action="toggle-record"]');
@@ -1236,6 +1255,7 @@ export function init(root: HTMLElement): void {
       pinned = !pinned;
       b.setAttribute('aria-pressed', String(pinned));
     },
+    zoom: () => zoom.toggle(),
     'toggle-tags': () => {
       const open = root.dataset.tags !== 'open';
       setTags(open);
@@ -1406,6 +1426,10 @@ export function init(root: HTMLElement): void {
       S: () => void saveCapture(),
       t: () => root.dataset.view === 'ready' && (actions['toggle-tags'] as () => void)(),
       T: () => root.dataset.view === 'ready' && (actions['toggle-tags'] as () => void)(),
+      '+': () => zoom.step(1),
+      '=': () => zoom.step(1),
+      '-': () => zoom.step(-1),
+      '0': () => zoom.reset(),
       Escape: () => setTool(null),
     };
     const run = keys[e.key];
