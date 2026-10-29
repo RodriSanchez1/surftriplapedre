@@ -706,7 +706,7 @@ export function init(root: HTMLElement): void {
       const handle = await pickFolder();
       void store?.saveFolder(handle).catch(() => {});
       $('[data-action="reopen"]').hidden = true;
-      await loadFiles(await videosIn(handle));
+      await loadFiles((await videosIn(handle)).map((v) => v.file));
     } catch (e) {
       if ((e as DOMException).name !== 'AbortError') console.error(e);
     }
@@ -717,7 +717,7 @@ export function init(root: HTMLElement): void {
     if (!handle) return;
     if (await canRead(handle, true)) {
       $('[data-action="reopen"]').hidden = true;
-      await loadFiles(await videosIn(handle));
+      await loadFiles((await videosIn(handle)).map((v) => v.file));
     }
   }
 
@@ -741,7 +741,7 @@ export function init(root: HTMLElement): void {
     const handle = await store.folder();
     if (!handle || !canPickFolder()) return;
     if (await canRead(handle, false)) {
-      await loadFiles(await videosIn(handle));
+      await loadFiles((await videosIn(handle)).map((v) => v.file));
     } else {
       const button = $('[data-action="reopen"]');
       button.textContent = format(texts.reopen, { name: handle.name });
