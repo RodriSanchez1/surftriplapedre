@@ -62,6 +62,8 @@ const texts: Texts = {
   deleteWarn: t(lang, 'review.deleteWarn'),
   deleteCant: t(lang, 'review.deleteCant'),
   doneDeleted: t(lang, 'review.doneDeleted'),
+  doneDeletedOne: t(lang, 'review.doneDeletedOne'),
+  deleteStays: t(lang, 'review.deleteStays'),
   deleteDenied: t(lang, 'review.deleteDenied'),
   deleteFailed: t(lang, 'review.deleteFailed'),
 };
@@ -422,7 +424,7 @@ const demoClips = [
         {
           surfers.map((s, i) => (
             <label class="pick" style={`--accent: var(--c-${s.color})`}>
-              <input type="checkbox" class="visually-hidden" value={s.id} data-surfer checked={demo && i === 0} />
+              <input type="checkbox" class="visually-hidden" value={s.id} data-surfer data-lock checked={demo && i === 0} />
               <Avatar id={s.id} name="" size="sm" />
               <span class="pick-name">{s.name}</span>
             </label>
@@ -434,7 +436,7 @@ const demoClips = [
         {
           kinds.map((k) => (
             <label class:list={['pick', 'kind', `kind-${k.id}`]}>
-              <input type="checkbox" class="visually-hidden" value={k.id} data-kind />
+              <input type="checkbox" class="visually-hidden" value={k.id} data-kind data-lock />
               <span aria-hidden="true">{k.icon}</span>
               <span class="pick-name">{k.label}</span>
             </label>
@@ -528,6 +530,7 @@ const demoClips = [
       <div class="outbox-part deletes" data-deletes hidden={!demo}>
         <h3><span aria-hidden="true">🗑</span> {t(lang, 'review.deleteTitle')} <b class="count" data-count-deletes>{demo ? 1 : 0}</b></h3>
         <p class="delete-warn" data-delete-warn>{t(lang, 'review.deleteWarn')}</p>
+        <p class="delete-warn" data-delete-cant hidden>{t(lang, 'review.deleteCant')}</p>
         <ul class="delete-list" data-delete-list>
           {
             demo && (
@@ -1368,6 +1371,9 @@ const demoClips = [
     width: 36px;
     height: 36px;
   }
+  .pick:has(input:disabled) {
+    opacity: 0.5;
+  }
   .pick:has(input:checked) {
     background: var(--accent);
   }
@@ -1512,7 +1518,7 @@ const demoClips = [
   .deletes {
     padding: var(--s-2) var(--s-3);
     background: var(--c-white);
-    border: 3px solid var(--c-red);
+    border: var(--border-w) solid var(--c-red);
     border-radius: var(--radius);
   }
   .delete-warn {
@@ -1525,6 +1531,10 @@ const demoClips = [
     align-items: center;
     gap: var(--s-2);
     font-size: 14px;
+  }
+  .delete-list :global(.stays .del-stays) {
+    color: var(--c-muted);
+    font-style: italic;
   }
   .delete-list :global(.del-name) {
     flex: 1;
