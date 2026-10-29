@@ -18,13 +18,21 @@ export function sortClips<T extends Clip>(clips: T[]): T[] {
 }
 
 /**
- * The time of the frame `dir` frames away from t (dir = ±1).
+ * The time of the frame `dir` frames away from t (usually ±1).
  * It lands in the middle of the frame, so the browser shows that one and not its neighbour.
  */
 export function stepFrame(t: number, fps: number, dir: number, duration: number): number {
   const frame = Math.floor(t * fps + 1e-6) + dir;
   const last = Math.max(0, Math.floor(duration * fps) - 1);
   return (Math.min(last, Math.max(0, frame)) + 0.5) / fps;
+}
+
+/** Drag distance on the paused picture for each frame: a short drag goes through a whole wave. */
+export const SCRUB_PX_PER_FRAME = 3;
+
+/** Frames to move for a horizontal drag of dx pixels: right goes forward, left goes back. */
+export function scrubFrames(dx: number): number {
+  return Math.trunc(dx / SCRUB_PX_PER_FRAME);
 }
 
 /** 13.427 → '0:13.42'; 75 → '1:15.00'. Hundredths, so each frame step shows. */

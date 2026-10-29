@@ -858,6 +858,12 @@ const demoClips = [
   }
   video {
     object-fit: contain;
+    /* A sideways drag goes through the clip, so the browser must not take it as a swipe. */
+    touch-action: pan-y pinch-zoom;
+  }
+  [data-view='ready']:not([data-playing='true']) video,
+  [data-scrubbing] .stage {
+    cursor: ew-resize;
   }
   canvas {
     touch-action: none;
