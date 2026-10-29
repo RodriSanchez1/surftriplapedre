@@ -61,8 +61,6 @@ interface Entry extends Clip {
 
 /** Characters of a file name shown in the clip list before the middle is cut. */
 const NAME_MAX = 14;
-/** Where the device remembers which parts of the dock are folded. */
-const FOLDED_KEY = 'surftrip-review-folded';
 
 /** Waits for a media event, or fails after `ms`. */
 function once(el: HTMLMediaElement, event: string, ms = 8000): Promise<void> {
@@ -112,6 +110,8 @@ export function init(root: HTMLElement): void {
   const messageBox = $('[data-message-box]');
   const retryButton = $('[data-action="retry"]');
   const shotsBox = $('[data-shots-box]');
+  const dockPanel = $('[data-dock-panel]');
+  const dockToggle = $('.dock-toggle');
   const viewer = $('[data-viewer]');
   const locked = () => [...root.querySelectorAll<HTMLButtonElement>('[data-lock]')];
   const interactive = [...root.querySelectorAll<HTMLElement>('.rail, .transport, .capture')];
@@ -142,6 +142,7 @@ export function init(root: HTMLElement): void {
     root.dataset.view = view;
     // Greyed out by CSS; inert keeps the keyboard and screen readers out of them too.
     for (const el of interactive) el.inert = view !== 'ready';
+    if (view !== 'ready') setDock(false);
     $('[data-next-clip]').hidden = clips.length < 2;
   }
 
@@ -159,6 +160,7 @@ export function init(root: HTMLElement): void {
   function paintShots() {
     const n = shots.children.length;
     shotsBox.hidden = !n;
+    $('[data-shots-head]').hidden = !n;
     $('[data-shots-count]').textContent = String(n);
   }
 
@@ -192,7 +194,7 @@ export function init(root: HTMLElement): void {
   /** The avatars of who surfs in a clip, next to it in the list. */
   function paintClipTags(entry: Entry) {
     const ids = clipTags(draft, entry.file.name);
-    entry.item.querySelector('[data-clip-tags]')!.replaceChildren(...avatarsOf(ids));
+    entry.item.querySelector('[data-clip-tags]')!.replaceChildren(...dotsOf(ids));
     const names = surfersOf(ids).map((w) => w.name).join(', ');
     entry.item.querySelector('[data-clip-who]')!.textContent = names ? format(texts.clipTagged, { names }) : '';
   }
@@ -446,31 +448,32 @@ export function init(root: HTMLElement): void {
     return [...root.querySelectorAll<HTMLInputElement>('[data-surfer]')];
   }
 
-  /** Name and avatar of each tagged surfer, from the roster chips on the page. */
+  /** Name and colour of each tagged surfer, from the roster chips on the page. */
   function surfersOf(ids: string[]) {
     return ids.map((id) => {
       const label = chips().find((c) => c.value === id)?.closest('label');
       return {
         name: label?.querySelector('.pick-name')?.textContent?.trim() || id,
-        avatar: label?.querySelector<HTMLImageElement>('.avatar') ?? null,
+        accent: label?.style.getPropertyValue('--accent') ?? '',
       };
     });
   }
 
-  /** Copies of the roster avatars, for the clip list, the folded roster and the captures. */
-  function avatarsOf(ids: string[]): HTMLImageElement[] {
-    return surfersOf(ids).flatMap((w) => {
-      if (!w.avatar) return [];
-      const avatar = w.avatar.cloneNode() as HTMLImageElement;
-      avatar.removeAttribute('loading');
-      avatar.alt = '';
-      return [avatar];
+  /** A dot in each surfer's colour, for the dock bar, the clip list and the captures. */
+  function dotsOf(ids: string[]): HTMLElement[] {
+    return surfersOf(ids).map((w) => {
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.setProperty('--accent', w.accent);
+      return dot;
     });
   }
 
-  /** The folded roster shows who is tagged on this clip. */
+  /** The dock bar says who is tagged on this clip. */
   function paintWhose() {
-    $('[data-whose-summary]').replaceChildren(...avatarsOf(chips().filter((c) => c.checked).map((c) => c.value)));
+    const ids = chips().filter((c) => c.checked).map((c) => c.value);
+    $('[data-whose-dots]').replaceChildren(...dotsOf(ids));
+    $('[data-whose-names]').textContent = surfersOf(ids).map((w) => w.name).join(', ');
   }
 
   /** The chips picked on a clip are kept with the draft, so going back to it brings them back. */
@@ -507,7 +510,7 @@ export function init(root: HTMLElement): void {
       const tags = document.createElement('span');
       tags.className = 'shot-tags';
       tags.setAttribute('aria-hidden', 'true');
-      tags.append(...avatarsOf(surferIds));
+      tags.append(...dotsOf(surferIds));
       figure.append(tags);
     }
     const remove = document.createElement('button');
@@ -838,25 +841,10 @@ export function init(root: HTMLElement): void {
     listToggle.setAttribute('aria-expanded', String(getComputedStyle(clipsPanel).display !== 'none'));
   }
 
-  /** Folds the roster or the captures of the dock, and remembers it on the device. */
-  function setFolded(part: 'surfers' | 'shots', folded: boolean) {
-    root.dataset[part] = folded ? 'closed' : 'open';
-    $(`[data-action="toggle-${part}"]`).setAttribute('aria-expanded', String(!folded));
-    try {
-      localStorage.setItem(FOLDED_KEY, JSON.stringify({ surfers: root.dataset.surfers, shots: root.dataset.shots }));
-    } catch {
-      // Private mode: it is only forgotten.
-    }
-  }
-
-  function restoreFolded() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '{}') as Record<string, string>;
-      setFolded('surfers', saved.surfers === 'closed');
-      setFolded('shots', saved.shots === 'closed');
-    } catch {
-      // Nothing saved, or unreadable: both open.
-    }
+  /** The panel with the roster and the captures, over the bottom of the picture. */
+  function setDock(open: boolean) {
+    root.dataset.dock = open ? 'open' : 'closed';
+    dockToggle.setAttribute('aria-expanded', String(open));
   }
 
   function focusFirstIn(container: HTMLElement) {
@@ -913,8 +901,13 @@ export function init(root: HTMLElement): void {
       pinned = !pinned;
       b.setAttribute('aria-pressed', String(pinned));
     },
-    'toggle-surfers': () => setFolded('surfers', root.dataset.surfers !== 'closed'),
-    'toggle-shots': () => setFolded('shots', root.dataset.shots !== 'closed'),
+    'toggle-dock': () => {
+      const open = root.dataset.dock !== 'open';
+      setDock(open);
+      // The panel comes before the bar in the tab order: the focus goes into it, and back to the bar on closing.
+      if (open) focusFirstIn(dockPanel);
+      else dockToggle.focus();
+    },
     capture: () => void saveCapture(),
     'open-capture': (b) => void openCapture(b.dataset.file!),
     'delete-capture': (b) => void deleteCapture(b.dataset.file!),
@@ -969,6 +962,11 @@ export function init(root: HTMLElement): void {
       setRecord(false);
       swallowNextTap();
     }
+    // The bar does not count as outside: tagging and saving a capture go together.
+    if (root.dataset.dock === 'open' && !target.closest('[data-dock-panel], .dock')) {
+      setDock(false);
+      swallowNextTap();
+    }
     if (compact.matches && root.dataset.list === 'open' && !target.closest('.clips, [data-action="toggle-list"]')) {
       root.dataset.list = 'closed';
       swallowNextTap();
@@ -978,6 +976,11 @@ export function init(root: HTMLElement): void {
   document.addEventListener('keydown', (e) => {
     if (root.dataset.signedIn === 'false') return;
     const target = e.target as HTMLElement;
+    if (e.key === 'Escape' && root.dataset.dock === 'open') {
+      setDock(false);
+      dockToggle.focus();
+      return;
+    }
     if (e.key === 'Escape' && root.hasAttribute('data-immersive')) return setImmersive(false);
     // Escape puts away the recording popover, then the clip drawer, and gives the focus back to their buttons.
     if (e.key === 'Escape' && root.dataset.record === 'open') {
@@ -1059,7 +1062,7 @@ export function init(root: HTMLElement): void {
     for (const el of root.querySelectorAll('[data-pick-label]')) el.textContent = $('[data-action="pick"]').dataset.labelFiles!;
   }
   setView('empty');
-  restoreFolded();
+  setDock(false);
   paintList();
   paintFades();
   setColor(sketch.color);

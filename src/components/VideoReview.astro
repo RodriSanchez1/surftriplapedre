@@ -76,8 +76,7 @@ const demoClips = [
   data-texts={JSON.stringify(texts)}
   data-list={demo ? 'open' : undefined}
   data-record="closed"
-  data-surfers="open"
-  data-shots="open"
+  data-dock={demo ? 'open' : 'closed'}
   data-tool={demo ? 'arrow' : ''}
   data-has-clips={demo ? 'true' : 'false'}
   data-view={demo ? 'ready' : 'empty'}
@@ -191,7 +190,7 @@ const demoClips = [
                 {c.tags && (
                   <span class="clip-tags" aria-hidden="true">
                     {c.tags.map((s) => (
-                      <Avatar id={s.id} name="" size="sm" />
+                      <span class="dot" style={`--accent: var(--c-${s.color})`} />
                     ))}
                   </span>
                 )}
@@ -305,6 +304,45 @@ const demoClips = [
       </div>
     </div>
 
+    <div class="dock-panel" id="dock-panel" data-dock-panel>
+      <div class="panel-head">
+        <span class="whose" id="whose">{t(lang, 'review.whose')}</span>
+        <button type="button" class="dismiss" data-action="toggle-dock" aria-label={t(lang, 'review.dismiss')} title={t(lang, 'review.dismiss')}>✕</button>
+      </div>
+      <span class="surfers" role="group" aria-labelledby="whose">
+        {
+          surfers.map((s, i) => (
+            <label class="pick" style={`--accent: var(--c-${s.color})`}>
+              <input type="checkbox" class="visually-hidden" value={s.id} data-surfer checked={demo && i === 0} />
+              <Avatar id={s.id} name="" size="sm" />
+              <span class="pick-name">{s.name}</span>
+            </label>
+          ))
+        }
+      </span>
+      <div class="shots-box" data-shots-box hidden={!demo}>
+        <span class="shots-title">{t(lang, 'review.captures')}</span>
+        <div class="shots" data-shots>
+          {
+            demo &&
+              [1, 2, 3].map((n) => (
+                <figure class="shot">
+                  <span class="shot-open">
+                    <span class="demo-thumb" />
+                  </span>
+                  {n === 1 && surfers[0] && (
+                    <span class="shot-tags" aria-hidden="true">
+                      <span class="dot" style={`--accent: var(--c-${surfers[0].color})`} />
+                    </span>
+                  )}
+                  <button type="button" class="shot-remove">✕</button>
+                </figure>
+              ))
+          }
+        </div>
+      </div>
+    </div>
+
     <p class="visually-hidden" role="status" data-announce></p>
     <div class="toasts" role="status" aria-live="polite">
       <div class="notice warn" data-restored hidden>
@@ -364,63 +402,27 @@ const demoClips = [
       <button
         type="button"
         class="dock-toggle"
-        data-action="toggle-surfers"
-        aria-expanded="true"
-        title={t(lang, 'review.toggleSurfers')}
-        aria-label={t(lang, 'review.toggleSurfers')}
+        data-action="toggle-dock"
+        aria-expanded={demo ? 'true' : 'false'}
+        aria-controls="dock-panel"
+        title={t(lang, 'review.toggleDock')}
       >
-        <span class="chev" aria-hidden="true">▾</span>
-        <span class="whose" id="whose">{t(lang, 'review.whose')}</span>
-        <span class="whose-summary" data-whose-summary aria-hidden="true">
-          {demo && surfers[0] && <Avatar id={surfers[0].id} name="" size="sm" />}
+        <span class="chev" aria-hidden="true">▴</span>
+        <span class="visually-hidden">{t(lang, 'review.toggleDock')}:</span>
+        <span class="whose-dots" data-whose-dots aria-hidden="true">
+          {demo && surfers[0] && <span class="dot" style={`--accent: var(--c-${surfers[0].color})`} />}
+        </span>
+        <span class="whose-names" data-whose-names>{demo ? (surfers[0]?.name ?? '') : ''}</span>
+        <span class="whose-empty">{t(lang, 'review.whose')}</span>
+        <span class="whose-icon" aria-hidden="true">👥</span>
+        <span class="shots-head" data-shots-head hidden={!demo}>
+          <span class="visually-hidden">{t(lang, 'review.captures')}:</span>
+          <span aria-hidden="true">📷</span>
+          <b class="count" data-shots-count>{demo ? 3 : 0}</b>
         </span>
       </button>
-      <span class="surfers" role="group" aria-labelledby="whose">
-        {
-          surfers.map((s, i) => (
-            <label class="pick" style={`--accent: var(--c-${s.color})`}>
-              <input type="checkbox" class="visually-hidden" value={s.id} data-surfer checked={demo && i === 0} />
-              <Avatar id={s.id} name="" size="sm" />
-              <span class="pick-name">{s.name}</span>
-            </label>
-          ))
-        }
-      </span>
       <button type="button" class="btn primary" data-action="capture" data-lock title={t(lang, 'review.saveCapture')}>
         <span aria-hidden="true">📸</span> <span class="capture-label">{t(lang, 'review.saveCapture')}</span></button>
-    </div>
-    <div class="shots-box" data-shots-box hidden={!demo}>
-      <button
-        type="button"
-        class="shots-head"
-        data-shots-head
-        data-action="toggle-shots"
-        aria-expanded="true"
-        title={t(lang, 'review.toggleShots')}
-      >
-        <span class="visually-hidden">{t(lang, 'review.toggleShots')}:</span>
-        <span aria-hidden="true">📷</span>
-        <b class="count" data-shots-count>{demo ? 3 : 0}</b>
-        <span class="chev" aria-hidden="true">▾</span>
-      </button>
-      <div class="shots" data-shots>
-        {
-          demo &&
-            [1, 2, 3].map((n) => (
-              <figure class="shot">
-                <span class="shot-open">
-                  <span class="demo-thumb" />
-                </span>
-                {n === 1 && surfers[0] && (
-                  <span class="shot-tags" aria-hidden="true">
-                    <Avatar id={surfers[0].id} name="" size="sm" />
-                  </span>
-                )}
-                <button type="button" class="shot-remove">✕</button>
-              </figure>
-            ))
-        }
-      </div>
     </div>
   </div>
 </section>
@@ -771,17 +773,14 @@ const demoClips = [
   .clip-tags {
     flex: none;
     display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    max-width: 42px;
     margin-left: auto;
-    padding-right: 6px;
+    justify-content: flex-end;
   }
   .clip-tags:empty {
     display: none;
-  }
-  .clip-tags :global(.avatar) {
-    width: 24px;
-    height: 24px;
-    border-width: 2px;
-    margin-right: -6px;
   }
   .meta small {
     color: var(--c-muted);
@@ -1101,11 +1100,10 @@ const demoClips = [
     background: var(--c-yellow);
   }
 
-  /* Dock: whose wave, the capture button and the captures taken so far. */
+  /* Dock: one bar under the controls (whose wave, captures so far, save). The roster and the captures open in a
+     panel that floats over the bottom of the picture, so the picture never changes size. */
   .dock {
     grid-area: dock;
-    display: grid;
-    gap: var(--s-2);
     min-width: 0;
     min-height: 0;
   }
@@ -1113,7 +1111,7 @@ const demoClips = [
     display: flex;
     align-items: center;
     gap: var(--s-2);
-    padding: var(--s-1) var(--s-2);
+    padding: var(--s-1);
     background: var(--c-white);
     border: var(--border);
     border-style: dashed;
@@ -1122,42 +1120,127 @@ const demoClips = [
   }
   .capture > .btn {
     flex: none;
-    margin-left: auto;
     min-height: var(--hit);
     min-width: 3.5rem;
     padding-block: var(--s-1);
   }
-  /* The roster row takes what the button leaves; on a narrow phone the button is only the camera. */
+  /* On a narrow phone the button is only the camera. */
   .capture-label {
     display: none;
   }
-  .whose {
-    display: none;
-    flex: none;
+  .dock-toggle {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    min-height: var(--hit);
+    padding: 0 var(--s-2);
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--c-ink);
     font: 14px var(--font-head);
     text-align: left;
+    cursor: pointer;
+  }
+  @media (hover: hover) {
+    .dock-toggle:hover {
+      background: var(--c-paper);
+    }
+  }
+  .chev {
+    flex: none;
+    display: inline-block;
+    font-size: 14px;
+    transition: transform 0.15s;
+  }
+  [data-dock='open'] .dock-toggle .chev {
+    transform: rotate(180deg);
+  }
+  .whose-dots {
+    flex: none;
+    display: flex;
+    gap: 3px;
+  }
+  .whose-dots:empty,
+  .whose-names:empty,
+  .whose-names:not(:empty) ~ .whose-empty,
+  .whose-icon {
+    display: none;
+  }
+  .whose-names,
+  .whose-empty {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .whose-names {
+    font: 14px var(--font-strong);
+  }
+  .shots-head {
+    flex: none;
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+  }
+  /* Each surfer is a colour: a dot in the bar, in the clip list and on each capture. */
+  .review :global(.dot) {
+    flex: none;
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    box-sizing: border-box;
+    border: 2px solid var(--c-ink);
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .dock-panel {
+    display: none;
+    position: absolute;
+    z-index: 6;
+    left: var(--s-2);
+    right: var(--s-2);
+    bottom: var(--s-2);
+    max-height: calc(100% - 2 * var(--s-2));
+    overflow-y: auto;
+    flex-direction: column;
+    gap: var(--s-2);
+    padding: var(--s-2) var(--s-3) var(--s-3);
+    background: var(--c-paper);
+    border: var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  [data-dock='open'] .dock-panel {
+    display: flex;
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2);
+  }
+  .whose {
+    font: 14px var(--font-head);
   }
   .surfers {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--s-2);
-    flex: 1;
-    min-width: 0;
-    overflow-x: auto;
-    padding: 5px 6px;
-    scrollbar-width: thin;
-    /* An edge fade says the row scrolls; the script sets the two sizes only while there is more to see. */
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-start, 0px), #000 calc(100% - var(--fade-end, 0px)), transparent);
-    mask-image: linear-gradient(to right, transparent, #000 var(--fade-start, 0px), #000 calc(100% - var(--fade-end, 0px)), transparent);
   }
   .pick {
     flex: none;
     display: inline-flex;
     align-items: center;
     gap: var(--s-1);
-    padding: 2px;
+    padding: 2px var(--s-2) 2px 2px;
     border: 2px solid var(--c-ink);
     border-radius: 999px;
-    background: var(--c-paper);
+    background: var(--c-white);
     cursor: pointer;
     font: 13px var(--font-strong);
   }
@@ -1165,78 +1248,19 @@ const demoClips = [
     width: 36px;
     height: 36px;
   }
-  .pick-name {
-    /* Avatar only on a phone; the name stays for screen readers. */
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
   .pick:has(input:checked) {
     background: var(--accent);
   }
-  /* The roster and the captures fold away to give the picture their room; the choice stays on the device. */
-  .dock-toggle,
-  .shots-head {
-    flex: none;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s-1);
-    min-height: var(--hit);
-    min-width: var(--hit);
-    padding: 0 var(--s-1);
-    border: 0;
-    border-radius: var(--radius);
-    background: none;
-    color: var(--c-ink);
-    font: inherit;
-    cursor: pointer;
-  }
-  @media (hover: hover) {
-    .dock-toggle:hover,
-    .shots-head:hover {
-      background: var(--c-paper);
-    }
-  }
-  .chev {
-    display: inline-block;
-    font-size: 14px;
-    transition: transform 0.15s;
-  }
-  [data-surfers='closed'] .dock-toggle .chev,
-  [data-shots='closed'] .shots-head .chev {
-    transform: rotate(-90deg);
-  }
-  /* Folded, the toggle shows who is tagged on this clip. */
-  .whose-summary {
-    display: none;
-  }
-  [data-surfers='closed'] .whose-summary {
-    display: flex;
-  }
-  .whose-summary :global(.avatar) {
-    width: 28px;
-    height: 28px;
-    border-width: 2px;
-    margin-right: -8px;
-  }
-  .whose-summary :global(.avatar:last-child) {
-    margin-right: 0;
-  }
-  [data-surfers='closed'] .surfers {
-    display: none;
-  }
-  [data-shots='closed'] .shots {
-    display: none;
-  }
 
   .shots-box {
-    display: flex;
-    align-items: center;
-    gap: var(--s-2);
+    display: grid;
+    gap: var(--s-1);
     min-width: 0;
+    padding-top: var(--s-2);
+    border-top: 2px solid var(--c-ink);
+  }
+  .shots-title {
+    font: 14px var(--font-head);
   }
   .count {
     min-width: 24px;
@@ -1270,7 +1294,6 @@ const demoClips = [
   .shots {
     display: flex;
     gap: var(--s-3);
-    flex: 1;
     min-width: 0;
     overflow-x: auto;
     padding: 10px 10px 2px 2px;
@@ -1319,19 +1342,14 @@ const demoClips = [
     position: absolute;
     inset: calc((var(--hit) - 100%) / -2);
   }
-  /* Who the wave was: small avatars on the corner of the capture. */
+  /* Who the wave was: the surfers' dots on the corner of the capture. */
   .shots :global(.shot-tags) {
     position: absolute;
-    left: 3px;
-    bottom: 3px;
+    left: 4px;
+    bottom: 4px;
     display: flex;
+    gap: 2px;
     pointer-events: none;
-  }
-  .shots :global(.shot-tags .avatar) {
-    width: 22px;
-    height: 22px;
-    border-width: 2px;
-    margin-right: -6px;
   }
 
   /* Only for /design/ */
@@ -1365,18 +1383,6 @@ const demoClips = [
 
   /* Wider than a phone: names show, labels show. */
   @media (min-width: 480px) {
-    .pick {
-      padding-right: var(--s-2);
-    }
-    .pick-name {
-      position: static;
-      width: auto;
-      height: auto;
-      clip-path: none;
-    }
-    .whose {
-      display: block;
-    }
     .capture-label {
       display: inline;
     }
@@ -1520,12 +1526,12 @@ const demoClips = [
     }
   }
 
-  /* A phone on its side: the picture gets the full height; tools left, captures right, thin timeline below. */
+  /* A phone on its side: the picture gets the full height; tools left, the dock as a thin column right, timeline below. */
   @media (orientation: landscape) and (max-height: 500px) {
     .review {
       padding: var(--s-1) var(--s-2);
       gap: var(--s-1) var(--s-2);
-      grid-template-columns: auto minmax(0, 1fr) 9.5rem;
+      grid-template-columns: auto minmax(0, 1fr) auto;
       grid-template-rows: auto minmax(0, 1fr) auto;
       grid-template-areas:
         'rail bar dock'
@@ -1565,85 +1571,45 @@ const demoClips = [
     .wave {
       display: none;
     }
-    .dock {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    /* With a long roster the chips scroll inside their box instead of pushing the captures out. */
+    /* The bar stands up as a thin column on the right: dots, captures, camera. */
     .capture {
+      height: 100%;
       flex-direction: column;
       align-items: stretch;
-      flex: 0 1 auto;
-      min-height: 0;
+      padding: var(--s-1);
     }
-    .whose {
+    .dock-toggle {
+      flex-direction: column;
+      justify-content: flex-start;
+      padding: var(--s-1) 0;
+    }
+    .whose-dots {
+      flex-direction: column;
+      align-items: center;
+    }
+    .whose-names,
+    .whose-empty {
       display: none;
     }
-    .surfers {
-      flex: 0 1 auto;
-      flex-wrap: wrap;
-      min-height: 0;
-      overflow-x: hidden;
-      overflow-y: auto;
-      justify-content: flex-start;
-      padding: 5px;
-      -webkit-mask-image: none;
-      mask-image: none;
+    .whose-icon {
+      display: inline;
     }
-    .pick {
-      padding-right: 2px;
+    .whose-dots:not(:empty) ~ .whose-icon {
+      display: none;
     }
-    .pick-name {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-    }
-    .shots-box {
-      flex: 1;
-      min-height: 5rem;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0;
-    }
-    [data-shots='closed'] .shots-box {
-      flex: none;
-      min-height: 0;
-    }
-    .dock-toggle,
     .shots-head {
-      align-self: flex-start;
+      margin: 0;
+      flex-direction: column;
     }
     .capture > .btn {
-      margin-left: 0;
+      min-width: var(--hit);
+      padding-inline: var(--s-1);
     }
-    .shots {
-      flex-wrap: wrap;
-      overflow-y: auto;
-      overflow-x: hidden;
-      max-height: 100%;
-      align-content: flex-start;
-    }
-    .shots {
-      gap: var(--s-3);
-      padding: 8px 8px 2px 2px;
+    .capture-label {
+      display: none;
     }
     .shots :global(.shot) {
-      height: 36px;
-    }
-    .shots :global(.shot-remove) {
-      top: -6px;
-      right: -6px;
-      width: 20px;
-      height: 20px;
-    }
-    .shots :global(.shot-tags .avatar) {
-      width: 16px;
-      height: 16px;
-      border-width: 1px;
-      margin-right: -4px;
+      height: 40px;
     }
     .clips {
       max-height: 100%;
