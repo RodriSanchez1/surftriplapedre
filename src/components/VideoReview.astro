@@ -11,6 +11,7 @@ import { WEEKDAYS, format, t, type Lang } from '../lib/i18n';
 import type { Texts } from '../lib/review/page';
 import AudioUploader from './AudioUploader.astro';
 import Avatar from './Avatar.astro';
+import TourOverlay from './TourOverlay.astro';
 
 interface Props {
   lang: Lang;
@@ -129,6 +130,7 @@ const demoClips = [
     </label>
     <button type="button" class="btn reopen" data-action="reopen" hidden></button>
     <span class="spacer"></span>
+    <button type="button" class="btn tour-replay" data-tour-replay title={t(lang, 'tour.replay')} aria-label={t(lang, 'tour.replay')}>?</button>
     <button
       type="button"
       class="btn rec-toggle"
@@ -211,6 +213,10 @@ const demoClips = [
       data-label-files={t(lang, 'review.pickFiles')}
     >
       📁 <span data-pick-label>{t(lang, 'review.pickFolder')}</span>
+    </button>
+    <button type="button" class="btn drawer-replay" data-tour-replay>
+      <span aria-hidden="true">?</span>
+      {t(lang, 'tour.replay')}
     </button>
     <p class="keys help">{t(lang, 'review.keys')}</p>
   </aside>
@@ -390,6 +396,7 @@ const demoClips = [
       </div>
     </div>
   </div>
+  {!demo && <TourOverlay lang={lang} />}
 </section>
 
 <script>
@@ -558,6 +565,24 @@ const demoClips = [
     flex: none;
     margin-top: var(--s-2);
     min-height: var(--hit);
+  }
+  .drawer-replay {
+    display: none;
+    flex: none;
+    margin-top: var(--s-2);
+    min-height: var(--hit);
+  }
+  @media (max-width: 479px) {
+    [data-has-clips='true'] .bar > .tour-replay {
+      display: none;
+    }
+    [data-has-clips='true'] .drawer-replay {
+      display: inline-flex;
+    }
+  }
+  /* One card at a time: while the tour's welcome is open, the empty-state card waits under it. */
+  [data-tour-step='welcome'] [data-state='empty'] .card {
+    visibility: hidden;
   }
   .finish-short {
     font: 14px var(--font-strong);

@@ -24,6 +24,7 @@ import {
 } from './log';
 import { fileReader, readClipInfo } from './mp4';
 import { openReviewStore, type Draft, type ReviewStore } from './store';
+import { initTour, type Tour } from './tour-page';
 
 /** Texts built by the script; the rest already comes in the HTML. */
 export interface Texts {
@@ -130,6 +131,9 @@ export function init(root: HTMLElement): void {
   let pinned = false;
   let uploading = false;
   let lastRate = 1;
+  /** The guided tour: while it is open the shortcuts are off and messages wait for it to close. */
+  let tour: Tour | null = null;
+  let heldMessage: Parameters<typeof say> | null = null;
 
   // --- Messages and state ---
 
@@ -145,6 +149,10 @@ export function init(root: HTMLElement): void {
   /** Messages float over the picture; the quick ones fade after 4 s, the others stay until dismissed. */
   let messageTimer = 0;
   function say(text: string, kind: 'ok' | 'warn' | 'error' = 'ok', sticky = false) {
+    if (tour?.isOpen()) {
+      heldMessage = [text, kind, sticky];
+      return;
+    }
     clearTimeout(messageTimer);
     message.textContent = text;
     messageBox.className = `notice ${kind === 'ok' ? '' : kind}`;
@@ -524,6 +532,7 @@ export function init(root: HTMLElement): void {
     // A short picture is not covered by a toast: the counter pulses and screen readers hear a hidden message.
     if (landscape.matches) announce.textContent = text;
     else say(text, tagged.length ? 'ok' : 'warn');
+    tour?.captureSaved();
   }
 
   async function deleteCapture(file: string) {
@@ -914,6 +923,8 @@ export function init(root: HTMLElement): void {
   });
 
   document.addEventListener('keydown', (e) => {
+    // The tour's dialog handles its own keys (Esc is Saltar); none of the editor's shortcuts run under it.
+    if (tour?.isOpen()) return;
     if (root.dataset.signedIn === 'false') return;
     const target = e.target as HTMLElement;
     if (e.key === 'Escape' && root.hasAttribute('data-immersive')) return setImmersive(false);
@@ -1000,6 +1011,21 @@ export function init(root: HTMLElement): void {
   paintList();
   paintFades();
   setColor(sketch.color);
+  tour = initTour(root, {
+    compact,
+    landscape,
+    say: (text) => say(text),
+    putAway: () => {
+      setRecord(false);
+      if (compact.matches) root.dataset.list = 'closed';
+    },
+    closed: () => {
+      const held = heldMessage;
+      heldMessage = null;
+      if (held) say(...held);
+      return !!held;
+    },
+  });
   if (account) loadGoogle().catch(() => {});
   openReviewStore()
     .then((s) => {
