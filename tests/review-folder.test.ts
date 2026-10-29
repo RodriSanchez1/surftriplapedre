@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canWrite, removeVideos, videosIn } from '../src/lib/review/folder';
+import { askWrite, removeVideos, uniqueDirs, videosIn } from '../src/lib/review/folder';
 
 type FakeFile = { kind: 'file'; name: string; getFile(): Promise<File> };
 interface FakeDir {
@@ -52,18 +52,36 @@ describe('removeVideos', () => {
   });
 });
 
-describe('canWrite', () => {
-  const handle = (state: string, answer: string) =>
-    ({ queryPermission: async () => state, requestPermission: async () => answer }) as unknown as FileSystemDirectoryHandle;
-
-  it('is true when already granted and asks only when told to', async () => {
-    expect(await canWrite(handle('granted', 'denied'), false)).toBe(true);
-    expect(await canWrite(handle('prompt', 'granted'), false)).toBe(false);
-    expect(await canWrite(handle('prompt', 'granted'), true)).toBe(true);
-    expect(await canWrite(handle('prompt', 'denied'), true)).toBe(false);
+describe('askWrite', () => {
+  it('calls requestPermission before returning, asking for readwrite', async () => {
+    const modes: unknown[] = [];
+    const handle = {
+      requestPermission: (o: unknown) => {
+        modes.push(o);
+        return Promise.resolve('granted');
+      },
+    } as unknown as FileSystemDirectoryHandle;
+    const answer = askWrite(handle);
+    expect(modes).toEqual([{ mode: 'readwrite' }]); // already called, nothing awaited
+    expect(await answer).toBe(true);
   });
 
-  it('is false where the browser cannot ask', async () => {
-    expect(await canWrite({} as FileSystemDirectoryHandle, true)).toBe(false);
+  it('is false when denied, when it throws, and where the browser cannot ask', async () => {
+    const h = (f: () => Promise<string>) => ({ requestPermission: f }) as unknown as FileSystemDirectoryHandle;
+    expect(await askWrite(h(async () => 'denied'))).toBe(false);
+    expect(await askWrite(h(async () => { throw new DOMException('no activation', 'SecurityError'); }))).toBe(false);
+    expect(await askWrite(h(() => { throw new Error('sync'); }))).toBe(false);
+    expect(await askWrite({} as FileSystemDirectoryHandle)).toBe(false);
+  });
+});
+
+describe('uniqueDirs', () => {
+  it('leaves out names that appear in more than one folder', () => {
+    const a = {} as FileSystemDirectoryHandle;
+    const b = {} as FileSystemDirectoryHandle;
+    const v = (name: string, d: FileSystemDirectoryHandle) => ({ file: new File(['x'], name), dir: d });
+    const map = uniqueDirs([v('C1.MP4', a), v('C2.MP4', a), v('C1.MP4', b)]);
+    expect([...map.keys()]).toEqual(['C2.MP4']);
+    expect(map.get('C2.MP4')).toBe(a);
   });
 });

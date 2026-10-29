@@ -52,12 +52,22 @@ export async function canRead(handle: FileSystemDirectoryHandle, ask: boolean): 
   return ask && !!h.requestPermission && (await h.requestPermission({ mode: 'read' })) === 'granted';
 }
 
-/** Whether the page may delete files in the folder. With ask = true it asks (needs a tap). */
-export async function canWrite(handle: FileSystemDirectoryHandle, ask: boolean): Promise<boolean> {
+/**
+ * Asks to write in the folder. It calls requestPermission synchronously (no await before it) so it runs
+ * inside the tap that triggered it: the prompt needs that user activation, and anything awaited first
+ * (or a Google popup) can use it up. The answer is a promise; errors and a missing API count as no.
+ */
+export function askWrite(handle: FileSystemDirectoryHandle): Promise<boolean> {
   const h = handle as unknown as DirectoryHandle;
-  if (!h.queryPermission) return false;
-  if ((await h.queryPermission({ mode: 'readwrite' })) === 'granted') return true;
-  return ask && !!h.requestPermission && (await h.requestPermission({ mode: 'readwrite' })) === 'granted';
+  try {
+    if (!h.requestPermission) return Promise.resolve(false);
+    return h.requestPermission({ mode: 'readwrite' }).then(
+      (state) => state === 'granted',
+      () => false,
+    );
+  } catch {
+    return Promise.resolve(false);
+  }
 }
 
 /** Every video in the folder and its subfolders, skipping hidden ones, with the folder that holds each. */
@@ -93,4 +103,14 @@ export async function removeVideos(
     }
   }
   return { removed, failed };
+}
+
+/**
+ * The folder of each video by file name. A name that appears more than once (two subfolders)
+ * is left out: deleting goes by name, so it could remove the wrong file.
+ */
+export function uniqueDirs(found: FolderVideo[]): Map<string, FileSystemDirectoryHandle> {
+  const counts = new Map<string, number>();
+  for (const v of found) counts.set(v.file.name, (counts.get(v.file.name) ?? 0) + 1);
+  return new Map(found.filter((v) => counts.get(v.file.name) === 1).map((v) => [v.file.name, v.dir]));
 }
