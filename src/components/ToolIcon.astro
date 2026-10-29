@@ -1,0 +1,27 @@
+---
+/**
+ * One icon of the drawing rail (src/lib/review/icons.ts). Decorative: the button around it carries the name.
+ * Its colour is the text colour; page.ts swaps the arrow button's drawing by replacing the svg's content.
+ */
+import { ICONS, type IconName } from '../lib/review/icons';
+
+interface Props {
+  name: IconName;
+}
+
+const { name } = Astro.props;
+---
+
+<svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true" set:html={ICONS[name]}></svg>
+
+<style>
+  .tool-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+</style>
