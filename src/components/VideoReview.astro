@@ -284,6 +284,7 @@ const demoClips = [
       <button type="button" class="tool" data-action="undo" title={t(lang, 'review.undo')} aria-label={t(lang, 'review.undo')}><ToolIcon name="undo" /></button>
       <button type="button" class="tool" data-action="clear" title={t(lang, 'review.clear')} aria-label={t(lang, 'review.clear')}><ToolIcon name="clear" /></button>
       <button type="button" class="tool" data-action="pin" title={t(lang, 'review.pin')} aria-label={t(lang, 'review.pin')} aria-pressed="false"><ToolIcon name="pin" /></button>
+      <button type="button" class="tool" data-action="zoom" title={t(lang, 'review.zoom')} aria-label={t(lang, 'review.zoom')} aria-pressed="false"><ToolIcon name="zoom" /></button>
     </div>
     <div class="colors">
       <button
@@ -323,9 +324,10 @@ const demoClips = [
 
   <div class="viewer" data-viewer>
     <div class="stage" data-stage style={demo ? '--ar: 1.7778' : undefined}>
-      <div class="frame">
+      <div class="frame" data-frame>
         <video data-video playsinline preload="auto" class:list={{ 'demo-frame': demo }}></video>
         <canvas data-sketch></canvas>
+        <span class="zoom-level" data-zoom-level hidden></span>
         {
           demo && (
             <svg class="demo-drawing" viewBox="0 0 160 90" aria-hidden="true">
@@ -1112,6 +1114,7 @@ const demoClips = [
     position: relative;
     width: min(100cqw, calc(100cqh * var(--ar, 1.7778)));
     height: min(100cqh, calc(100cqw / var(--ar, 1.7778)));
+    overflow: hidden;
   }
   [data-view='empty'] .frame,
   [data-view='error'] .frame {
@@ -1127,12 +1130,38 @@ const demoClips = [
   }
   video {
     object-fit: contain;
-    /* A sideways drag goes through the clip, so the browser must not take it as a swipe. */
-    touch-action: pan-y pinch-zoom;
+    /* The page takes every drag and both fingers: a sideways drag goes through the clip, two fingers zoom. */
+    touch-action: none;
+    /* The zoom (zoom-page.ts): the part of the frame in view fills the picture. The drawing canvas does not move. */
+    transform-origin: 0 0;
+    transform: scale(var(--zs, 1)) translate(calc(var(--zx, 0) * -100%), calc(var(--zy, 0) * -100%));
   }
   [data-view='ready']:not([data-playing='true']) video,
   [data-scrubbing] .stage {
     cursor: ew-resize;
+  }
+  /* Zoomed, a drag moves the picture instead of going through the clip. */
+  [data-zoomed][data-view='ready'] video {
+    cursor: grab;
+  }
+  [data-panning] .stage,
+  [data-panning] video {
+    cursor: grabbing;
+  }
+  /* The scale while zoomed, over the picture's top right corner. */
+  .zoom-level {
+    position: absolute;
+    top: var(--s-2);
+    right: var(--s-2);
+    padding: 2px var(--s-2);
+    background: var(--c-ink);
+    color: var(--c-paper);
+    border-radius: 6px;
+    font: 700 0.85rem/1.4 var(--font-body);
+    pointer-events: none;
+  }
+  .zoom-level[hidden] {
+    display: none;
   }
   canvas {
     touch-action: none;
