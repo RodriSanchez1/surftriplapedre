@@ -35,7 +35,7 @@ Also read: `src/data/trip.yaml`, `src/data/surfers.yaml`, `src/data/days.yaml`, 
 Each line is `[mm:ss] (language) text`. The language was detected per span between Spanish and Portuguese, and `(pt?)` marks a doubtful detection.
 
 - **Who is speaking.** There is no speaker separation, but the language helps: in this trip the coach speaks Portuguese or portuñol and the surfers answer in Spanish, so what is marked `(pt)` is almost always the coach. Short interjections ("Sí", "Claro", "Sim") can come from anyone.
-- **Whose wave it is.** The coach analyzes video wave by wave. The surfer is recognized because they are named ("esa es de Ciro", "Rodri, olha..."). If they are not named, infer it from the context and mark it *(probable)*. If that is not possible, *unidentified*, and it is not attributed to anyone.
+- **Whose wave it is.** The coach analyzes video wave by wave. With a video timeline, the clip on screen says it first (see the tags below). Otherwise, the surfer is recognized because they are named ("esa es de Ciro", "Rodri, olha..."). If they are not named, infer it from the context and mark it *(probable)*. If that is not possible, *unidentified*, and it is not attributed to anyone.
 - **Typical errors.** If a span was detected in the wrong language, Whisper may have "translated" or garbled what was said. Interpret by meaning and do not quote literally something that makes no sense. Roster names and surf terms (cavada, batida, rasgada, drop, bottom, lip) can come misspelled.
 - **Do not invent.** Every insight must be in the audio. If something is an inference, say so.
 
@@ -43,8 +43,10 @@ Each line is `[mm:ss] (language) text`. The language was detected per span betwe
 
 `review-timeline.md` says, for each talk minute (the same `mm:ss` as in `raw-transcript.md`), which clip and second were on screen and when the camera filmed it (the wave time, in the trip time zone). Each `## mm:ss · <clip> · wave filmed dd/mm HH:mm:ss` section is one clip; its lines are play, pause, jump, speed changes and captures. A `≈` means the time is approximate (the clip had no filming time, or the audio start was inferred); `--:--` means the event is outside the audio.
 
-- To know which wave the coach is commenting on at minute X, find the last timeline line at or before X: that is the wave on screen. The wave time identifies it unmistakably, unlike the minute.
+- To know which wave the coach is commenting on at minute X, find the last timeline line at or before X: that is the wave on screen. The wave time identifies it unmistakably, unlike the minute. The timeline has hundreds of play/pause lines: list the `## ` headers and the `capture` lines first (`grep -nE "^## |capture"`), and read the rest only where you need it.
+- **Clip tags.** After the clip name, a header can carry how the clip was classified on `/review/`: `surfers <Name>, <Name>` (who rides that wave), `landscape` (nobody's wave) or `deleted after the review`. A tag beats a guess from the audio: if the audio names someone else while a tagged clip is on screen, the clip wins (Whisper mishears names) and the doubt goes in the final message. An untagged clip is attributed from the audio, as above. Comments made while a `landscape` or `deleted` clip is on screen are not attributed to anyone unless they clearly refer back to the previous wave.
 - A `capture <id>` is a paused frame with the coach's drawing on it. The surfer after the id is who the coach tagged; if it says `untagged`, assign it from what was said while the frame was on screen. A capture of nobody identifiable is left out.
+- **Look at every capture** (`sessions/<date>/<group>_cap-<n>.jpg`, the file named in the timeline line) before using it. Read the drawing together with what the coach said about that wave, from the clip header to the capture: arrows, lines and colors usually contrast what the surfer did with what they should do. The caption says that in the coach's terms; if what a mark means is an inference, keep the caption to what is certain.
 - The timeline is private, like the transcript: never commit it.
 
 ## 3. `sessions/<date>/transcript.md` (private)
@@ -98,7 +100,7 @@ Rules:
 - "En qué trabajar" is ordered by what the coach repeated most. Short sentences, Rioplatense voseo, no filler.
 - The "Frase para el agua" is short and comes from the coach when possible.
 - The logistics list is included only if logistics were discussed; otherwise it is omitted.
-- Optional, only with a video timeline: at the end of a surfer's section, a `**Capturas**` block with the frames that help that surfer, one per line as `- <id> · <short caption>`. The ids are exactly as in the timeline (for example `183012-3`) and the caption is one short sentence, in the language of the file, saying what the drawing shows. The heading is `**Capturas**` in both languages. Do not add it if no capture belongs to the surfer.
+- Optional, only with a video timeline: at the end of a surfer's section, a `**Capturas**` block with the frames that help that surfer, one per line as `- <id> · <short caption>`. The ids are exactly as in the timeline (for example `183012-3`) and the caption is one short sentence, in the language of the file, saying what the drawing shows. The heading is `**Capturas**` in both languages. Do not add it if no capture belongs to the surfer. The page shows the captures under the surfer's text, with the wave time, so tie them in: the point the drawing illustrates names the same wave and says the coach drew it ("En tu ola de las 08:09, <coach> lo dibujó: …"), and the caption reads as the short version of that point.
 
 ```markdown
 **Capturas**
@@ -126,4 +128,4 @@ Translation into Brazilian Portuguese (the coach reads it), with the same struct
 
 ## 8. Final message
 
-Short, in Spanish (the human who reads it is Spanish-speaking): which surfers have insights, who was not talked about, mismatches with the footage metadata (unticked surfers who were discussed, ticked surfers who were not), interpretation doubts (unidentified spans, doubtful quotes) and the command to see the page: `npm run dev` → `/surftriplapedre/sessions/<date>/`.
+Short, in Spanish (the human who reads it is Spanish-speaking): which surfers have insights, who was not talked about, mismatches with the footage metadata (unticked surfers who were discussed, ticked surfers who were not), interpretation doubts (unidentified spans, doubtful quotes) and the command to see the page: `npm run dev` → `/sessions/<date>/`.
