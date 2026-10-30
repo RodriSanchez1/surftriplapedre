@@ -54,6 +54,10 @@ const cancel = t(lang, 'confirm.cancel');
     border-radius: var(--radius);
     box-shadow: var(--shadow);
   }
+  /* On paper the ring is ink on every page (the global sky ring is for dark surfaces). */
+  .confirm :focus-visible {
+    outline-color: var(--focus-ring);
+  }
   .confirm::backdrop {
     background: var(--scrim);
   }

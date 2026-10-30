@@ -1423,8 +1423,9 @@ export function init(root: HTMLElement): void {
     if (tour?.isOpen()) return;
     // The shortcuts dialog handles its own keys (Esc closes it); none of the editor's shortcuts run under it.
     if (keysDialog?.open) return;
-    // The confirmation handles its own keys (Esc is no): Supr does not ask again and Space does not play under it.
-    if (confirmDialog.open) return;
+    // A confirmation handles its own keys (Esc is no): Supr does not ask again and Space does not play under it.
+    // The recorder panel inside has its own, so any open one counts.
+    if (root.querySelector('dialog[data-confirm][open]')) return;
     if (root.dataset.signedIn === 'false') return;
     const target = e.target as HTMLElement;
     // Escape puts away the arrow menu first and gives the focus back to its button.
