@@ -17,10 +17,10 @@ The site for the surftrip to La Pedrera (Oct 24 to Nov 1, 2026) with coach Dougl
 4. **Nothing visible from outside without confirmation.** Do not push, open or merge PRs, or change GitHub settings unless the human confirms it in that conversation.
 5. **Git.** Work on `feat/...` or `fix/...` branches. Commits in English, imperative mood, short.
 6. **Verify before saying "done".** Run `npm run check && npm test && npm run build`. If you touched anything visual, take screenshots (`npm run shots`) and look at them.
-7. **New designs go in the shared design assets.** Every new UI design (screens, states, flows, mockups) is drawn in the Claude Design canvas [Surftrip: UI de la app](https://claude.ai/artifact/Skns4rC61JnapAUv48tScm), on its own page per feature, never in a new canvas. The canvas uses the design system artifact [Board Graphic](https://claude.ai/artifact/Pyi9YKiEivhnfXRAZju7kk), a mirror of `tokens.css` and `global.css`. Reuse existing screens with `<dc-import>` instead of copying them. How each one is kept:
+7. **New designs are drawn locally, from the design system.** Every new UI design (screens, states, flows, mockups) starts from the design system (`tokens.css`, `global.css`) and the components and assets in `/design/`, and is drawn as a proposal page in the site itself: `src/pages/design/proposals/<topic>.astro`, seen at `/design/proposals/<topic>/` in `npm run dev`. Check it with screenshots (`npm run shots`) before showing it. How it is kept:
    - **The code is the source of truth**, and `/design/` is the living catalog built from it.
-   - **Board Graphic is kept in sync:** when `tokens.css` or `global.css` change, re-sync it in the same branch.
-   - **Canvas pages are not kept in sync screen by screen.** A page is where a design is proposed and approved. Once the feature is built, it stays as the record of that proposal. If the design changes during review or implementation, update the spec and verify with screenshots of the real thing; add a note on the canvas page that it changed. When a new design touches an existing screen, redraw that screen from the code at that moment.
+   - **A proposal page lives while the design is discussed and built.** Show the options side by side, then only the chosen one. The feature's last task deletes the page: the spec records the decision and git keeps the page. If the design changes during review, update the spec and verify with screenshots of the real thing.
+   - **The Claude Design canvas is no longer used for new designs.** [Surftrip: UI de la app](https://claude.ai/artifact/Skns4rC61JnapAUv48tScm) stays as the record of past proposals, and its design system artifact [Board Graphic](https://claude.ai/artifact/Pyi9YKiEivhnfXRAZju7kk) is no longer re-synced.
    - Small UI changes that need no discussion go straight to the code, checked in `/design/` and with `npm run shots`.
 8. **Everything in English.** Code, identifiers, comments, file names, docs and commits are in English. Only participant-facing content is in Spanish/Portuguese: the UI strings (values in `src/lib/i18n.ts`), session summaries and insights. The plans in `docs/superpowers/plans/` are historical and stay in Spanish; do not translate or update them.
 
@@ -46,6 +46,7 @@ src/lib/og/                   link previews (WhatsApp, Discord...): each page's 
 src/components/               design system
 src/views/                    body of each page (they receive lang)
 src/pages/  src/pages/pt/     one-line wrappers per language
+src/pages/design/proposals/   design proposals being discussed or built (deleted once built, see rule 7)
 public/captures/<date>/       frames from the video review, with the coach's drawing (<id>.jpg, committed with the insights)
 scripts/                      avatars, import-session, shots, transcribe.py, session-auto, review-timeline
 .claude/skills/process-session/   skill: from the transcript to the insights loaded in the site
