@@ -37,7 +37,7 @@ export interface ConfirmOptions {
   title: string;
   body: string;
   confirm: string;   // the red button
-  cancel: string;    // "Cancelar", or "Seguir revisando" for the review
+  cancel?: string;   // without it, the component's "Cancelar"; "Seguir analizando" for the review
   thumb?: string;    // image URL
 }
 /** Opens the dialog and resolves true only if the red button was used. */
@@ -47,28 +47,28 @@ export function ask(dialog: HTMLDialogElement, options: ConfirmOptions): Promise
 - It opens with `showModal()`, so Tab stays inside and the page behind is inert.
 - The focus starts on Cancelar, so Enter does not delete anything by accident.
 - Esc, Cancelar and a click on the dimmed screen resolve `false`. The red button resolves `true`.
-- On close the focus goes back to the element that had it before (the 🗑 of the row, the capture, Descartar).
+- On close the focus goes back to the element that had it before, if it had a visible (keyboard) focus. Opened with the mouse, nothing keeps the focus, like the shortcuts dialog: otherwise Space would press 🗑 again instead of playing.
 - If it is already open, a second `ask` resolves `false` right away and leaves the open one alone.
 
 The four calls become `if (!(await ask(...))) return;`. `toggleDelete` and the audio `discard` become `async`. The editor's keyboard handler in `page.ts` already ignores keys while the tour or the shortcuts dialog is open; it also ignores them while this dialog is open, so Supr does not open a second one and Space does not play under it.
 
 ## Texts (`src/lib/i18n.ts`)
 
-Each `*Confirm` key is split into title, text and button. The old keys go.
+Each `*Confirm` key is split into title, text and button. The old keys go. The page calls it "análisis" everywhere ("Descartar el análisis", "el análisis está en Drive"), so the texts do too (the canvas said "revisión").
 
 | Key | es | pt |
 |---|---|---|
 | `confirm.cancel` | Cancelar | Cancelar |
 | `review.deleteClipTitle` | ¿Borrar {name}? | Apagar {name}? |
-| `review.deleteClipBody` | Se borra de la carpeta cuando subas la revisión. Hasta entonces lo podés desmarcar. | Ele é apagado da pasta quando você enviar a revisão. Até lá, dá para desmarcar. |
+| `review.deleteClipBody` | Se borra de la carpeta cuando subas el análisis. Hasta entonces lo podés desmarcar. | Ele é apagado da pasta quando você enviar a análise. Até lá, dá para desmarcar. |
 | `review.deleteClipYes` | Borrar al subir | Apagar ao enviar |
 | `review.deleteCaptureTitle` | ¿Borrar esta captura? | Apagar esta captura? |
 | `review.deleteCaptureBody` | Se pierden el dibujo y quién está en la ola. No se puede deshacer. | O desenho e quem está na onda se perdem. Não dá para desfazer. |
 | `review.deleteCaptureYes` | Borrar | Apagar |
-| `review.discardTitle` | ¿Descartar la revisión? | Descartar a revisão? |
+| `review.discardTitle` | ¿Descartar el análisis? | Descartar a análise? |
 | `review.discardBody` | Se borran de este dispositivo el registro y las capturas sin subir. No se puede deshacer. | O registro e as capturas não enviadas serão apagados deste aparelho. Não dá para desfazer. |
 | `review.discardYes` | Descartar | Descartar |
-| `review.discardNo` | Seguir revisando | Continuar revisando |
+| `review.discardNo` | Seguir analizando | Continuar analisando |
 | `audio.discardTitle` | ¿Descartar la grabación? | Descartar a gravação? |
 | `audio.discardBody` | Se borra de este dispositivo y no se puede recuperar. | Ela será apagada deste aparelho e não poderá ser recuperada. |
 | `audio.discardYes` | Descartar | Descartar |
