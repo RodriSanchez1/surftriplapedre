@@ -32,18 +32,19 @@ The owner records the whole video review with OBS (screen + webcam + the talk) a
 1. **Skill (`process-session`)** writes, in `sessions/<date>/insights-es.md` and `insights-pt.md`, wave mentions as `[tu ola de las 08:27](clip:C0019)` (PT: `[sua onda das 08:27](clip:C0019)`), taking the clip from the heading in `review-timeline.md`. Only when the talk had a review log; otherwise plain text as today.
 2. **`import-session`**:
    - replaces every `(clip:<name>)` with `(review:<ISO of the clip's first open>)`; if the clip is in no log of the date, it fails with a clear message (as it does for a missing capture);
-   - adds `at` to each capture from its `capture` event.
-3. **`npm run recording -- <date> <youtube-url> <video-file>`** (new script, `scripts/recording.mjs`): reads the recording start with `ffprobe` (`format_tags.creation_time`, written by OBS at the start; for 29/10, creation 15:56:24Z + 82:50 duration ends at 14:19 local, the file's modification time) and writes `recording` into the session's ES and PT files. `--started-at <ISO>` overrides it for files without that tag. It fails if the session file does not exist or the URL is not a YouTube URL.
+   - adds `at` to each capture from its `capture` event;
+   - keeps the `recording` already in `src/content/sessions/<date>.<lang>.md` (it rewrites that file, and the recording may have been added before a re-import).
+3. **`npm run recording -- <date> <youtube-url> <video-file>`** (new script, `scripts/recording.mjs`): reads the recording start with `ffprobe` (`format_tags.creation_time`, written by OBS at the start; for 29/10, creation 15:56:24Z + 82:50 duration ends at 14:19 local, the file's modification time) and writes `recording` into the session's ES and PT files. `--started-at <ISO>` overrides it for files without that tag. `--trim <seconds>` adds the seconds cut from the start in YouTube's editor (for 29/10 the owner will cut the 5:10 intro). It fails if the session file does not exist or the URL is not a YouTube URL.
 
 ## Rendering
 
 - **`src/lib/review/recording.ts`** (pure, tested):
   - `offsetSeconds(startedAt, at)`: whole seconds from the start, floored; `undefined` if negative.
   - `videoLink(recording, at)`: the URL with `t=<s>` (keeps an existing query, replaces an existing `t`); `undefined` without a recording or with a negative offset.
-- **`src/lib/review/rehype-review-links.mjs`**, registered in `astro.config.mjs` under `markdown.rehypePlugins`: for each `<a href="review:…">` it takes the date from the file path (`src/content/insights/<date>/…` or `src/content/sessions/<date>.<lang>.md`), reads `recording` from `src/content/sessions/<date>.<lang>.md` (falling back to `.es.md`, cached per build), and either rewrites the href to `videoLink(...)` with `target="_blank" rel="noopener"`, or unwraps the link to plain text. In any other file a `review:` link is unwrapped.
+- **Text**: the views stop rendering insights and session summaries with `<Content />` and use `<Fragment set:html={linkReviewMoments(entry.rendered.html, recording)} />`. `linkReviewMoments` (in `recording.ts`) rewrites each `<a href="review:…">` to `videoLink(...)` with `target="_blank" rel="noopener"`, or unwraps it to plain text. Validated on 30/10: Astro 7's default markdown processor (Sätteri) keeps `review:` hrefs as they are, and every entry carries `rendered.html`. A rehype plugin was ruled out: in Astro 7 it needs `@astrojs/markdown-remark` and swaps the markdown processor for the whole site.
 - **Captures**: `CaptureGrid` gets the session's `recording` (passed by `SessionView` and `SurferView`) and gives each `Capture` a `video` URL from `videoLink(recording, capture.at)`. `Capture.astro` shows, after the caption, a link with the new i18n string `capture.watch` ("Ver en el video ▶" / "Ver no vídeo ▶"), new tab. Added to `/design/` with and without the link.
 - **Schema** (`src/content.config.ts`): `recording` optional on sessions (`url` a URL, `startedAt` an ISO datetime); `at` optional on captures.
-- **Integrity** (`src/lib/integrity.ts`): a `review:` link or capture `at` earlier than the session's `recording.startedAt` is a build error (it would point before the video starts).
+- **Integrity** (`src/lib/integrity.ts`): in an insight whose session has a recording, a `review:` link or capture `at` earlier than `recording.startedAt` is a build error (it would point before the video starts, for example after a trim).
 
 ## Session 29/10
 
