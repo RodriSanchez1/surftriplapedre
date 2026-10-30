@@ -247,7 +247,7 @@ const demoClips = [
                 title={format(t(lang, c.remove ? 'review.keepClip' : 'review.deleteClip'), { name: c.name })}
                 aria-label={format(t(lang, 'review.deleteClip'), { name: c.name })}
               >
-                <span aria-hidden="true">🗑</span>
+                <ToolIcon name="trash" />
               </button>
             </li>
           ))
@@ -268,7 +268,7 @@ const demoClips = [
           <span class="visually-hidden" data-clip-note></span>
         </button>
         <button type="button" class="clip-delete" data-action="delete-clip" data-clip-delete data-lock aria-pressed="false">
-          <span aria-hidden="true">🗑</span>
+          <ToolIcon name="trash" />
         </button>
       </li>
     </template>
@@ -875,7 +875,7 @@ const demoClips = [
   .clips ol {
     list-style: none;
     margin: 0;
-    padding: 2px 6px 6px 2px;
+    padding: var(--s-2) 6px 6px 2px;
     display: grid;
     gap: var(--s-2);
     flex: 1;
@@ -884,9 +884,7 @@ const demoClips = [
     align-content: start;
   }
   .clips li {
-    display: flex;
-    gap: var(--s-1);
-    align-items: stretch;
+    position: relative;
   }
   .clip {
     flex: 1;
@@ -912,31 +910,50 @@ const demoClips = [
   li.active .clip {
     background: var(--c-yellow);
   }
-  /* Marks the clip to delete when the review is uploaded: always there so touch reaches it, quiet until the row is hovered or open. */
+  /* Marks the clip to delete when the review is uploaded: a round button on the corner of the thumbnail.
+     With a mouse it shows on the row's hover, on the open clip, on focus and once marked; without one, always. */
   .clip-delete {
-    flex: none;
-    width: 36px;
-    min-height: var(--hit);
+    position: absolute;
+    top: -7px;
+    left: 1px;
+    z-index: 1;
+    width: 26px;
+    height: 26px;
     padding: 0;
-    border: 2px solid transparent;
-    border-radius: var(--radius);
-    background: transparent;
-    color: var(--c-muted);
-    font-size: 14px;
-    cursor: pointer;
-    opacity: 0.55;
-  }
-  .clips li:hover .clip-delete,
-  .clips li.active .clip-delete,
-  .clip-delete:focus-visible {
-    opacity: 1;
-    border-color: var(--c-ink);
+    display: grid;
+    place-items: center;
+    border: 2px solid var(--c-ink);
+    border-radius: 50%;
     background: var(--c-white);
+    color: var(--c-ink);
+    box-shadow: 2px 2px 0 var(--c-ink);
+    cursor: pointer;
   }
-  /* Marked: red, also on hover (the selectors repeat the hover one so they win over it). */
-  .clips li .clip-delete[aria-pressed='true'] {
-    opacity: 1;
-    border-color: var(--c-ink);
+  /* A 40 px target around the 26 px circle. */
+  .clip-delete::before {
+    content: '';
+    position: absolute;
+    inset: -7px;
+    border-radius: 50%;
+  }
+  .clip-delete :global(.tool-icon) {
+    width: 14px;
+    height: 14px;
+    stroke-width: 2.6;
+  }
+  @media (hover: hover) {
+    .clip-delete {
+      opacity: 0;
+    }
+    .clips li:hover .clip-delete,
+    .clips li.active .clip-delete,
+    .clip-delete:focus-visible,
+    .clip-delete[aria-pressed='true'] {
+      opacity: 1;
+    }
+  }
+  /* Marked: red with a white icon. */
+  .clip-delete[aria-pressed='true'] {
     background: var(--c-red);
     color: var(--c-white);
   }
