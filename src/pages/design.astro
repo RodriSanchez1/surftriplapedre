@@ -18,6 +18,9 @@ import AudioUploader from '../components/AudioUploader.astro';
 import FootageList from '../components/FootageList.astro';
 import VideoReview from '../components/VideoReview.astro';
 import TourOverlay from '../components/TourOverlay.astro';
+import ReviewKeys from '../components/ReviewKeys.astro';
+import ConfirmDialog from '../components/ConfirmDialog.astro';
+import { format, t } from '../lib/i18n';
 import ToolIcon from '../components/ToolIcon.astro';
 import { cursorSvg, ICONS, type IconName } from '../lib/review/icons';
 import { ACCENTS } from '../content.config';
@@ -260,6 +263,34 @@ const cursorColors = { ink: 'var(--c-ink)', paper: 'var(--c-paper)', accent: 'va
     <h2 class="section-title">TourOverlay</h2>
     <p class="state">guided tour of /review/: the screen dims, the control gets an ink and yellow ring and the card explains it (step "capture"; on the page it is a modal dialog placed by tour-page.ts)</p>
     <TourOverlay lang="es" demo="capture" />
+    <h2 class="section-title">ReviewKeys</h2>
+    <p class="state">keyboard shortcuts of /review/: the ⌨ button next to ? opens them in a modal dialog (Esc, ✕ or a click outside close it); not shown on touch screens</p>
+    <ReviewKeys lang="es" demo />
+
+    <h2 class="section-title">ConfirmDialog</h2>
+    <p class="state">the question before something is deleted, instead of the browser's confirm(): on the page it is a modal dialog filled in by src/lib/confirm.ts (the focus starts on Cancelar; Esc, Cancelar or a click outside say no). Deleting a capture (with its picture) and marking a clip to delete</p>
+    <div class="row">
+      <ConfirmDialog
+        lang="es"
+        id="confirm-demo-capture"
+        demo={{
+          title: t('es', 'review.deleteCaptureTitle'),
+          body: t('es', 'review.deleteCaptureBody'),
+          confirm: t('es', 'review.deleteCaptureYes'),
+          thumb: '/captures/_design/example.jpg',
+        }}
+      />
+      <ConfirmDialog
+        lang="es"
+        id="confirm-demo-clip"
+        demo={{
+          title: format(t('es', 'review.deleteClipTitle'), { name: 'C0232.MP4' }),
+          body: t('es', 'review.deleteClipBody'),
+          confirm: t('es', 'review.deleteClipYes'),
+        }}
+      />
+    </div>
+
     <h2 class="section-title">ToolIcon</h2>
     <p class="state">icons of the drawing rail on /review/ (src/lib/review/icons.ts)</p>
     <div class="row">

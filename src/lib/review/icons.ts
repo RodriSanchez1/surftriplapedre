@@ -1,11 +1,11 @@
 /**
- * The drawing rail's icons and the drawing cursors, as SVG markup.
+ * The icons of the review page (drawing rail, clip list, bar) and the drawing cursors, as SVG markup.
  * Icons are drawn on a 24 grid with the stroke of the site's icons (2.2, round); their colour comes from CSS.
  * A cursor image cannot read CSS variables, so the cursors are built from colours the page passes in.
  */
 import type { Tool } from './draw';
 
-export type IconName = Tool | 'undo' | 'clear' | 'pin';
+export type IconName = Tool | 'undo' | 'clear' | 'pin' | 'zoom' | 'keyboard' | 'grip' | 'trash';
 
 /** The inside of each icon's `<svg viewBox="0 0 24 24">`. */
 export const ICONS: Record<IconName, string> = {
@@ -16,6 +16,11 @@ export const ICONS: Record<IconName, string> = {
   undo: '<path d="M9 13L4 8l5-5M4 8h10a6 6 0 0 1 0 12h-4"/>',
   clear: '<path d="M14 4l6 6-9 9H7l-3-3a1.4 1.4 0 0 1 0-2zM9 9l6 6M14 19h6"/>',
   pin: '<path d="M9 3h6M10 3v6l-3 4h10l-3-4V3M12 13v8"/>',
+  zoom: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20M10.5 7.5v6M7.5 10.5h6"/>',
+  keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8"/>',
+  /** Two columns of three dots; drawn with a heavier stroke where it is used, so the dots read at 16 px. */
+  grip: '<path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"/>',
+  trash: '<path d="M4 7h16M10 3h4M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
 };
 
 /** The same drawings a little tighter, for the badge of the cross cursor. */

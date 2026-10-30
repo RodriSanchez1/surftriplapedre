@@ -8,6 +8,7 @@ import { dayMonth, weekdayOf } from '../lib/calendar';
 import { WEEKDAYS, format, t, type Lang } from '../lib/i18n';
 import type { State, Texts } from '../lib/audio/page';
 import FootageCard from './FootageCard.astro';
+import ConfirmDialog from './ConfirmDialog.astro';
 
 interface Props {
   lang: Lang;
@@ -23,7 +24,9 @@ const { lang, dates, timeZone, spots = [], surfers = [], audio, demo } = Astro.p
 const texts: Texts = {
   cut: t(lang, 'audio.cut'),
   pending: t(lang, 'audio.pending'),
-  discardConfirm: t(lang, 'audio.discardConfirm'),
+  discardTitle: t(lang, 'audio.discardTitle'),
+  discardBody: t(lang, 'audio.discardBody'),
+  discardYes: t(lang, 'audio.discardYes'),
   errorUpload: t(lang, 'audio.errorUpload'),
   errorPermission: format(t(lang, 'audio.errorPermission'), { contact: audio?.contact ?? '' }),
   errorLogin: t(lang, 'audio.errorLogin'),
@@ -171,6 +174,7 @@ const texts: Texts = {
       <template data-footage-template>
         <FootageCard lang={lang} dates={dates} spots={spots} surfers={surfers} date={dates[0]} time="morning" removable />
       </template>
+      {!demo && <ConfirmDialog lang={lang} id="audio-confirm" />}
     </section>
   )
 }

@@ -5,10 +5,12 @@
  */
 import { clampToTrip, dayMonth, todayIn } from '../calendar';
 import { format } from '../i18n';
+import { ask, confirmIn } from '../confirm';
 import { googleAccount, loadGoogle, LoginError, SIGNED_IN } from '../audio/google';
 import { folderIn, send, verifyAccess, PermissionError, type Dependencies } from '../audio/upload';
 import { clock, DEFAULT_FPS, length, middleEllipsis, position, scrubFrames, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
+import { initZoom } from './zoom-page';
 import { cursorFor, ICONS } from './icons';
 import { placeMenu } from './menu';
 import { askWrite, canPickFolder, canRead, isVideo, pickFolder, removeVideos, uniqueDirs, videosIn } from './folder';
@@ -28,7 +30,8 @@ import {
 } from './log';
 import { fileReader, readClipInfo } from './mp4';
 import { finalLog, hasTags, outbox, type Filter } from './outbox';
-import { clipTags, openReviewStore, type Draft, type ReviewStore } from './store';
+import { clipTags, openReviewStore, withDelete, type Draft, type ReviewStore } from './store';
+import { initListWidth } from './list-width-page';
 import { initTour, type Tour } from './tour-page';
 
 /** Texts built by the script; the rest already comes in the HTML. */
@@ -42,11 +45,9 @@ export interface Texts {
   openCapture: string;
   clipTagged: string;
   deleteCapture: string;
-  deleteCaptureConfirm: string;
   finishCount: string;
   sessionLocked: string;
   restored: string;
-  discardConfirm: string;
   nothing: string;
   uploading: string;
   done: string;
@@ -68,6 +69,18 @@ export interface Texts {
   deleteStays: string;
   deleteDenied: string;
   deleteFailed: string;
+  deleteClip: string;
+  keepClip: string;
+  deleteClipTitle: string;
+  deleteClipBody: string;
+  deleteClipYes: string;
+  deleteCaptureTitle: string;
+  deleteCaptureBody: string;
+  deleteCaptureYes: string;
+  discardTitle: string;
+  discardBody: string;
+  discardYes: string;
+  discardNo: string;
 }
 
 /** An event as the page records it: the time and the clip are filled in by record(). */
@@ -143,6 +156,11 @@ export function init(root: HTMLElement): void {
   const locked = () => [...root.querySelectorAll<HTMLButtonElement | HTMLInputElement>('[data-lock]')];
   const interactive = [...root.querySelectorAll<HTMLElement>('.rail, .transport, .tagger')];
   const clipsPanel = $('[data-clip-list]').closest<HTMLElement>('.clips')!;
+  /** The keyboard shortcuts: a modal dialog from the ⌨ button (not on /design/'s demo, which has no script). */
+  const keysDialog = root.querySelector<HTMLDialogElement>('[data-keys]');
+  const keysButton = root.querySelector<HTMLElement>('[data-action="keys"]');
+  /** The question before deleting (ConfirmDialog.astro). The recorder panel inside has its own. */
+  const confirmDialog = confirmIn(root);
   const filesInput = $<HTMLInputElement>('[data-files]');
   /** A phone: the clip list is a drawer over the picture instead of a column. */
   const compact = matchMedia('(max-width: 760px), (orientation: landscape) and (max-height: 500px)');
@@ -310,7 +328,7 @@ export function init(root: HTMLElement): void {
   function paintClipTags(entry: Entry) {
     const tags = clipTags(draft, entry.file.name);
     entry.item.querySelector('[data-clip-tags]')!.replaceChildren(...dotsOf(tags.surfers));
-    entry.item.querySelector('[data-clip-kinds]')!.textContent = kindIcons(tags.kinds);
+    entry.item.querySelector('[data-clip-kinds]')!.textContent = kindIcons(tags.kinds.filter((k) => k !== 'delete'));
     entry.item.classList.toggle('to-delete', tags.kinds.includes('delete'));
     const names = surfersOf(tags.surfers).map((w) => w.name).join(', ');
     const words = [
@@ -318,6 +336,12 @@ export function init(root: HTMLElement): void {
       ...tags.kinds.map((k) => (k === 'delete' ? texts.willDelete : texts.kindNames[k])),
     ];
     entry.item.querySelector('[data-clip-who]')!.textContent = words.filter(Boolean).join(' · ');
+    const del = entry.item.querySelector<HTMLButtonElement>('[data-clip-delete]')!;
+    const marked = tags.kinds.includes('delete');
+    del.setAttribute('aria-pressed', String(marked));
+    // A toggle keeps its name; the pressed state says it is marked, and the tooltip says what a tap does.
+    del.setAttribute('aria-label', format(texts.deleteClip, { name: entry.file.name }));
+    del.title = format(marked ? texts.keepClip : texts.deleteClip, { name: entry.file.name });
   }
 
   /** The text of the upload button: the long form, and the short one a narrow phone shows next to the icon. */
@@ -410,10 +434,11 @@ export function init(root: HTMLElement): void {
     clips = sortClips(read).map((clip) => {
       const item = itemTemplate.content.firstElementChild!.cloneNode(true) as HTMLElement;
       const entry: Entry = { ...clip, url: URL.createObjectURL(clip.file), duration: null, error: false, item };
-      item.addEventListener('click', (e) => {
+      const button = item.querySelector<HTMLButtonElement>('[data-clip-button]')!;
+      button.addEventListener('click', (e) => {
         void open(entry);
         // A mouse click keeps the focus on the button, and the space bar would press it again instead of playing.
-        if (e.detail > 0) item.querySelector('button')?.blur();
+        if (e.detail > 0) button.blur();
       });
       paintItem(entry);
       return entry;
@@ -468,6 +493,8 @@ export function init(root: HTMLElement): void {
     // On a phone the list is a drawer: picking a clip puts it away.
     if (compact.matches) root.dataset.list = 'closed';
     sketch.clear();
+    // A new clip starts on the whole frame.
+    zoom.reset();
     // Each clip brings back its tags.
     syncTags();
     // The picture area stays in place; it only shows what is going on.
@@ -648,12 +675,13 @@ export function init(root: HTMLElement): void {
   function paintPill() {
     const ids = chips().filter((c) => c.checked).map((c) => c.value);
     const kinds = kindChips().filter((c) => c.checked).map((c) => c.value as ClipKind);
+    // The delete mark is set from the clip list, not the selector; the pill still shows it, so Supr never acts unseen.
+    if (current && clipTags(draft, current.file.name).kinds.includes('delete')) kinds.push('delete');
     const names = surfersOf(ids).map((w) => w.name).join(', ');
     $('[data-pill-dots]').replaceChildren(...dotsOf(ids));
     $('[data-pill-label]').textContent = [names, kindIcons(kinds)].filter(Boolean).join(' · ') || texts.whoSurfs;
     const words = [names, ...kinds.map((k) => texts.kindNames[k])].filter(Boolean).join(', ');
     tagPill.setAttribute('aria-label', words ? `${texts.tags}: ${words}` : texts.tags);
-    $('[data-delete-note]').hidden = !kinds.includes('delete');
   }
 
   /** Shows the current clip's saved tags in the selector and the pill (none when there is no draft). */
@@ -672,22 +700,41 @@ export function init(root: HTMLElement): void {
     const d = ensureDraft();
     const surfers = chips().filter((c) => c.checked).map((c) => c.value);
     const kinds = kindChips().filter((c) => c.checked).map((c) => c.value as ClipKind);
-    d.clips = { ...d.clips, [current.file.name]: { surfers, kinds } };
+    d.clips = { ...d.clips, [current.file.name]: withDelete({ surfers, kinds }, clipTags(d, current.file.name).kinds.includes('delete')) };
     persist();
     paintStatus();
   }
 
-  /** Takes the delete mark off a clip, from the panel. */
+  /** Takes the delete mark off a clip, from the panel or the clip list. */
   function keepClip(clip: string) {
     if (!draft || uploading) return;
-    const tags = clipTags(draft, clip);
-    draft.clips = { ...draft.clips, [clip]: { ...tags, kinds: tags.kinds.filter((k) => k !== 'delete') } };
+    draft.clips = { ...draft.clips, [clip]: withDelete(clipTags(draft, clip), false) };
     persist();
-    if (current?.file.name === clip) {
-      for (const c of kindChips()) if (c.value === 'delete') c.checked = false;
-      paintPill();
-    }
+    paintPill();
     paintStatus();
+  }
+
+  /** From the clip list or the Delete key: marks the clip to delete after the upload (asking first), or takes the mark off. */
+  async function toggleDelete(entry: Entry) {
+    if (uploading) return;
+    const name = entry.file.name;
+    if (clipTags(draft, name).kinds.includes('delete')) return keepClip(name);
+    const yes = await ask(confirmDialog, {
+      title: format(texts.deleteClipTitle, { name }),
+      body: texts.deleteClipBody,
+      confirm: texts.deleteClipYes,
+    });
+    if (!yes || uploading) return;
+    const d = ensureDraft();
+    d.clips = { ...d.clips, [name]: withDelete(clipTags(d, name), true) };
+    persist();
+    paintPill();
+    paintStatus();
+  }
+
+  function toggleDeleteFrom(target: Element) {
+    const entry = clips.find((c) => c.item.contains(target)) ?? current;
+    if (entry) void toggleDelete(entry);
   }
 
   /** The dots of who surfs in the capture's clip: captures follow their clip's tags. */
@@ -775,7 +822,15 @@ export function init(root: HTMLElement): void {
   }
 
   async function deleteCapture(file: string) {
-    if (!draft || uploading || !confirm(texts.deleteCaptureConfirm)) return;
+    if (!draft || uploading) return;
+    const thumb = shots.querySelector<HTMLImageElement>(`[data-file="${CSS.escape(file)}"] img`)?.src;
+    const yes = await ask(confirmDialog, {
+      title: texts.deleteCaptureTitle,
+      body: texts.deleteCaptureBody,
+      confirm: texts.deleteCaptureYes,
+      thumb,
+    });
+    if (!yes || !draft || uploading) return;
     draft.log = { ...draft.log, events: draft.log.events.filter((e) => !(e.type === 'capture' && e.file === file)) };
     blobs.delete(file);
     persist();
@@ -922,7 +977,14 @@ export function init(root: HTMLElement): void {
   }
 
   async function discard() {
-    if (uploading || !confirm(texts.discardConfirm)) return;
+    if (uploading) return;
+    const yes = await ask(confirmDialog, {
+      title: texts.discardTitle,
+      body: texts.discardBody,
+      confirm: texts.discardYes,
+      cancel: texts.discardNo,
+    });
+    if (!yes || uploading) return;
     await writes;
     await store?.clear();
     draft = null;
@@ -1104,14 +1166,14 @@ export function init(root: HTMLElement): void {
       swallowTap = false;
       return;
     }
-    // The end of a drag through the clip is not a tap.
-    if (scrub.moved) return;
+    // The end of a drag through the clip, or of moving the zoomed picture, is not a tap.
+    if (scrub.moved || zoom.panned) return;
     if (!sketch.tool && (e.target as Element).matches('[data-sketch], video')) toggle();
   });
 
   stage.addEventListener('pointerdown', (e) => {
     scrub.moved = false;
-    if (sketch.tool || !current || !video.duration || !video.paused || !e.isPrimary || e.button !== 0) return;
+    if (sketch.tool || zoom.zoomed || !current || !video.duration || !video.paused || !e.isPrimary || e.button !== 0) return;
     if (!(e.target as Element).matches('[data-sketch], video')) return;
     Object.assign(scrub, { id: e.pointerId, x: e.clientX, from: video.currentTime, moved: false, pending: null });
   });
@@ -1139,6 +1201,23 @@ export function init(root: HTMLElement): void {
   }
   stage.addEventListener('pointerup', endScrub);
   stage.addEventListener('pointercancel', endScrub);
+
+  // Zoom: the rail button, + - 0, the wheel, two fingers and dragging the zoomed picture (zoom-page.ts).
+  // After the scrub's listeners, so a second finger's pointerdown reaches the scrub first and the zoom stops it.
+  const zoom = initZoom(root, sketch, {
+    ready: () => root.dataset.view === 'ready',
+    drawing: () => sketch.tool !== null,
+    twoFingers: () => {
+      sketch.cancel();
+      if (scrub.id === null) return;
+      // The scrub's own pointerdown already reset scrub.moved for this second finger; the flag on the root still says.
+      const moved = root.dataset.scrubbing === 'true';
+      scrub.id = null;
+      scrub.moved = true;
+      delete root.dataset.scrubbing;
+      if (moved && !video.seeking && scrub.pending === null) recordSeek();
+    },
+  });
 
   const recordPop = $('[data-record-pop]');
   const recordToggle = $('[data-action="toggle-record"]');
@@ -1181,6 +1260,7 @@ export function init(root: HTMLElement): void {
     'toggle-list': () => {
       root.dataset.list = getComputedStyle(clipsPanel).display === 'none' ? 'open' : 'closed';
     },
+    keys: () => keysDialog?.showModal(),
     'toggle-record': () => {
       const open = root.dataset.record !== 'open';
       setRecord(open);
@@ -1236,6 +1316,7 @@ export function init(root: HTMLElement): void {
       pinned = !pinned;
       b.setAttribute('aria-pressed', String(pinned));
     },
+    zoom: () => zoom.toggle(),
     'toggle-tags': () => {
       const open = root.dataset.tags !== 'open';
       setTags(open);
@@ -1253,6 +1334,10 @@ export function init(root: HTMLElement): void {
       paintShots();
     },
     'keep-clip': (b) => keepClip(b.dataset.clip!),
+    'delete-clip': (b) => {
+      const entry = clips.find((c) => c.item.contains(b));
+      if (entry) void toggleDelete(entry);
+    },
     capture: () => void saveCapture(),
     'open-capture': (b) => void openCapture(b.dataset.file!),
     'delete-capture': (b) => void deleteCapture(b.dataset.file!),
@@ -1336,6 +1421,11 @@ export function init(root: HTMLElement): void {
   document.addEventListener('keydown', (e) => {
     // The tour's dialog handles its own keys (Esc is Saltar); none of the editor's shortcuts run under it.
     if (tour?.isOpen()) return;
+    // The shortcuts dialog handles its own keys (Esc closes it); none of the editor's shortcuts run under it.
+    if (keysDialog?.open) return;
+    // A confirmation handles its own keys (Esc is no): Supr does not ask again and Space does not play under it.
+    // The recorder panel inside has its own, so any open one counts.
+    if (root.querySelector('dialog[data-confirm][open]')) return;
     if (root.dataset.signedIn === 'false') return;
     const target = e.target as HTMLElement;
     // Escape puts away the arrow menu first and gives the focus back to its button.
@@ -1406,6 +1496,13 @@ export function init(root: HTMLElement): void {
       S: () => void saveCapture(),
       t: () => root.dataset.view === 'ready' && (actions['toggle-tags'] as () => void)(),
       T: () => root.dataset.view === 'ready' && (actions['toggle-tags'] as () => void)(),
+      // The row with the focus, or else the open clip. Backspace is the delete key on a Mac keyboard.
+      Delete: () => toggleDeleteFrom(target),
+      Backspace: () => toggleDeleteFrom(target),
+      '+': () => zoom.step(1),
+      '=': () => zoom.step(1),
+      '-': () => zoom.step(-1),
+      '0': () => zoom.reset(),
       Escape: () => setTool(null),
     };
     const run = keys[e.key];
@@ -1435,6 +1532,22 @@ export function init(root: HTMLElement): void {
   compact.addEventListener('change', paintList);
   matchMedia('(min-width: 761px) and (min-height: 501px)').addEventListener('change', paintList);
 
+  if (keysDialog) {
+    keysDialog.querySelector('[data-keys-close]')!.addEventListener('click', () => keysDialog.close());
+    // A click on the dimmed screen around the card lands on the dialog itself: it closes too.
+    keysDialog.addEventListener('click', (e) => {
+      if (e.target === keysDialog) keysDialog.close();
+    });
+    // Opened from the keyboard, the focus goes back to ⌨. Opened with the mouse it does not, like the bar's other
+    // buttons (see the [data-action] click handler): Space then plays instead of opening the dialog again.
+    let openedWithMouse = false;
+    keysButton?.addEventListener('click', (e) => (openedWithMouse = e.detail > 0));
+    keysDialog.addEventListener('close', () => {
+      if (openedWithMouse) (document.activeElement as HTMLElement | null)?.blur();
+      else keysButton?.focus();
+    });
+  }
+
   // --- Startup ---
 
   const dates = [...dateSelect.options].map((o) => o.value);
@@ -1448,6 +1561,7 @@ export function init(root: HTMLElement): void {
   setTags(false);
   setOutbox(false);
   paintList();
+  initListWidth(root, $('[data-list-handle]'));
   setColor(sketch.color);
   tour = initTour(root, {
     compact,

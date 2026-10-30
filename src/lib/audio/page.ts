@@ -5,6 +5,7 @@
 import { clampToTrip, dayMonth, todayIn } from '../calendar';
 import { defaultTime, OTHER_SPOT, toMeta, type AudioTimes, type Footage, type TimeOfDay } from '../footage';
 import { format } from '../i18n';
+import { ask, confirmIn } from '../confirm';
 import { extensionOfFile, extensionFor, groupOf, timeIn, fileName, metaName } from './filenames';
 import { googleAccount, accountEmail, loadGoogle, LoginError, SIGNED_IN } from './google';
 import { startRecording, recordingFormat, TIMESLICE, type Recorder } from './recorder';
@@ -17,7 +18,9 @@ export type State = 'login' | 'ready' | 'recording' | 'cut' | 'uploading' | 'don
 export interface Texts {
   cut: string;
   pending: string;
-  discardConfirm: string;
+  discardTitle: string;
+  discardBody: string;
+  discardYes: string;
   errorUpload: string;
   errorPermission: string;
   errorLogin: string;
@@ -52,6 +55,8 @@ export function init(root: HTMLElement): void {
   const cards = $('[data-footage-cards]');
   const template = $<HTMLTemplateElement>('[data-footage-template]');
   const mime = recordingFormat();
+  /** The question before discarding a recording (ConfirmDialog.astro). */
+  const confirmDialog = confirmIn(root);
 
   let store: Store | null = null;
   let recorder: Recorder | null = null;
@@ -419,7 +424,8 @@ export function init(root: HTMLElement): void {
   }
 
   async function discard(group: string) {
-    if (!confirm(texts.discardConfirm)) return;
+    const yes = await ask(confirmDialog, { title: texts.discardTitle, body: texts.discardBody, confirm: texts.discardYes });
+    if (!yes) return;
     for (const r of await partsOf(group)) {
       await store?.remove(r.id);
       local.delete(r.id);
