@@ -24,6 +24,7 @@ sessions/*/*.meta.json
 sessions/*/*.review.json
 sessions/*/*.jpg
 sessions/*/review-timeline.md
+sessions/*/narration.json
 sessions/.session-auto.lock
 sessions/cron.log
 

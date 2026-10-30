@@ -4,10 +4,12 @@ import {
   buildTimeline,
   formatClip,
   formatTalk,
+  parseNarration,
   resolveParts,
   talkSecond,
   zonedDate,
   type AudioPart,
+  type Narration,
 } from '../src/lib/review/timeline';
 
 const TZ = 'America/Montevideo'; // UTC-3, no daylight saving
@@ -158,5 +160,69 @@ describe('buildTimeline', () => {
     const md = buildTimeline([second, sampleLog()], parts, TZ, {});
     expect(md.indexOf('C0232.MP4')).toBeLessThan(md.indexOf('C0300.MP4'));
     expect(md).toContain('## 06:00 · C0300.MP4 · filming time unknown');
+  });
+});
+
+describe('narration in the timeline', () => {
+  const narration: Narration = {
+    'C0232.MP4': {
+      segments: [
+        { start: 4, language: 'pt', text: 'boa remada' },
+        { start: 11.2, language: 'pt', text: 'atrasou o bottom' },
+      ],
+    },
+  };
+
+  it('puts the narration under the clip heading', () => {
+    const md = buildTimeline([sampleLog()], parts, TZ, { juan: 'Juan' }, narration);
+    expect(md).toContain(
+      '## 02:30 · C0232.MP4 · wave filmed 26/10 10:42:05 · clip length 0:45.0\n' +
+        'Narration (the coach, while filming):\n' +
+        '- 0:04.0 (pt) boa remada\n' +
+        '- 0:11.2 (pt) atrasou o bottom\n' +
+        '- 02:33 play at 0:00.0 (1×)',
+    );
+    expect(md).toContain('Narration = what the coach said while filming each clip');
+  });
+
+  it('writes it once per clip, even when the coach goes back to it', () => {
+    const ev: ReviewEvent[] = [
+      { type: 'open', at: at('21:32:30'), clip: 'A.MP4', filmedAt: null, filmedAtSource: 'file-date', duration: 10 },
+      { type: 'open', at: at('21:33:00'), clip: 'B.MP4', filmedAt: null, filmedAtSource: 'file-date', duration: 10 },
+      { type: 'play', at: at('21:33:30'), clip: 'A.MP4', t: 0, rate: 1 },
+    ];
+    const log = ev.reduce((l, e) => addEvent(l, e), newLog('2026-10-27', '2026-10-27_183012', new Date(at('21:30:12'))));
+    const md = buildTimeline([log], parts, TZ, {}, { 'A.MP4': { segments: [{ start: 1, language: 'es', text: 'hola' }] } });
+    expect(md.match(/- 0:01.0 \(es\) hola/g)).toHaveLength(1);
+    expect(md).toContain('Narration: (clip file not found on disk)');
+  });
+
+  it('says when a clip has no speech', () => {
+    const md = buildTimeline([sampleLog()], parts, TZ, {}, { 'C0232.MP4': { segments: [] } });
+    expect(md).toContain('Narration: (no speech)');
+  });
+
+  it('writes nothing about narration without it', () => {
+    expect(buildTimeline([sampleLog()], parts, TZ, {})).not.toContain('Narration');
+  });
+});
+
+describe('parseNarration', () => {
+  it('reads narration.json and drops bad segments', () => {
+    const text = JSON.stringify({
+      model: 'large-v3',
+      clips: {
+        'A.MP4': { duration: 10, segments: [{ start: 1, end: 2, language: 'pt', text: 'boa' }, { start: 'x', text: 'bad' }] },
+        'B.MP4': { duration: 5, segments: [] },
+      },
+    });
+    expect(parseNarration(text)).toEqual({
+      'A.MP4': { segments: [{ start: 1, language: 'pt', text: 'boa' }] },
+      'B.MP4': { segments: [] },
+    });
+  });
+  it('is null for anything else', () => {
+    expect(parseNarration('not json')).toBeNull();
+    expect(parseNarration('{"clips": []}')).toBeNull();
   });
 });

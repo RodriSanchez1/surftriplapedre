@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dateStatus, groupByDate, parseMetaName, parseName } from '../src/lib/audio/pending';
+import { dateStatus, groupByDate, parseMetaName, parseName, sessionDates } from '../src/lib/audio/pending';
 
 describe('parseName', () => {
   it('reads date, time and extension', () => {
@@ -120,5 +120,18 @@ describe('groupByDate with review files', () => {
     expect(review.get('2026-10-27')!.map((f) => f.name)).toEqual(['2026-10-27_183012_cap-2.jpg', '2026-10-27_183012.review.json']);
     expect(review.get('2026-10-28')).toHaveLength(1);
     expect(ignored).toEqual(['photo.jpg']);
+  });
+});
+
+describe('sessionDates', () => {
+  const m = '2026-10-29T20:00:00Z';
+  it('takes dates with a talk audio or a review log, in order', () => {
+    const { byDate, review } = groupByDate([
+      { name: '2026-10-30_1830.webm', modified: m },
+      { name: '2026-10-29_170000.review.json', modified: m },
+      { name: '2026-10-29_170000_cap-1.jpg', modified: m },
+      { name: '2026-10-28_090000_cap-1.jpg', modified: m },
+    ]);
+    expect(sessionDates(byDate, review)).toEqual(['2026-10-29', '2026-10-30']);
   });
 });

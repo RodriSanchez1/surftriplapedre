@@ -11,11 +11,16 @@
 
 Usage:
   uv run scripts/transcribe.py <audio> [<audio> ...] [--output <folder>] [--until <seconds>]
+  uv run scripts/transcribe.py --per-file --output <folder> <clip> [<clip> ...]
 
 Joins the parts in order, cuts the audio into speech spans, detects the language of each
 span among the allowed languages (es and pt by default) and transcribes it in that language.
 Writes raw-transcript.md and raw-transcript.json in the output folder
 (by default, the first audio's folder). Both are private and listed in .gitignore.
+
+With --per-file, each file is transcribed on its own (the coach's narration in each video clip),
+loading the model once. It writes narration.json in the output folder, with each file's segments
+and times relative to that file. A file with no audio track gets no segments.
 """
 
 import argparse
@@ -80,13 +85,20 @@ PHRASE = {
 }
 
 
-def prompts(languages):
+# Initial prompt for the narration the coach records while filming (--per-file).
+NARRATION = {
+    "es": "Narración del coach {coach} mientras filma una sesión de surf. Surfistas: {names}. {surf}.",
+    "pt": "Narração do coach {coach} enquanto filma uma sessão de surf. Surfistas: {names}. {surf}.",
+}
+
+
+def prompts(languages, phrases=PHRASE):
     """Initial prompt per language, with the trip and roster names (from src/data/)."""
     trip = yaml.safe_load((ROOT / "src/data/trip.yaml").read_text(encoding="utf-8"))[0]
     roster = yaml.safe_load((ROOT / "src/data/surfers.yaml").read_text(encoding="utf-8"))
     names = ", ".join(s["name"] for s in roster)
     return {
-        lang: PHRASE.get(lang, PHRASE["es"]).format(coach=trip["coach"], names=names, surf=SURF.get(lang, SURF["es"]))
+        lang: phrases.get(lang, phrases["es"]).format(coach=trip["coach"], names=names, surf=SURF.get(lang, SURF["es"]))
         for lang in languages
     }
 
@@ -150,52 +162,16 @@ def mmss(seconds):
     return f"{s // 3600}:{s % 3600 // 60:02d}:{s % 60:02d}" if s >= 3600 else f"{s // 60:02d}:{s % 60:02d}"
 
 
-def main():
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("audios", nargs="+", type=Path)
-    p.add_argument("--output", type=Path)
-    p.add_argument("--model", default="large-v3")
-    p.add_argument("--device", default="auto", choices=["auto", "cuda", "cpu"])
-    p.add_argument("--languages", default="es,pt")
-    p.add_argument("--until", type=float, help="transcribe only the first N seconds (for testing)")
-    args = p.parse_args()
-
-    languages = [lang.strip() for lang in args.languages.split(",") if lang.strip()]
-    output = args.output or args.audios[0].parent
-    output.mkdir(parents=True, exist_ok=True)
-    for a in args.audios:
-        if not a.exists():
-            sys.exit(f"{a} does not exist")
-
-    # Where each part starts inside the joined audio.
-    parts, offset = [], 0.0
-    for a in args.audios:
-        parts.append({"file": a.name, "start": offset})
-        offset += duration(a) or 0.0
-
-    import ctranslate2
-
-    cuda = args.device == "cuda" or (args.device == "auto" and ctranslate2.get_cuda_device_count() > 0)
-    device, compute_type = ("cuda", "int8_float16") if cuda else ("cpu", "int8")
-    print(f"Model {args.model} on {device} ({compute_type})", flush=True)
-    model = WhisperModel(args.model, device=device, compute_type=compute_type)
-    initial_prompts = prompts(languages)
-
-    t0 = time.time()
-    with tempfile.TemporaryDirectory() as tmp:
-        pcm = Path(tmp) / "audio.pcm"
-        join_audio(args.audios, pcm, args.until)
-        audio = np.fromfile(pcm, dtype=np.int16).astype(np.float32) / 32768.0
+def transcribe_audio(model, audio, languages, initial_prompts, progress=True):
+    """Speech spans → language per span → windows → segments, with times in seconds from the start of `audio`.
+    Returns (segments, number of spans, number of windows)."""
     total_s = len(audio) / SR
-    print(f"Audio: {mmss(total_s)} · {len(args.audios)} file(s)", flush=True)
-
     spans, previous = [], None
     for start, end in speech_spans(audio):
         language, confidence = language_of(model, audio[start:end], languages, previous)
         spans.append((start, end, language, confidence))
         previous = language
     groups = group_spans(spans)
-    print(f"{len(spans)} speech spans → {len(groups)} windows", flush=True)
 
     segments = []
     for n, g in enumerate(groups, 1):
@@ -220,8 +196,81 @@ def main():
                 "confidence": round(g["confidence"], 2),
                 "text": text,
             })
-        if n % 25 == 0:
+        if progress and n % 25 == 0:
             print(f"  {n}/{len(groups)} · {mmss(g['end'] / SR)} of {mmss(total_s)}", flush=True)
+    return segments, len(spans), len(groups)
+
+
+def per_file(model, files, output, languages, model_name, until):
+    """Each file on its own → narration.json, with times relative to each file."""
+    initial_prompts = prompts(languages, NARRATION)
+    clips = {}
+    t0 = time.time()
+    for n, f in enumerate(files, 1):
+        with tempfile.TemporaryDirectory() as tmp:
+            pcm = Path(tmp) / "audio.pcm"
+            try:
+                join_audio([f], pcm, until)
+            except subprocess.CalledProcessError:
+                print(f"  {n}/{len(files)} {f.name}: no audio track", flush=True)
+                clips[f.name] = {"duration": duration(f), "segments": []}
+                continue
+            audio = np.fromfile(pcm, dtype=np.int16).astype(np.float32) / 32768.0
+        segments, _, _ = transcribe_audio(model, audio, languages, initial_prompts, progress=False)
+        clips[f.name] = {"duration": round(len(audio) / SR, 2), "segments": segments}
+        print(f"  {n}/{len(files)} {f.name}: {len(segments)} segment(s)", flush=True)
+    data = {"model": model_name, "languages": languages, "clips": clips}
+    (output / "narration.json").write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"Done in {mmss(time.time() - t0)}: {len(files)} clip(s) → {output}/narration.json")
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("audios", nargs="+", type=Path)
+    p.add_argument("--output", type=Path)
+    p.add_argument("--model", default="large-v3")
+    p.add_argument("--device", default="auto", choices=["auto", "cuda", "cpu"])
+    p.add_argument("--languages", default="es,pt")
+    p.add_argument("--until", type=float, help="transcribe only the first N seconds (for testing)")
+    p.add_argument("--per-file", action="store_true", help="transcribe each file on its own → narration.json")
+    args = p.parse_args()
+
+    languages = [lang.strip() for lang in args.languages.split(",") if lang.strip()]
+    if args.per_file and not args.output:
+        sys.exit("--per-file needs --output")
+    output = args.output or args.audios[0].parent
+    output.mkdir(parents=True, exist_ok=True)
+    for a in args.audios:
+        if not a.exists():
+            sys.exit(f"{a} does not exist")
+
+    # Where each part starts inside the joined audio.
+    parts, offset = [], 0.0
+    for a in args.audios:
+        parts.append({"file": a.name, "start": offset})
+        offset += duration(a) or 0.0
+
+    import ctranslate2
+
+    cuda = args.device == "cuda" or (args.device == "auto" and ctranslate2.get_cuda_device_count() > 0)
+    device, compute_type = ("cuda", "int8_float16") if cuda else ("cpu", "int8")
+    print(f"Model {args.model} on {device} ({compute_type})", flush=True)
+    model = WhisperModel(args.model, device=device, compute_type=compute_type)
+    initial_prompts = prompts(languages)
+    if args.per_file:
+        per_file(model, args.audios, output, languages, args.model, args.until)
+        return
+
+    t0 = time.time()
+    with tempfile.TemporaryDirectory() as tmp:
+        pcm = Path(tmp) / "audio.pcm"
+        join_audio(args.audios, pcm, args.until)
+        audio = np.fromfile(pcm, dtype=np.int16).astype(np.float32) / 32768.0
+    total_s = len(audio) / SR
+    print(f"Audio: {mmss(total_s)} · {len(args.audios)} file(s)", flush=True)
+
+    segments, n_spans, n_windows = transcribe_audio(model, audio, languages, initial_prompts)
+    print(f"{n_spans} speech spans → {n_windows} windows", flush=True)
 
     data = {
         "audios": [a.name for a in args.audios],

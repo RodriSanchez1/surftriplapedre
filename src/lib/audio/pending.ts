@@ -1,4 +1,4 @@
-/** Which audios in the Drive folder still need processing. Used by scripts/session-auto.mjs. */
+/** Which audios and video reviews in the Drive folder still need processing. Used by scripts/session-auto.mjs. */
 import { parseCaptureName, parseReviewName } from '../review/log.ts';
 
 export interface DriveFile {
@@ -71,6 +71,12 @@ export function groupByDate(files: DriveFile[]): {
   }
   for (const list of [...meta.values(), ...review.values()]) list.sort((a, b) => a.name.localeCompare(b.name));
   return { byDate: new Map([...byDate].sort(([a], [b]) => a.localeCompare(b))), meta, review, ignored };
+}
+
+/** Dates with something to make insights from: a talk audio or a video review log (captures alone are not enough). */
+export function sessionDates(byDate: Map<string, Audio[]>, review: Map<string, DriveFile[]>): string[] {
+  const reviewed = [...review].filter(([, files]) => files.some((f) => parseReviewName(f.name))).map(([date]) => date);
+  return [...new Set([...byDate.keys(), ...reviewed])].sort();
 }
 
 /**

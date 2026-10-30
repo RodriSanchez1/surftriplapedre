@@ -11,7 +11,8 @@
     "import-session": "node scripts/import-session.mjs",
     "transcribe": "uv run scripts/transcribe.py",
     "session-auto": "node scripts/session-auto.mjs",
-    "review-timeline": "node scripts/review-timeline.mjs"
+    "review-timeline": "node scripts/review-timeline.mjs",
+    "deliver": "node scripts/deliver.mjs"
   },
   "type": "module",
   "dependencies": {

@@ -1,6 +1,7 @@
 /**
  * Lines the review log up with the talk audio: for each thing the coach did on /review/,
  * the minute of the talk (as in raw-transcript.md) and the moment of the surf session it showed.
+ * With narration.json, it also shows what the coach said while filming each clip.
  * Used by scripts/review-timeline.mjs. It only imports ./log.ts, with the extension so Node can run it.
  */
 import { filmedMoment, type ClipTags, type ReviewEvent, type ReviewLog } from './log.ts';
@@ -25,6 +26,31 @@ export interface PartInput {
   times?: { start?: string; modified?: string };
   /** The 'HHmm' of the file name read in the trip time zone, or null. */
   nameStart: Date | null;
+}
+
+/** What the coach said while filming each clip (narration.json), by clip file name. Times are seconds inside the clip. */
+export type Narration = Record<string, { segments: { start: number; language: string; text: string }[] }>;
+
+/** Reads narration.json (written by transcribe.py --per-file). Anything else → null; bad segments are dropped. */
+export function parseNarration(text: string): Narration | null {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  const clips = (data as { clips?: unknown } | null)?.clips;
+  if (!clips || typeof clips !== 'object' || Array.isArray(clips)) return null;
+  const out: Narration = {};
+  for (const [clip, value] of Object.entries(clips as Record<string, unknown>)) {
+    const segments = (value as { segments?: unknown } | null)?.segments;
+    out[clip] = {
+      segments: (Array.isArray(segments) ? segments : [])
+        .filter((s): s is { start: number; text: string; language?: unknown } => typeof s?.start === 'number' && typeof s?.text === 'string')
+        .map((s) => ({ start: s.start, language: typeof s.language === 'string' ? s.language : '?', text: s.text })),
+    };
+  }
+  return out;
 }
 
 type Field = Intl.DateTimeFormatPartTypes;
@@ -181,15 +207,25 @@ function heading(
   return `## ${bits.join(' · ')}`;
 }
 
+/** The narration block under a clip's first heading. A clip missing from narration.json was not found on disk. */
+function narrationLines(clip: string, narration: Narration): string[] {
+  const entry = narration[clip];
+  if (!entry) return ['Narration: (clip file not found on disk)'];
+  if (!entry.segments.length) return ['Narration: (no speech)'];
+  return ['Narration (the coach, while filming):', ...entry.segments.map((s) => `- ${formatClip(s.start)} (${s.language}) ${s.text}`)];
+}
+
 /**
  * Markdown for the process-session skill: the review events of a talk, by clip, each with its talk minute.
  * Several logs of the same day are merged by time. Events outside the audio show '--:--'.
+ * With narration, each clip's first heading is followed by what the coach said while filming it.
  */
 export function buildTimeline(
   logs: ReviewLog[],
   parts: AudioPart[],
   timeZone: string,
   surferNames: Record<string, string>,
+  narration: Narration | null = null,
 ): string {
   const days = [...new Set(logs.map((l) => l.talkDate))].join(', ');
   const out = [
@@ -197,16 +233,22 @@ export function buildTimeline(
     '',
     'Talk minute (as in raw-transcript.md) → what was on screen. Wave time = when the camera filmed that moment.',
   ];
+  if (narration) out.push('Narration = what the coach said while filming each clip, by the second inside the clip.');
   const events = logs.flatMap((l) => l.events).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const lastOpen = new Map<string, OpenEvent>();
   // A later log of the same day has the newer tags.
   const tags: Record<string, ClipTags> = Object.assign({}, ...logs.map((l) => l.clips ?? {}));
   let currentClip: string | null = null;
+  const narrated = new Set<string>();
   for (const event of events) {
     if (event.type === 'open') lastOpen.set(event.clip, event);
     if (event.type === 'open' || event.clip !== currentClip) {
       out.push('', heading(event.at, event.clip, lastOpen.get(event.clip), parts, timeZone, tags[event.clip], surferNames));
       currentClip = event.clip;
+      if (narration && !narrated.has(event.clip)) {
+        narrated.add(event.clip);
+        out.push(...narrationLines(event.clip, narration));
+      }
     }
     if (event.type === 'open') continue;
     out.push(`- ${talkLabel(event.at, parts)} ${describe(event, lastOpen.get(event.clip), timeZone, surferNames)}`);
