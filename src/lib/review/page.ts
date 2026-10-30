@@ -147,6 +147,9 @@ export function init(root: HTMLElement): void {
   const locked = () => [...root.querySelectorAll<HTMLButtonElement | HTMLInputElement>('[data-lock]')];
   const interactive = [...root.querySelectorAll<HTMLElement>('.rail, .transport, .tagger')];
   const clipsPanel = $('[data-clip-list]').closest<HTMLElement>('.clips')!;
+  /** The keyboard shortcuts: a modal dialog from the ⌨ button (not on /design/'s demo, which has no script). */
+  const keysDialog = root.querySelector<HTMLDialogElement>('[data-keys]');
+  const keysButton = root.querySelector<HTMLElement>('[data-action="keys"]');
   const filesInput = $<HTMLInputElement>('[data-files]');
   /** A phone: the clip list is a drawer over the picture instead of a column. */
   const compact = matchMedia('(max-width: 760px), (orientation: landscape) and (max-height: 500px)');
@@ -1226,6 +1229,7 @@ export function init(root: HTMLElement): void {
     'toggle-list': () => {
       root.dataset.list = getComputedStyle(clipsPanel).display === 'none' ? 'open' : 'closed';
     },
+    keys: () => keysDialog?.showModal(),
     'toggle-record': () => {
       const open = root.dataset.record !== 'open';
       setRecord(open);
@@ -1386,6 +1390,8 @@ export function init(root: HTMLElement): void {
   document.addEventListener('keydown', (e) => {
     // The tour's dialog handles its own keys (Esc is Saltar); none of the editor's shortcuts run under it.
     if (tour?.isOpen()) return;
+    // The shortcuts dialog handles its own keys (Esc closes it); none of the editor's shortcuts run under it.
+    if (keysDialog?.open) return;
     if (root.dataset.signedIn === 'false') return;
     const target = e.target as HTMLElement;
     // Escape puts away the arrow menu first and gives the focus back to its button.
@@ -1491,6 +1497,15 @@ export function init(root: HTMLElement): void {
   new MutationObserver(paintList).observe(root, { attributes: true, attributeFilter: ['data-list', 'data-has-clips'] });
   compact.addEventListener('change', paintList);
   matchMedia('(min-width: 761px) and (min-height: 501px)').addEventListener('change', paintList);
+
+  if (keysDialog) {
+    keysDialog.querySelector('[data-keys-close]')!.addEventListener('click', () => keysDialog.close());
+    // A click on the dimmed screen around the card lands on the dialog itself: it closes too.
+    keysDialog.addEventListener('click', (e) => {
+      if (e.target === keysDialog) keysDialog.close();
+    });
+    keysDialog.addEventListener('close', () => keysButton?.focus());
+  }
 
   // --- Startup ---
 

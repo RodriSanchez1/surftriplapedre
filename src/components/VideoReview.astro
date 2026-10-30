@@ -11,6 +11,7 @@ import { WEEKDAYS, format, t, type Lang } from '../lib/i18n';
 import type { Texts } from '../lib/review/page';
 import AudioUploader from './AudioUploader.astro';
 import Avatar from './Avatar.astro';
+import ReviewKeys from './ReviewKeys.astro';
 import TourOverlay from './TourOverlay.astro';
 import ToolIcon from './ToolIcon.astro';
 
@@ -160,6 +161,16 @@ const demoClips = [
     <button type="button" class="btn tour-replay" data-tour-replay title={t(lang, 'tour.replay')} aria-label={t(lang, 'tour.replay')}>?</button>
     <button
       type="button"
+      class="btn keys-open"
+      data-action="keys"
+      aria-haspopup="dialog"
+      title={t(lang, 'review.keysOpen')}
+      aria-label={t(lang, 'review.keysOpen')}
+    >
+      <ToolIcon name="keyboard" />
+    </button>
+    <button
+      type="button"
       class="btn rec-toggle"
       data-action="toggle-record"
       aria-expanded="false"
@@ -201,6 +212,7 @@ const demoClips = [
       {!demo && <AudioUploader lang={lang} dates={dates} timeZone={timeZone} spots={spots} surfers={surfers} audio={audio} />}
     </div>
   </div>
+  {!demo && <ReviewKeys lang={lang} />}
 
   <aside class="clips" aria-label={t(lang, 'review.clips')}>
     <ol data-clip-list>
@@ -273,7 +285,6 @@ const demoClips = [
       <span aria-hidden="true">?</span>
       {t(lang, 'tour.replay')}
     </button>
-    <p class="keys help">{t(lang, 'review.keys')}</p>
   </aside>
 
   <div class="rail" role="group" aria-label={t(lang, 'review.tools')}>
@@ -762,7 +773,8 @@ const demoClips = [
     min-height: var(--hit);
   }
   @media (max-width: 479px) {
-    [data-has-clips='true'] .bar > .tour-replay {
+    [data-has-clips='true'] .bar > .tour-replay,
+    [data-has-clips='true'] .bar > .keys-open {
       display: none;
     }
     [data-has-clips='true'] .drawer-replay {
@@ -870,9 +882,6 @@ const demoClips = [
     min-height: 0;
     overflow-y: auto;
     align-content: start;
-  }
-  .keys {
-    margin: var(--s-2) 0 0;
   }
   .clips li {
     display: flex;
@@ -1801,11 +1810,15 @@ const demoClips = [
     display: none !important;
   }
 
-  /* A touch screen has no keyboard: no shortcuts line. */
+  /* A touch screen has no keyboard: no shortcuts button. */
   @media (pointer: coarse) {
-    .keys {
+    .keys-open {
       display: none;
     }
+  }
+  .keys-open :global(.tool-icon) {
+    width: 1.25em;
+    height: 1.25em;
   }
 
   .wave:has([data-wave]:empty) {
