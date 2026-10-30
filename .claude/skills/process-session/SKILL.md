@@ -1,6 +1,6 @@
 ---
 name: process-session
-description: Turns the audio or transcript of a session with the coach into each surfer's insights (ES and PT) and loads them into the site. Use when there is a new audio or transcript in sessions/<date>/, when the user asks to "process the session", "generate the insights", "load today's session" ("procesá la sesión", "generá los insights", "cargá la sesión de hoy"), or when scripts/session-auto.mjs calls it.
+description: Turns the audio or transcript of a session with the coach, or the coach's narration on the reviewed clips, into each surfer's insights (ES and PT) and loads them into the site. Use when there is a new audio or transcript in sessions/<date>/, when the user asks to "process the session", "generate the insights", "load today's session" ("procesá la sesión", "generá los insights", "cargá la sesión de hoy"), or when scripts/session-auto.mjs calls it.
 argument-hint: "[YYYY-MM-DD]"
 ---
 
@@ -21,12 +21,13 @@ The insights are participant-facing content: `insights-es.md` is written in Span
 2. Audios `<date>_<HHmm>[_partN].<ext>` (older uploads may be `_parteN`): transcribe them with
    `uv run scripts/transcribe.py sessions/<date>/<audio1> [<audio2> ...]`, in time and part order. It takes several minutes.
 3. An already curated `transcript.md` (for example, from ElevenLabs): skip step 2.
+4. Only video review logs (`*.review.json`) and `narration.json`: the coach narrated while filming and there was no talk. Skip steps 2 and 3: the timeline (below) is the whole input.
 
 If there is nothing, stop and say what is missing.
 
 If there are `sessions/<date>/*.meta.json` files, read them too. The coach fills them in from `/upload/`: which surf sessions' footage was reviewed (`date`, `time`: `morning` or `afternoon`, `spot`) and who was in the water in each one (`surfers`, ids from `surfers.yaml`). The format is in `src/lib/footage.ts`. Without them, everything below works the same.
 
-If there are `sessions/<date>/*.review.json` files, the coach also reviewed videos on `/review/`. Read `sessions/<date>/review-timeline.md`. If it is missing, run `npm run review-timeline -- <date>` first (it needs `raw-transcript.json`). Without review logs, skip everything about the timeline and captures below.
+If there are `sessions/<date>/*.review.json` files, the coach also reviewed videos on `/review/`. Read `sessions/<date>/review-timeline.md`. If it is missing, run `npm run review-timeline -- <date>` first (without a talk audio every talk minute shows `--:--`). Without review logs, skip everything about the timeline and captures below.
 
 Also read: `src/data/trip.yaml`, `src/data/surfers.yaml`, `src/data/days.yaml`, this skill's `examples/insights-es.md` (a real session, as an example of the format and the tone) and the `insights-es.md` of the previous session, if there is one, to see what focus each surfer had.
 
@@ -49,7 +50,20 @@ Each line is `[mm:ss] (language) text`. The language was detected per span betwe
 - **Look at every capture** (`sessions/<date>/<group>_cap-<n>.jpg`, the file named in the timeline line) before using it. Read the drawing together with what the coach said about that wave, from the clip header to the capture: arrows, lines and colors usually contrast what the surfer did with what they should do. The caption says that in the coach's terms; if what a mark means is an inference, keep the caption to what is certain.
 - The timeline is private, like the transcript: never commit it.
 
+### The coach's narration
+
+When the coach narrates while filming, `narration.json` holds what they said in each clip and the timeline shows it under the first heading of each clip:
+
+- `Narration (the coach, while filming):` and then `- <m:ss.d> (<language>) <text>`, by the second inside the clip. It is the coach's own comment on that exact wave, so it is the main source; a talk, if there was one, adds to it.
+- Who surfs comes from the clip tags. The narration rarely names the surfer: never attribute an untagged clip from a guess, and list those clips in the final message.
+- `Narration: (no speech)`: the coach said nothing on that clip. `Narration: (clip file not found on disk)`: the clip was reviewed but its file was not in the footage folder; mention it in the final message.
+- It is spoken outdoors, often in wind: interpret by meaning and never quote a garbled line.
+- A point from the narration names the wave and cites its time instead of a minute: "En tu ola de las 10:42 del 29/10, …", with `(ola 10:42)` in parentheses. If the talk also discussed it, cite both.
+- With no talk, the plan table comes from what the coach repeated across each surfer's waves, and there is no logistics list.
+
 ## 3. `sessions/<date>/transcript.md` (private)
+
+Only when there is a talk. With narration only, skip this step.
 
 Format: title, header (audio, duration, how it was transcribed, participants), "How to read it", an **index of spans** (`| Time | Span | Surfer analyzed |`) and then the text by span, with `## mm:ss · topic · surfer` and the speaker in bold. Doubtful words go as *[¿…?]*. It is private: never commit it.
 
@@ -95,7 +109,7 @@ Rules:
 - One `## <Name>` section per surfer **who was talked about**, with the name exactly as it is in `surfers.yaml` (`name`). If someone was not talked about, they get no section and no table row; say so in the final message.
 - Every surfer with a section must have a row in the table (otherwise the import fails).
 - A point that comes from a video names the wave instead of relying on the minute: "En tu ola de las 10:42 del 26/10, …" (PT: "Na sua onda das 10:42 do 26/10, …"), using the wave time and day from the timeline. Keep citing the minute in parentheses as before.
-- Cite the minute of each point in parentheses. The coach's quotes are translated into Spanish, in quotation marks.
+- Cite the minute of each point in parentheses (for a point from the narration, the wave time: `(ola 10:42)`). The coach's quotes are translated into Spanish, in quotation marks.
 - If the previous session had a focus for someone and this one shows progress or the same problem, mention it in their context.
 - "En qué trabajar" is ordered by what the coach repeated most. Short sentences, Rioplatense voseo, no filler.
 - The "Frase para el agua" is short and comes from the coach when possible.

@@ -40,13 +40,15 @@ src/lib/content.ts            loads the content and stops the build on broken re
 src/lib/audio/                upload of the coach's audio to Drive (filenames, upload, store, recorder, login, page)
                               and which Drive audios still need processing (pending)
 src/lib/review/               video review: log format (log.ts), clip header (mp4.ts), timeline of the talk (timeline.ts)
+src/lib/delivery/             delivery to surfers: where a reviewed clip is on disk (locate.ts), which clips go to whom
+                              (plan.ts), the WhatsApp message (message.ts) and the local delivery page (page.ts)
 src/lib/og/                   link previews (WhatsApp, Discord...): each page's description and card (meta.ts), drawn
                               as PNG at build time (card.ts) and served at /og/<lang>/<page>.png
 src/components/               design system
 src/views/                    body of each page (they receive lang)
 src/pages/  src/pages/pt/     one-line wrappers per language
 public/captures/<date>/       frames from the video review, with the coach's drawing (<id>.jpg, committed with the insights)
-scripts/                      avatars, import-session, shots, transcribe.py, session-auto, review-timeline
+scripts/                      avatars, import-session, shots, transcribe.py, session-auto, review-timeline, deliver, clip-files
 .claude/skills/process-session/   skill: from the transcript to the insights loaded in the site
 sessions/<date>/              inputs for each session (insights-es.md, insights-pt.md; audio, transcripts and
                               <date>_<HHmm>.meta.json footage files are local)
@@ -103,6 +105,7 @@ If a subagent gets stuck or the task turns out to have open decisions, it goes b
 - If new audio arrives for a date that was already processed, it warns and overwrites nothing unless you use `--date <date> --force`.
 - `--local` uses the audio already in `sessions/<date>/`, without Drive. `--no-claude` only downloads and transcribes. `--list` shows the status.
 - It needs a clean git tree and `main` must have the skill.
+- A date with only a video review (no talk audio) is processed too. With `SURFTRIP_FOOTAGE_DIR` set, it transcribes the coach's narration in each reviewed clip (`transcribe.py --per-file` → `sessions/<date>/narration.json`, local), adds it to `review-timeline.md`, and after the insights runs `npm run deliver` (see "Deliver the clips to the surfers").
 - It leaves the details in `sessions/<date>/auto.log`.
 
 **Transcription** (`scripts/transcribe.py`): faster-whisper `large-v3` on the GPU, with dependencies declared in the script (`uv run` installs them by itself; the first time it downloads ~3 GB between CUDA and the model). The coach speaks Portuguese and the surfers speak Spanish, so the audio is cut into voice chunks and the language is detected per chunk, only between `es` and `pt`. The roster and coach names go in as vocabulary. It does not separate voices: the skill infers who is speaking from the language and context.
@@ -116,7 +119,7 @@ If a subagent gets stuck or the task turns out to have open decisions, it goes b
 5. Schedule it every 10 minutes with `crontab -e` (WSL has to be open and cron running: `sudo service cron start`):
    `*/10 * * * * cd "<repo path>" && PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/<v24>/bin:$PATH" node scripts/session-auto.mjs >> sessions/cron.log 2>&1`
 
-Variables: `SURFTRIP_RCLONE_REMOTE` (remote, default `drive`), `SURFTRIP_MODEL` (model for the skill, default `sonnet`) and `SURFTRIP_BASE_BRANCH` (default `main`).
+Variables: `SURFTRIP_RCLONE_REMOTE` (remote, default `drive`), `SURFTRIP_MODEL` (model for the skill, default `sonnet`), `SURFTRIP_BASE_BRANCH` (default `main`), `SURFTRIP_FOOTAGE_DIR` (the footage folder, see below; without it there is no narration and no delivery) and `SURFTRIP_DELIVERY_LIMIT_GB` (default 3). Add `SURFTRIP_FOOTAGE_DIR=...` to the cron line too.
 
 ### Review videos with the coach  ·  human
 
@@ -135,6 +138,17 @@ Each clip carries tags, set with the 👥 pill: who surfs in it, and whether it 
 Clips marked to delete are removed from the computer's folder only after the upload succeeds, and only in Chrome or Edge with the folder opened and write access granted. They do not go to the trash.
 
 The videos themselves are never uploaded. `npm run session-auto` (or `/process-session <date>`) turns the logs into `review-timeline.md`, and the insights can cite the wave ("En tu ola de las 10:42...") and carry a `**Capturas**` block that `import-session` publishes. By hand: `npm run review-timeline -- <date>` after transcribing.
+
+### Deliver the clips to the surfers  ·  human
+
+The coach only films and talks while filming: the narration recorded in each clip is the main source of the insights.
+
+1. Copy the day's SD card as is to `<footage root>/<filming date>/`. On WSL the root is a Windows folder, for example `C:\Users\<you>\Surftrip`, seen as `/mnt/c/Users/<you>/Surftrip`. Set `SURFTRIP_FOOTAGE_DIR` to the root.
+2. The coach opens that day folder on `/review/`, tags who surfs each wave and taps "Subir".
+3. `npm run session-auto` transcribes the narration, makes the insights and then builds `<root>/<talk date>/delivery/`: one folder per surfer with the raw clips of their waves (hardlinks, so no extra space; named `HH-mm_<clip>`) and `index.html`. By hand: `npm run deliver -- <date>`.
+4. Push the session first: the message links to the surfer's analysis. Then open `delivery\index.html` with a double click. For each surfer: copy the path, make a WeTransfer link with that folder, paste the link and tap "Mandar por WhatsApp" (it opens WhatsApp with the message written; pick the contact).
+
+WeTransfer has no usable API, so that upload stays manual. Its free plan takes 3 GB per transfer: a bigger folder is flagged (`SURFTRIP_DELIVERY_LIMIT_GB`). Untagged clips, and clips tagged only landscape or extras or marked to delete, are not delivered.
 
 ### Load or change a calendar day  ·  Haiku
 
@@ -190,6 +204,7 @@ npm run avatars         generates missing avatars
 npm run import-session -- <date> "<ES title>" "<PT title>"
 npm run transcribe -- <audio> [<audio> ...] [--until <sec>]   local ES/PT transcription
 npm run review-timeline -- <date>   timeline of the video review for a transcribed talk
+npm run deliver -- <date>           one folder per surfer with their clips + the WhatsApp page (needs SURFTRIP_FOOTAGE_DIR)
 npm run session-auto -- [--list] [--date <date>] [--local] [--no-claude] [--force]
 npm run shots -- <base-url> <folder> [route ...]   screenshots at 390 px and 1280 px
 ```
