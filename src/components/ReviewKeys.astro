@@ -1,0 +1,190 @@
+---
+/**
+ * The keyboard shortcuts of /review/, in a modal dialog opened from the keyboard button in the bar
+ * (src/lib/review/page.ts opens and closes it). With `demo` it is drawn in place, open and not modal, for /design/.
+ */
+import { t, type Lang, type UiKey } from '../lib/i18n';
+import ToolIcon from './ToolIcon.astro';
+
+interface Props {
+  lang: Lang;
+  demo?: boolean;
+}
+
+const { lang, demo = false } = Astro.props;
+const Tag = demo ? 'div' : 'dialog';
+const id = demo ? 'keys-demo' : 'keys';
+
+/** One shortcut: its keys (each inner list is one key or its alternatives; the lists are joined by +) and what it does. */
+interface Row {
+  keys: string[][];
+  what: UiKey;
+}
+const space = t(lang, 'review.keySpace');
+const del = t(lang, 'review.keyDelete');
+const groups: { title: UiKey; rows: Row[] }[] = [
+  {
+    title: 'review.keysPlay',
+    rows: [
+      { keys: [[space]], what: 'review.keysToggle' },
+      { keys: [['←', '→']], what: 'review.keysFrame' },
+      { keys: [['⇧'], ['←', '→']], what: 'review.keysJump' },
+      { keys: [['F']], what: 'review.keysFullscreen' },
+    ],
+  },
+  {
+    title: 'review.keysAnalyze',
+    rows: [
+      { keys: [['S']], what: 'review.keysCapture' },
+      { keys: [['T']], what: 'review.keysTags' },
+      { keys: [[del]], what: 'review.keysDelete' },
+      { keys: [['L']], what: 'review.keysList' },
+    ],
+  },
+  {
+    title: 'review.keysZoom',
+    rows: [
+      { keys: [['+', '−']], what: 'review.keysZoomInOut' },
+      { keys: [['0']], what: 'review.keysZoomReset' },
+    ],
+  },
+];
+---
+
+<Tag class:list={['keys', { demo }]} data-keys={demo ? undefined : ''} role={demo ? 'group' : undefined} aria-labelledby={`${id}-title`}>
+  <div class="keys-head">
+    <ToolIcon name="keyboard" />
+    <h2 class="keys-title" id={`${id}-title`}>{t(lang, 'review.keysTitle')}</h2>
+    <button type="button" class="keys-close" data-keys-close aria-label={t(lang, 'review.keysClose')} title={t(lang, 'review.keysClose')}>
+      ✕
+    </button>
+  </div>
+  <div class="keys-body">
+    {
+      groups.map((g) => (
+        <section class="keys-group">
+          <h3>{t(lang, g.title)}</h3>
+          <dl>
+            {g.rows.map((r) => (
+              <>
+                <dt>
+                  {r.keys.map((alts, i) => (
+                    <>
+                      {i > 0 && <span class="plus">+</span>}
+                      {alts.map((k) => (
+                        <kbd>{k}</kbd>
+                      ))}
+                    </>
+                  ))}
+                </dt>
+                <dd>{t(lang, r.what)}</dd>
+              </>
+            ))}
+          </dl>
+        </section>
+      ))
+    }
+    <section class="keys-group">
+      <h3>{t(lang, 'review.keysMouse')}</h3>
+      <ul>
+        <li>{t(lang, 'review.keysScrub')}</li>
+        <li>{t(lang, 'review.keysPan')}</li>
+      </ul>
+    </section>
+  </div>
+</Tag>
+
+<style>
+  .keys {
+    width: min(40rem, calc(100vw - 2 * var(--s-4)));
+    max-height: calc(100dvh - 2 * var(--s-4));
+    padding: 0;
+    overflow: auto;
+    background: var(--c-paper);
+    color: var(--c-ink);
+    border: var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .keys::backdrop {
+    background: var(--scrim);
+  }
+  /* On /design/: in the flow, open, not modal. */
+  .keys.demo {
+    position: static;
+    display: block;
+    margin: 0;
+  }
+  .keys-head {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
+    border-bottom: var(--border);
+  }
+  .keys-title {
+    flex: 1;
+    margin: 0;
+    font: 16px var(--font-head);
+  }
+  .keys-close {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: none;
+    color: var(--c-ink);
+    font-size: 18px;
+    cursor: pointer;
+  }
+  .keys-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-4) var(--s-5);
+    padding: var(--s-4) var(--s-5) var(--s-5);
+  }
+  @media (min-width: 600px) {
+    .keys-body {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .keys-group h3 {
+    margin: 0 0 var(--s-2);
+    font: 13px var(--font-head);
+  }
+  dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--s-2) var(--s-3);
+    align-items: center;
+    font-size: 14px;
+    line-height: 1.3;
+  }
+  dt {
+    display: flex;
+    align-items: center;
+    gap: var(--s-1);
+  }
+  dd {
+    margin: 0;
+  }
+  kbd {
+    min-width: 1.25rem;
+    padding: 2px 6px;
+    text-align: center;
+    font: 12px var(--font-strong);
+    background: var(--c-white);
+    border: 2px solid var(--c-ink);
+    border-radius: 5px;
+    box-shadow: 0 2px 0 var(--c-ink);
+  }
+  ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: grid;
+    gap: 6px;
+    font-size: 14px;
+    line-height: 1.35;
+  }
+</style>

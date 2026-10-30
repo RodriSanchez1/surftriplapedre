@@ -6,9 +6,9 @@ const colors = { ink: '#111111', paper: '#fffaf0', accent: '#e4261c' };
 const tools: Tool[] = ['pen', 'arrow', 'freeArrow', 'circle'];
 
 describe('ICONS', () => {
-  it('has a drawing for every rail button', () => {
-    for (const name of ['pen', 'arrow', 'freeArrow', 'circle', 'undo', 'clear', 'pin', 'zoom'] as const) {
-      expect(ICONS[name]).toMatch(/^<(path|circle) /);
+  it('has a drawing for every rail button and the clip list', () => {
+    for (const name of ['pen', 'arrow', 'freeArrow', 'circle', 'undo', 'clear', 'pin', 'zoom', 'keyboard', 'grip', 'trash'] as const) {
+      expect(ICONS[name]).toMatch(/^<(path|circle|rect) /);
     }
   });
 });
