@@ -1972,13 +1972,14 @@ const demoClips = [
     [data-has-clips='true']:not([data-list='closed']) .clips {
       display: flex;
     }
-    /* In the gutter right of the list: drag it, or ← → on it, to change the list's width (list-width-page.ts). */
+    /* In the gutter right of the list, after its shadow: drag it, or ← → on it, to change the list's width
+       (list-width-page.ts). */
     .list-handle {
       position: absolute;
       top: 0;
       bottom: 0;
-      left: calc(100% + var(--border-w));
-      width: 26px;
+      left: calc(100% + var(--border-w) + var(--shadow-d));
+      width: calc(26px - var(--shadow-d));
       display: grid;
       place-items: center;
       cursor: col-resize;
@@ -1989,7 +1990,7 @@ const demoClips = [
     }
     .list-grip {
       position: relative;
-      width: 22px;
+      width: 16px;
       height: 48px;
       display: grid;
       place-items: center;
@@ -1998,17 +1999,18 @@ const demoClips = [
       border: 2px solid var(--c-ink);
       border-radius: 6px;
     }
+    /* 16 px wide like the tab: the dots sit in its middle, clear of the 2 px border. */
     .list-grip :global(.tool-icon) {
       display: block;
       width: 16px;
       height: 16px;
+      margin-inline: -2px;
       stroke-width: 3.4;
     }
     .list-handle:hover .list-grip,
     .list-handle:focus-visible .list-grip,
     [data-resizing] .list-grip {
       background: var(--c-yellow);
-      box-shadow: 2px 2px 0 var(--c-ink);
     }
     .list-handle:focus-visible .list-grip {
       outline: 3px solid var(--focus-ring);
@@ -2020,7 +2022,7 @@ const demoClips = [
       position: absolute;
       top: 0;
       bottom: 0;
-      left: 12px;
+      left: calc(50% - 1px);
       border-left: 2px dashed var(--c-ink);
     }
     [data-resizing] .clips {
