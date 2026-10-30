@@ -14,6 +14,7 @@ import Avatar from './Avatar.astro';
 import ReviewKeys from './ReviewKeys.astro';
 import TourOverlay from './TourOverlay.astro';
 import ToolIcon from './ToolIcon.astro';
+import { DEFAULT_W, MAX_W, MIN_W } from '../lib/review/list-width';
 
 interface Props {
   lang: Lang;
@@ -214,7 +215,7 @@ const demoClips = [
   </div>
   {!demo && <ReviewKeys lang={lang} />}
 
-  <aside class="clips" aria-label={t(lang, 'review.clips')}>
+  <aside class="clips" id="clip-list" aria-label={t(lang, 'review.clips')}>
     <ol data-clip-list>
       {
         demo &&
@@ -285,6 +286,21 @@ const demoClips = [
       <span aria-hidden="true">?</span>
       {t(lang, 'tour.replay')}
     </button>
+    <div
+      class="list-handle"
+      data-list-handle
+      role="separator"
+      tabindex="0"
+      aria-orientation="vertical"
+      aria-controls="clip-list"
+      aria-valuemin={MIN_W}
+      aria-valuemax={MAX_W}
+      aria-valuenow={DEFAULT_W}
+      aria-label={t(lang, 'review.listWidth')}
+      title={t(lang, 'review.listWidthHint')}
+    >
+      <span class="list-grip"><ToolIcon name="grip" /></span>
+    </div>
   </aside>
 
   <div class="rail" role="group" aria-label={t(lang, 'review.tools')}>
@@ -871,6 +887,10 @@ const demoClips = [
   }
   [data-list='open'][data-has-clips='true'] .clips {
     display: flex;
+  }
+  /* The width handle only exists next to the laptop's list column. */
+  .list-handle {
+    display: none;
   }
   .clips ol {
     list-style: none;
@@ -1932,14 +1952,72 @@ const demoClips = [
     }
     .clips {
       grid-area: clips;
-      width: var(--list-w);
-      margin-right: var(--s-3);
+      position: relative;
+      width: min(var(--list-w), 40vw);
+      margin-right: 26px;
       margin-bottom: 0;
       z-index: auto;
     }
     /* Open unless closed by hand. */
     [data-has-clips='true']:not([data-list='closed']) .clips {
       display: flex;
+    }
+    /* In the gutter right of the list: drag it, or ← → on it, to change the list's width (list-width-page.ts). */
+    .list-handle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: calc(100% + var(--border-w));
+      width: 26px;
+      display: grid;
+      place-items: center;
+      cursor: col-resize;
+      touch-action: none;
+    }
+    .list-handle:focus-visible {
+      outline: none;
+    }
+    .list-grip {
+      position: relative;
+      width: 22px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      box-sizing: border-box;
+      background: var(--c-paper);
+      border: 2px solid var(--c-ink);
+      border-radius: 6px;
+    }
+    .list-grip :global(.tool-icon) {
+      display: block;
+      width: 16px;
+      height: 16px;
+      stroke-width: 3.4;
+    }
+    .list-handle:hover .list-grip,
+    .list-handle:focus-visible .list-grip,
+    [data-resizing] .list-grip {
+      background: var(--c-yellow);
+      box-shadow: 2px 2px 0 var(--c-ink);
+    }
+    .list-handle:focus-visible .list-grip {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+    /* While dragging: a dashed line down the gutter and the list lifts. */
+    [data-resizing] .list-handle::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 12px;
+      border-left: 2px dashed var(--c-ink);
+    }
+    [data-resizing] .clips {
+      box-shadow: 6px 6px 0 var(--c-ink);
+    }
+    [data-resizing] {
+      cursor: col-resize;
     }
     [data-list='closed'] .clips {
       display: none;

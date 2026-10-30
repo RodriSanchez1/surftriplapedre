@@ -30,6 +30,7 @@ import {
 import { fileReader, readClipInfo } from './mp4';
 import { finalLog, hasTags, outbox, type Filter } from './outbox';
 import { clipTags, openReviewStore, withDelete, type Draft, type ReviewStore } from './store';
+import { initListWidth } from './list-width-page';
 import { initTour, type Tour } from './tour-page';
 
 /** Texts built by the script; the rest already comes in the HTML. */
@@ -1520,6 +1521,7 @@ export function init(root: HTMLElement): void {
   setTags(false);
   setOutbox(false);
   paintList();
+  initListWidth(root, $('[data-list-handle]'));
   setColor(sketch.color);
   tour = initTour(root, {
     compact,
