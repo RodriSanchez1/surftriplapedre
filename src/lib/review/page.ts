@@ -11,6 +11,7 @@ import { folderIn, send, verifyAccess, PermissionError, type Dependencies } from
 import { clock, DEFAULT_FPS, length, middleEllipsis, position, scrubFrames, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
 import { initZoom } from './zoom-page';
+import { initPlayback } from './playback-page';
 import { cursorFor, ICONS } from './icons';
 import { placeMenu } from './menu';
 import { askWrite, canPickFolder, canRead, isVideo, pickFolder, removeVideos, uniqueDirs, videosIn } from './folder';
@@ -189,6 +190,8 @@ export function init(root: HTMLElement): void {
   /** The guided tour: while it is open the shortcuts are off and messages wait for it to close. */
   let tour: Tour | null = null;
   let heldMessage: Parameters<typeof say> | null = null;
+  /** The speed menu and the volume popover; opening one puts the arrow menu away. */
+  const playback = initPlayback(root, video, () => setArrowMenu(false));
 
   // --- Messages and state ---
 
@@ -200,6 +203,7 @@ export function init(root: HTMLElement): void {
     for (const el of interactive) el.inert = view !== 'ready';
     if (view !== 'ready') setTags(false);
     if (view !== 'ready') setArrowMenu(false);
+    if (view !== 'ready') playback.close();
     $('[data-next-clip]').hidden = clips.length < 2;
   }
 
@@ -606,6 +610,7 @@ export function init(root: HTMLElement): void {
     arrowMenu.hidden = !open;
     arrowButton.setAttribute('aria-expanded', String(open));
     if (!open) return;
+    playback.close();
     const gap = parseFloat(getComputedStyle(root).getPropertyValue('--s-2')) || 8;
     const place = placeMenu(
       arrowButton.getBoundingClientRect(),
@@ -1120,7 +1125,7 @@ export function init(root: HTMLElement): void {
   });
   video.addEventListener('ratechange', () => {
     for (const b of root.querySelectorAll<HTMLElement>('[data-rate]')) {
-      b.setAttribute('aria-pressed', String(Number(b.dataset.rate) === video.playbackRate));
+      b.setAttribute('aria-checked', String(Number(b.dataset.rate) === video.playbackRate));
     }
     $('[data-rate-label]').textContent = `${video.playbackRate}×`;
     // Loading a clip resets the rate to the default, and setting the default fires it too: only real changes count.
@@ -1275,18 +1280,9 @@ export function init(root: HTMLElement): void {
     play: () => toggle(),
     'prev-frame': () => step(-1),
     'next-frame': () => step(1),
-    rate: (b) => {
-      // The default too, so the next clip opens at the same speed.
-      video.defaultPlaybackRate = Number(b.dataset.rate);
-      video.playbackRate = Number(b.dataset.rate);
-    },
-    // 1× → 0.5× → 0.25× → 1×, for the narrow screens where three buttons do not fit.
-    'cycle-rate': (b) => {
-      const speeds = (b.dataset.rates ?? '1').split(' ').map(Number);
-      const next = speeds[(speeds.indexOf(video.playbackRate) + 1) % speeds.length];
-      video.defaultPlaybackRate = next;
-      video.playbackRate = next;
-    },
+    speed: () => playback.toggleSpeed(),
+    rate: (b) => playback.pickRate(b),
+    volume: () => playback.pressVolume(),
     fullscreen: () => setImmersive(!root.hasAttribute('data-immersive')),
     tool: (b) => setTool(b.dataset.tool as Tool),
     // Off: turns on the last arrow. On: opens the straight / free menu, with the focus on the arrow in use.
@@ -1392,6 +1388,7 @@ export function init(root: HTMLElement): void {
   // A tap outside puts away the recording popover and, on a phone, the clip drawer.
   document.addEventListener('pointerdown', (e) => {
     const target = e.target as Element;
+    if (playback.closeIfOutside(target)) swallowNextTap();
     if (!arrowMenu.hidden && !target.closest('[data-arrow-menu], [data-action="arrow"]')) {
       setArrowMenu(false);
       swallowNextTap();
@@ -1444,6 +1441,8 @@ export function init(root: HTMLElement): void {
       }
       return;
     }
+    // Esc puts away the speed menu or the volume; inside them, their own keys work and no shortcut runs.
+    if (playback.key(e)) return;
     if (e.key === 'Escape' && root.dataset.tags === 'open') {
       setTags(false);
       tagPill.focus();
@@ -1503,6 +1502,10 @@ export function init(root: HTMLElement): void {
       '=': () => zoom.step(1),
       '-': () => zoom.step(-1),
       '0': () => zoom.reset(),
+      ArrowUp: () => playback.stepVolume(1),
+      ArrowDown: () => playback.stepVolume(-1),
+      m: () => playback.toggleMute(),
+      M: () => playback.toggleMute(),
       Escape: () => setTool(null),
     };
     const run = keys[e.key];
