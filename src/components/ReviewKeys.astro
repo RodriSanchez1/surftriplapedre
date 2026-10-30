@@ -51,7 +51,7 @@ const groups: { title: UiKey; rows: Row[] }[] = [
 ];
 ---
 
-<Tag class:list={['keys', { demo }]} data-keys={demo ? undefined : ''} aria-labelledby={`${id}-title`}>
+<Tag class:list={['keys', { demo }]} data-keys={demo ? undefined : ''} role={demo ? 'group' : undefined} aria-labelledby={`${id}-title`}>
   <div class="keys-head">
     <ToolIcon name="keyboard" />
     <h2 class="keys-title" id={`${id}-title`}>{t(lang, 'review.keysTitle')}</h2>
@@ -70,11 +70,7 @@ const groups: { title: UiKey; rows: Row[] }[] = [
                 <dt>
                   {r.keys.map((alts, i) => (
                     <>
-                      {i > 0 && (
-                        <span class="plus" aria-hidden="true">
-                          +
-                        </span>
-                      )}
+                      {i > 0 && <span class="plus">+</span>}
                       {alts.map((k) => (
                         <kbd>{k}</kbd>
                       ))}

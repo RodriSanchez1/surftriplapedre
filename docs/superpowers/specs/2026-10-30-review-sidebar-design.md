@@ -26,12 +26,12 @@ Designed and approved on the canvas page "Análisis de video: lista de clips" (p
 - **Behaviour:** pointer drag (mouse, pen or a finger on a touch laptop) with pointer capture; ← → move 16 px; Home or a double click go back to the default. The width is between 200 and 420 px and never more than 40% of the window, so the picture keeps its room. The width is remembered on this device in `localStorage` (`surftrip-review-list-w`); a default width removes the key. Storage failures are ignored.
 - **Default width** stays 240 px (today's `--list-w: 15rem`). The handle sets `--list-w` on `.review`.
 - **Where it shows:** only in the laptop media block (`min-width: 761px and min-height: 501px`) and only while the list is shown. On a phone (portrait or landscape) the list stays the drawer it is today, with no handle.
-- **Pure logic** in `src/lib/review/list-width.ts`: the limits, the default, `clampWidth(px, windowWidth)`, `stepWidth(px, dir, windowWidth)` and `readWidth(stored)` (parses what was stored, falls back to the default on anything invalid). Unit tests in `tests/list-width.test.ts`. The DOM wiring lives in `page.ts`.
+- **Pure logic** in `src/lib/review/list-width.ts`: the limits, the default, `clampWidth(px, windowWidth)`, `stepWidth(px, dir, windowWidth)` and `readWidth(stored)` (parses what was stored, falls back to the default on anything invalid). Unit tests in `tests/list-width.test.ts`. The DOM wiring lives in `src/lib/review/list-width-page.ts`, started from `page.ts`.
 
 ### 3. Delete on the thumbnail (option A)
 
 - **Where:** the delete button (`.clip-delete`, still its own button, never nested in the clip button) moves from the column right of the clip to the **top-left corner of the thumbnail**, overlapping the card's edge: absolutely placed in the `li` (`position: relative`). The capture/broken badge keeps the thumbnail's top-right corner. The clip button takes the full width of the row (about 40 px more for the name).
-- **Its look:** a 26 px circle, 2 px ink border, white, 2 px hard shadow, with a trash icon (`ICONS.trash`, 14 px, stroke 2.6) in place of the 🗑 emoji. Its hit area grows to 40 px with an invisible `::before`.
+- **Its look:** a 26 px circle, 2 px ink border, white, 2 px hard shadow, with a trash icon (`ICONS.trash`, 14 px, stroke 2.6) in place of the 🗑 emoji. Its hit area grows with an invisible `::before`, to 40 px except at the top, where it stops short of the row above.
 - **When it shows:** with a mouse (`(hover: hover)`), on row hover, on the active row, on focus, and always when the clip is marked; otherwise invisible (opacity 0, still focusable and announced). Without hover it is always visible.
 - **Marked:** red with a white icon. The row keeps today's "to delete" look (dashed border, struck text, faded thumbnail).
 - **The list's top padding** grows so the first row's button is not cut.

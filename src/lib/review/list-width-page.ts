@@ -22,7 +22,7 @@ function save(px: number) {
 }
 
 export function initListWidth(root: HTMLElement, handle: HTMLElement) {
-  /** What the coach chose; a narrow window shows it narrower without forgetting it. */
+  /** What the coach chose. A window too narrow for it shows it narrower; moving the handle there saves what is shown. */
   let wanted = readWidth(load());
   let shown = wanted;
   let drag: { id: number; x: number; from: number } | null = null;
@@ -61,8 +61,9 @@ export function initListWidth(root: HTMLElement, handle: HTMLElement) {
     delete root.dataset.resizing;
     save(wanted);
   };
-  handle.addEventListener('pointerup', end);
-  handle.addEventListener('pointercancel', end);
+  // Fires after pointerup and pointercancel, and also when the handle stops being drawn mid-drag (L, a smaller
+  // window): the drag never gets stuck.
+  handle.addEventListener('lostpointercapture', end);
   handle.addEventListener('dblclick', reset);
   handle.addEventListener('keydown', (e) => {
     if (e.key === 'Home') {

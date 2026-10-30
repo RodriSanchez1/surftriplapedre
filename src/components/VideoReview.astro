@@ -907,7 +907,6 @@ const demoClips = [
     position: relative;
   }
   .clip {
-    flex: 1;
     min-width: 0;
     display: flex;
     align-items: center;
@@ -949,11 +948,11 @@ const demoClips = [
     box-shadow: 2px 2px 0 var(--c-ink);
     cursor: pointer;
   }
-  /* A 40 px target around the 26 px circle. */
+  /* A 40 px target around the 26 px circle, except upwards: it would reach into the row above. */
   .clip-delete::before {
     content: '';
     position: absolute;
-    inset: -7px;
+    inset: 0 -7px -7px;
     border-radius: 50%;
   }
   .clip-delete :global(.tool-icon) {
@@ -977,9 +976,20 @@ const demoClips = [
     background: var(--c-red);
     color: var(--c-white);
   }
+  /* Locked during an upload: faded where it shows, still hidden on the rows a mouse is not over. */
   .clips li .clip-delete:disabled {
-    opacity: 0.3;
     cursor: default;
+  }
+  @media (hover: none) {
+    .clips li .clip-delete:disabled {
+      opacity: 0.3;
+    }
+  }
+  @media (hover: hover) {
+    .clips li:is(:hover, .active) .clip-delete:disabled,
+    .clips li .clip-delete[aria-pressed='true']:disabled {
+      opacity: 0.3;
+    }
   }
   /* A clip that does not play: no fading (it must stay readable), a struck name and a red mark. */
   li.broken .clip {

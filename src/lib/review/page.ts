@@ -1505,7 +1505,14 @@ export function init(root: HTMLElement): void {
     keysDialog.addEventListener('click', (e) => {
       if (e.target === keysDialog) keysDialog.close();
     });
-    keysDialog.addEventListener('close', () => keysButton?.focus());
+    // Opened from the keyboard, the focus goes back to ⌨. Opened with the mouse it does not, like the bar's other
+    // buttons (see the [data-action] click handler): Space then plays instead of opening the dialog again.
+    let openedWithMouse = false;
+    keysButton?.addEventListener('click', (e) => (openedWithMouse = e.detail > 0));
+    keysDialog.addEventListener('close', () => {
+      if (openedWithMouse) (document.activeElement as HTMLElement | null)?.blur();
+      else keysButton?.focus();
+    });
   }
 
   // --- Startup ---
