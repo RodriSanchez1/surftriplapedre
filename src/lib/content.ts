@@ -34,6 +34,7 @@ export async function loadSite() {
     insights,
     footage: sessions.map((s) => ({ session: s.id, footage: s.data.footage })),
     publicFileExists: (path) => captureFiles.has(path),
+    recordings: sessions.flatMap((s) => (s.id.endsWith('.es') && s.data.recording ? [{ date: s.data.date, startedAt: s.data.recording.startedAt }] : [])),
   });
   if (errors.length) throw new Error(`Invalid content:\n- ${errors.join('\n- ')}`);
 

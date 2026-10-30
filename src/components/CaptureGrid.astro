@@ -2,22 +2,32 @@
 /** The captures of an insight: one column on a phone, two from 640 px. */
 import Capture from './Capture.astro';
 import type { Lang } from '../lib/i18n';
+import { videoLink, type Recording } from '../lib/review/recording';
 
 interface Props {
   lang: Lang;
   /** Talk date of the session, 'YYYY-MM-DD'. It names the folder of the images. */
   date: string;
-  captures: { id: string; caption: string; wave?: string; day?: string }[];
+  captures: { id: string; caption: string; wave?: string; day?: string; at?: string }[];
+  /** The session's review recording; with it each capture links to its moment. */
+  recording?: Recording;
 }
 
-const { lang, date, captures } = Astro.props;
+const { lang, date, captures, recording } = Astro.props;
 ---
 
 {
   captures.length > 0 && (
     <div class="capture-grid">
       {captures.map((c) => (
-        <Capture lang={lang} src={`captures/${date}/${c.id}.jpg`} caption={c.caption} wave={c.wave} day={c.day} />
+        <Capture
+          lang={lang}
+          src={`captures/${date}/${c.id}.jpg`}
+          caption={c.caption}
+          wave={c.wave}
+          day={c.day}
+          video={videoLink(recording, c.at)}
+        />
       ))}
     </div>
   )

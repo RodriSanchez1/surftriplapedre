@@ -163,8 +163,10 @@ const cursorColors = { ink: 'var(--c-ink)', paper: 'var(--c-paper)', accent: 'va
     <CaptureGrid
       lang="es"
       date="_design"
+      recording={{ url: 'https://youtu.be/example', startedAt: '2026-01-05T13:00:00Z' }}
       captures={[
-        { id: 'example', caption: 'El brazo delantero guía el giro', wave: '10:42', day: '2026-01-05' },
+        { id: 'example', caption: 'El brazo delantero guía el giro', wave: '10:42', day: '2026-01-05', at: '2026-01-05T13:12:40Z' },
+        { id: 'example', caption: 'Without a recording moment: no video link', wave: '10:42', day: '2026-01-05' },
         { id: 'example', caption: 'Without wave time: just the caption' },
       ]}
     />
