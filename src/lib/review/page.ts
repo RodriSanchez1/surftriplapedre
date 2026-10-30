@@ -12,6 +12,7 @@ import { adjacentClip, clock, DEFAULT_FPS, length, middleEllipsis, position, scr
 import { Sketch, type Tool } from './draw';
 import { initZoom } from './zoom-page';
 import { initMotion } from './motion-page';
+import { initReverse } from './reverse-page';
 import { initPlayback } from './playback-page';
 import { cursorFor, ICONS } from './icons';
 import { placeMenu } from './menu';
@@ -194,8 +195,10 @@ export function init(root: HTMLElement): void {
   /** The speed menu and the volume popover; opening one puts the arrow menu away. */
   const playback = initPlayback(root, video, () => setArrowMenu(false));
   /** Slow motion for the held frame buttons and arrow keys and for the drag across the picture. */
+  const reverse = initReverse($<HTMLCanvasElement>('[data-reverse]'), video, () => current?.fps ?? DEFAULT_FPS);
   const motion = initMotion(video, {
     fps: () => current?.fps ?? DEFAULT_FPS,
+    reverse,
     onTap: (dir) => step(dir),
     onStart: () => ensureOpened(),
     // The log keeps only where it stopped, like any seek.
@@ -423,6 +426,7 @@ export function init(root: HTMLElement): void {
 
   async function loadFiles(files: File[]) {
     const gen = ++loadGen;
+    reverse.load(null);
     for (const c of clips) URL.revokeObjectURL(c.url);
     clips = [];
     current = null;
@@ -519,6 +523,7 @@ export function init(root: HTMLElement): void {
     // The picture area stays in place; it only shows what is going on.
     setView('loading');
     video.src = entry.url;
+    reverse.load(entry.url);
     try {
       await once(video, 'loadedmetadata', 15000);
     } catch {
@@ -820,6 +825,8 @@ export function init(root: HTMLElement): void {
 
   async function saveCapture() {
     if (!current || !video.videoWidth || uploading) return;
+    // In slow motion the picture may be the backwards canvas, ahead of the video: capture after the release.
+    if (motion.quiet || reverse.showing !== null) return;
     const clip = current.file.name;
     video.pause();
     ensureOpened();
@@ -908,6 +915,7 @@ export function init(root: HTMLElement): void {
         video.pause();
         video.removeAttribute('src');
         video.load();
+        reverse.load(null);
       }
       URL.revokeObjectURL(entry.url);
       entry.item.remove();

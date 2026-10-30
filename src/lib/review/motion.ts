@@ -23,7 +23,19 @@ export function catchUpRate(t: number, target: number, fps: number): number {
   return RATES.find((r) => r >= want) ?? RATES[RATES.length - 1];
 }
 
+/** Half a screen refresh at 60 Hz: a step due before the next refresh is taken on this one. */
+const SLACK_MS = 8;
+
 /** Backwards, whether the next frame is due (times in ms): never faster than SLOW_RATE. */
 export function backStepDue(now: number, last: number, fps: number): boolean {
-  return now - last >= 1000 / (fps * SLOW_RATE);
+  return now - last >= 1000 / (fps * SLOW_RATE) - SLACK_MS;
+}
+
+/**
+ * When the step just taken counts as taken: on the beat, so the slack does not speed it up nor screen refreshes
+ * slow it down; after a wait for a frame, now.
+ */
+export function stepTakenAt(now: number, last: number, fps: number): number {
+  const beat = 1000 / (fps * SLOW_RATE);
+  return now - last > 2 * beat ? now : last + beat;
 }

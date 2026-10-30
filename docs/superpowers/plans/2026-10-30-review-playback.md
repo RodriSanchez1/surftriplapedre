@@ -1370,3 +1370,17 @@ git commit -m "Remove the review playback proposal page now that it is built"
 ```
 
 Then: `superpowers:requesting-code-review` and `superpowers:finishing-a-development-branch`. Push and PR only with the owner's OK.
+
+---
+
+### Task 12 (added after the owner's test): Backwards buffer · Opus (main)
+
+The owner found backwards slow motion choppy and slow on a real clip (1080p, 119.88 fps, keyframe every 0.5 s: one seek back cost 400–700 ms headless). Spec section "Backwards buffer"; spike in the session scratchpad (`rev/spike.js`). Built directly by the main model, since the engine work had open decisions:
+
+- `src/lib/review/reverse.ts` + `tests/reverse.test.ts`: frame indices, stretch lengths (1/8, 1/4, then 1/2 s), when to fill, what to drop (1 s kept, shown frames first), bitmap size (≤ 960 px).
+- `src/lib/review/reverse-page.ts`: the hidden `<video>` filler and the canvas; a frame the filler skipped holds the previous one.
+- `src/lib/review/motion.ts`: `backStepDue` takes the refresh closest to the beat and `stepTakenAt` keeps the beat (33.4 ms at 120 fps was landing on 50 ms).
+- `motion-page.ts`: backwards hold and drag draw from the buffer; on stop (or a drag turning forward) the video seeks to the canvas frame and the canvas hides once it is painted.
+- `page.ts` / `VideoReview.astro`: the `[data-reverse]` canvas, `reverse.load` on clip open and when files are released, captures ignored while slow motion runs.
+
+Measured on C0223 in headless Chromium (software decoding): holding ← 4 s moves 87 frames (112 ideal, 23 with the seek engine), median 33 ms between frames, p95 74 ms, first frame 650 ms after the press.

@@ -379,6 +379,7 @@ const demoClips = [
     <div class="stage" data-stage style={demo ? '--ar: 1.7778' : undefined}>
       <div class="frame" data-frame>
         <video data-video playsinline preload="auto" class:list={{ 'demo-frame': demo }}></video>
+        <canvas data-reverse hidden></canvas>
         <canvas data-sketch></canvas>
         <span class="zoom-level" data-zoom-level hidden></span>
         {
@@ -1293,7 +1294,8 @@ const demoClips = [
     width: 100%;
     height: 100%;
   }
-  video {
+  video,
+  [data-reverse] {
     object-fit: contain;
     /* The page takes every drag and both fingers: a sideways drag goes through the clip, two fingers zoom. */
     touch-action: none;
@@ -1333,6 +1335,10 @@ const demoClips = [
     cursor: crosshair;
   }
   [data-tool=''] canvas {
+    pointer-events: none;
+  }
+  /* Slow motion backwards draws its frames here, over the video; the pointer goes to the page as on the video. */
+  [data-reverse] {
     pointer-events: none;
   }
 
