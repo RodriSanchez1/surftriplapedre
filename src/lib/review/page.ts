@@ -199,7 +199,10 @@ export function init(root: HTMLElement): void {
     onTap: (dir) => step(dir),
     onStart: () => ensureOpened(),
     // The log keeps only where it stopped, like any seek.
-    onStop: () => recordSeek(),
+    onStop: () => {
+      recordRate();
+      recordSeek();
+    },
   });
 
   // --- Messages and state ---
@@ -496,6 +499,7 @@ export function init(root: HTMLElement): void {
   async function open(entry: Entry, log = true) {
     if (current === entry && root.dataset.view === 'ready') return;
     // A hold or drag on the clip being left ends without a seek in the log.
+    dropScrub(false);
     motion.stop(false);
     current = entry;
     for (const c of clips) {
@@ -1142,17 +1146,21 @@ export function init(root: HTMLElement): void {
     recordSeek();
   });
   video.addEventListener('ratechange', () => {
-    // Slow motion plays, pauses and changes the rate for itself: that is not the coach playing.
-    if (motion.quiet) return;
+    // The menu shows the speed picked (the default), not slow motion's own rate; even one picked mid-hold.
     for (const b of root.querySelectorAll<HTMLElement>('[data-rate]')) {
-      b.setAttribute('aria-checked', String(Number(b.dataset.rate) === video.playbackRate));
+      b.setAttribute('aria-checked', String(Number(b.dataset.rate) === video.defaultPlaybackRate));
     }
-    $('[data-rate-label]').textContent = `${video.playbackRate}×`;
+    $('[data-rate-label]').textContent = `${video.defaultPlaybackRate}×`;
+    // Slow motion plays, pauses and changes the rate for itself: that is not the coach playing. Its stop logs a pick.
+    if (motion.quiet) return;
+    recordRate();
+  });
+  function recordRate() {
     // Loading a clip resets the rate to the default, and setting the default fires it too: only real changes count.
     if (video.readyState === 0 || video.playbackRate === lastRate) return;
     lastRate = video.playbackRate;
     record({ type: 'rate', t: Math.round(video.currentTime * 1000) / 1000, rate: video.playbackRate });
-  });
+  }
   video.addEventListener('timeupdate', paintTime);
   // Smooth readout while playing; timeupdate alone ticks about 4 times a second.
   const tick = () => {
@@ -1214,14 +1222,19 @@ export function init(root: HTMLElement): void {
     motion.follow(stepFrame(scrub.from, current.fps ?? DEFAULT_FPS, frames, video.duration));
   });
   function endScrub(e: PointerEvent) {
-    if (e.pointerId !== scrub.id) return;
+    if (e.pointerId === scrub.id) dropScrub();
+  }
+  /** Ends the drag across the picture; with report false (another clip opens) it is not logged. */
+  function dropScrub(report = true) {
+    if (scrub.id === null) return;
     scrub.id = null;
     if (!scrub.moved) return;
     delete root.dataset.scrubbing;
-    motion.stop();
+    motion.stop(report);
   }
   stage.addEventListener('pointerup', endScrub);
   stage.addEventListener('pointercancel', endScrub);
+  stage.addEventListener('lostpointercapture', endScrub);
 
   // |◀ and ▶|: a tap is one frame, holding plays slow motion until they are let go.
   for (const b of root.querySelectorAll<HTMLElement>('[data-action="prev-frame"], [data-action="next-frame"]')) {
@@ -1229,10 +1242,9 @@ export function init(root: HTMLElement): void {
     b.addEventListener('pointerdown', (e) => {
       if (!e.isPrimary || e.button !== 0) return;
       b.setPointerCapture(e.pointerId);
-      if (!video.paused) video.pause();
-      motion.press(dir);
+      motion.press(dir, 'pointer');
     });
-    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(type, () => motion.release());
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(type, () => motion.release('pointer'));
     // A long press on a phone must not open the system menu.
     b.addEventListener('contextmenu', (e) => e.preventDefault());
   }
@@ -1516,10 +1528,7 @@ export function init(root: HTMLElement): void {
     // ← → : a tap is one frame, held is slow motion until keyup. Auto-repeat is ignored. Shift jumps 5 s (below).
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.shiftKey) {
       e.preventDefault();
-      if (!e.repeat) {
-        if (!video.paused) video.pause();
-        motion.press(e.key === 'ArrowRight' ? 1 : -1);
-      }
+      if (!e.repeat) motion.press(e.key === 'ArrowRight' ? 1 : -1, e.key);
       return;
     }
     const keys: Record<string, () => void> = {
@@ -1555,10 +1564,13 @@ export function init(root: HTMLElement): void {
     run();
   });
   document.addEventListener('keyup', (e) => {
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') motion.release();
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') motion.release(e.key);
   });
   // Switching windows mid-hold never sends the keyup.
-  window.addEventListener('blur', () => motion.release());
+  window.addEventListener('blur', () => {
+    motion.release();
+    dropScrub();
+  });
 
   sketch.onChange = (count) => {
     if (count) ensureOpened();
