@@ -2,6 +2,7 @@ import { defineCollection } from 'astro:content';
 import { file, glob } from 'astro/loaders';
 import { z } from 'astro/zod';
 import { TIMES_OF_DAY } from './lib/footage';
+import { isYouTubeUrl } from './lib/review/recording';
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the YYYY-MM-DD format, in quotes');
 const text = z.object({ es: z.string().min(1), pt: z.string().min(1).optional() });
@@ -90,7 +91,7 @@ const sessions = defineCollection({
     /** The recording of the video review (an unlisted YouTube video); written by `npm run recording`. */
     recording: z
       .object({
-        url: z.string().url(),
+        url: z.string().refine(isYouTubeUrl, 'Use an https YouTube link (https://youtu.be/...)'),
         /** Device-clock ISO time of the first frame of the video. */
         startedAt: z.string().datetime(),
       })

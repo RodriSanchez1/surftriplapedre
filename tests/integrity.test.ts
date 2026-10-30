@@ -105,4 +105,11 @@ describe('captures', () => {
       expect.stringContaining('capture 160000-1 is before the recording starts'),
     ]);
   });
+
+  it('detects a review link with an invalid date', () => {
+    const input = valid();
+    input.recordings = [{ date: '2026-10-26', startedAt: '2026-10-26T15:56:24Z' }];
+    input.insights[0].body = 'En [tu ola](review:2026-10-26T25:99).';
+    expect(findContentErrors(input)).toEqual([expect.stringContaining('review link at 2026-10-26T25:99 is not a valid date')]);
+  });
 });

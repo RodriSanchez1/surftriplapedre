@@ -26,7 +26,8 @@ const meta = sessionMeta(site, lang, date);
 
 const session = pickLang(sessions, date, lang);
 if (!session) throw new Error(`src/content/sessions/${date}.es.md does not exist`);
-const recording = session.entry.data.recording;
+/** The review recording is the same in every language; npm run recording writes it into the Spanish file too. */
+const recording = pickLang(sessions, date, 'es')?.entry.data.recording;
 const summaryHtml = linkReviewMoments(session.entry.rendered?.html ?? '', recording);
 
 const names = new Map(surfers.map((s) => [s.id, s.data.name]));

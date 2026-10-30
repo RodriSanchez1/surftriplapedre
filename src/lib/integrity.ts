@@ -68,7 +68,9 @@ export function findContentErrors({
     const startedAt = recordingStart.get(insight.data.date);
     if (startedAt) {
       for (const at of reviewMoments(insight.body ?? '')) {
-        if (Date.parse(at) < Date.parse(startedAt)) {
+        if (Number.isNaN(Date.parse(at))) {
+          errors.push(`insights/${insight.id}.md: review link at ${at} is not a valid date`);
+        } else if (Date.parse(at) < Date.parse(startedAt)) {
           errors.push(`insights/${insight.id}.md: review link at ${at} is before the recording starts (${startedAt})`);
         }
       }
