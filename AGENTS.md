@@ -39,7 +39,8 @@ src/lib/footage.ts            footage the coach reviewed (day, time, spot, who w
 src/lib/content.ts            loads the content and stops the build on broken references
 src/lib/audio/                upload of the coach's audio to Drive (filenames, upload, store, recorder, login, page)
                               and which Drive audios still need processing (pending)
-src/lib/review/               video review: log format (log.ts), clip header (mp4.ts), timeline of the talk (timeline.ts)
+src/lib/review/               video review: log format (log.ts), clip header (mp4.ts), timeline of the talk (timeline.ts),
+                              links to the recording (recording.ts)
 src/lib/og/                   link previews (WhatsApp, Discord...): each page's description and card (meta.ts), drawn
                               as PNG at build time (card.ts) and served at /og/<lang>/<page>.png
 src/components/               design system
@@ -136,6 +137,8 @@ Clips marked to delete are removed from the computer's folder only after the upl
 
 The videos themselves are never uploaded. `npm run session-auto` (or `/process-session <date>`) turns the logs into `review-timeline.md`, and the insights can cite the wave ("En tu ola de las 10:42...") and carry a `**Capturas**` block that `import-session` publishes. By hand: `npm run review-timeline -- <date>` after transcribing.
 
+To link the summary to the talk, record the screen with OBS during the review (screen, webcam and microphone). Upload the recording to YouTube as **unlisted** by hand, then `npm run recording -- <date> <youtube-url> <video-file>`: it reads when the recording started (`ffprobe`, OBS's `creation_time`) and writes `recording` into the session. Each capture gets "Ver en el video ▶" and each wave cited in the text (`[tu ola de las 08:27](clip:C0019)` in the insights, turned into a `review:` moment by `import-session`) opens the video at that second. If you cut the start in YouTube's editor, run it again with `--trim <seconds>`. Without a recording, the links are plain text.
+
 ### Load or change a calendar day  ·  Haiku
 
 In `src/data/days.yaml`: `id` is the date in quotes, and `activity` has `es` and, if possible, `pt`. `spot`, `time` and `session` are optional. Then `npm run build`.
@@ -190,6 +193,7 @@ npm run avatars         generates missing avatars
 npm run import-session -- <date> "<ES title>" "<PT title>"
 npm run transcribe -- <audio> [<audio> ...] [--until <sec>]   local ES/PT transcription
 npm run review-timeline -- <date>   timeline of the video review for a transcribed talk
+npm run recording -- <date> <youtube-url> <video-file> [--trim <s>]   link a session to its review recording
 npm run session-auto -- [--list] [--date <date>] [--local] [--no-claude] [--force]
 npm run shots -- <base-url> <folder> [route ...]   screenshots at 390 px and 1280 px
 ```
