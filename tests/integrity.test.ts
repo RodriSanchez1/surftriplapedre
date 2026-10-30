@@ -86,4 +86,23 @@ describe('captures', () => {
     const input = { ...withCapture(), publicFileExists: () => false };
     expect(findContentErrors(input)).toEqual([expect.stringContaining('public/captures/2026-10-26/183012-3.jpg')]);
   });
+
+  it('accepts review moments and captures after the recording start', () => {
+    const input = valid();
+    input.recordings = [{ date: '2026-10-26', startedAt: '2026-10-26T15:56:24Z' }];
+    input.insights[0].body = 'En [tu ola](review:2026-10-26T16:00:00Z).';
+    input.insights[0].data.captures = [{ id: '160000-1', at: '2026-10-26T16:05:00Z' }];
+    expect(findContentErrors(input)).toEqual([]);
+  });
+
+  it('detects review moments and captures before the recording start', () => {
+    const input = valid();
+    input.recordings = [{ date: '2026-10-26', startedAt: '2026-10-26T16:10:00Z' }];
+    input.insights[0].body = 'En [tu ola](review:2026-10-26T16:00:00Z).';
+    input.insights[0].data.captures = [{ id: '160000-1', at: '2026-10-26T16:05:00Z' }];
+    expect(findContentErrors(input)).toEqual([
+      expect.stringContaining('review link at 2026-10-26T16:00:00Z is before the recording starts'),
+      expect.stringContaining('capture 160000-1 is before the recording starts'),
+    ]);
+  });
 });

@@ -1,4 +1,5 @@
 import { splitLangId } from './localized';
+import { reviewMoments } from './review/recording';
 
 export interface IntegrityInput {
   trip: { startDate: string; endDate: string };
@@ -7,7 +8,9 @@ export interface IntegrityInput {
   coachProfileIds: string[];
   days: { id: string; session?: string }[];
   sessionIds: string[];
-  insights: { id: string; data: { surfer: string; date: string; captures?: { id: string }[] } }[];
+  insights: { id: string; body?: string; data: { surfer: string; date: string; captures?: { id: string; at?: string }[] } }[];
+  /** When the review recording of each session started (sessions with a recording only). */
+  recordings?: { date: string; startedAt: string }[];
   /** `session` is the content id, e.g. '2026-10-26.es'. */
   footage: { session: string; footage: { date: string; surfers: string[] }[] }[];
   /** Whether a path under public/ exists, e.g. 'captures/2026-10-26/183012-3.jpg'. Without it, captures are not checked. */
@@ -25,6 +28,7 @@ export function findContentErrors({
   insights,
   footage,
   publicFileExists,
+  recordings = [],
 }: IntegrityInput): string[] {
   const errors: string[] = [];
   const surfers = new Set(surferIds);
@@ -38,6 +42,8 @@ export function findContentErrors({
       errors.push(`days.yaml: day ${day.id} points to session ${day.session}, which has no src/content/sessions/${day.session}.es.md`);
     }
   }
+
+  const recordingStart = new Map(recordings.map((r) => [r.date, r.startedAt]));
 
   for (const insight of insights) {
     const { base } = splitLangId(insight.id);
@@ -57,6 +63,19 @@ export function findContentErrors({
     for (const capture of insight.data.captures ?? []) {
       if (publicFileExists && !publicFileExists(`captures/${insight.data.date}/${capture.id}.jpg`)) {
         errors.push(`insights/${insight.id}.md: capture ${capture.id} has no public/captures/${insight.data.date}/${capture.id}.jpg`);
+      }
+    }
+    const startedAt = recordingStart.get(insight.data.date);
+    if (startedAt) {
+      for (const at of reviewMoments(insight.body ?? '')) {
+        if (Date.parse(at) < Date.parse(startedAt)) {
+          errors.push(`insights/${insight.id}.md: review link at ${at} is before the recording starts (${startedAt})`);
+        }
+      }
+      for (const capture of insight.data.captures ?? []) {
+        if (capture.at && Date.parse(capture.at) < Date.parse(startedAt)) {
+          errors.push(`insights/${insight.id}.md: capture ${capture.id} is before the recording starts (${startedAt})`);
+        }
       }
     }
   }

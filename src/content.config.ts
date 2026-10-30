@@ -87,6 +87,14 @@ const sessions = defineCollection({
         }),
       )
       .default([]),
+    /** The recording of the video review (an unlisted YouTube video); written by `npm run recording`. */
+    recording: z
+      .object({
+        url: z.string().url(),
+        /** Device-clock ISO time of the first frame of the video. */
+        startedAt: z.string().datetime(),
+      })
+      .optional(),
   }),
 });
 
@@ -108,6 +116,8 @@ const insights = defineCollection({
           wave: z.string().optional(),
           /** Day it was filmed. */
           day: isoDate.optional(),
+          /** When the capture was taken (device clock, ISO); links it to the recording. */
+          at: z.string().datetime().optional(),
         }),
       )
       .default([]),
