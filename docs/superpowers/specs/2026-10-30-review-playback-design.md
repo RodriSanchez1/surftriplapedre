@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-30
 **Status:** approved in conversation (brainstorming, 2026-10-30).
-**Proposal page:** `src/pages/design/proposals/review-playback.astro` (`/design/proposals/review-playback/` in `npm run dev`), deleted once this is built.
+**Proposal page:** was `src/pages/design/proposals/review-playback.astro` (deleted once built; see git history).
 
 ## Goal
 
