@@ -71,3 +71,9 @@ export function middleEllipsis(name: string, max: number): string {
   const head = Math.floor(keep / 2);
   return `${name.slice(0, head)}…${name.slice(name.length - (keep - head))}`;
 }
+
+/** The index of the clip after (1) or before (-1) `index` in a list of `count`, or null at the ends: no wrapping. */
+export function adjacentClip(index: number, count: number, dir: 1 | -1): number | null {
+  const next = index + dir;
+  return index >= 0 && next >= 0 && next < count ? next : null;
+}
