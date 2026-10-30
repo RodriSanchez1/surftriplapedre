@@ -17,10 +17,15 @@
 //   - 183012-3 · El brazo delantero guía el giro
 // The block leaves the body; the frontmatter gets captures: [{ id, caption, wave, day }] and the image is
 // copied from sessions/<date>/ to public/captures/<date>/<id>.jpg.
+//
+// Wave links: in the insights, `[tu ola de las 08:27](clip:C0019)` becomes `[...](review:<ISO>)`, the moment
+// the clip was first opened in the review logs; the site points it to the recording. Captures get `at`.
+// The `recording` of an existing session file is kept (npm run recording writes it).
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dump, load } from 'js-yaml';
 import { mergeFootage, parseMeta } from '../src/lib/footage.ts';
 import { clockIn, filmedMoment, parseLog } from '../src/lib/review/log.ts';
+import { firstOpens, resolveClipLinks } from '../src/lib/review/recording.ts';
 
 const [date, ...titles] = process.argv.slice(2);
 if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '') || titles.length !== 2) {
@@ -90,6 +95,7 @@ const reviewLogs = existsSync(reviewDir)
       .sort()
       .flatMap((f) => parseLog(readFileSync(`${reviewDir}/${f}`, 'utf8')) ?? [])
   : [];
+const opens = firstOpens(reviewLogs);
 
 /** Finds a capture in the logs, copies its image to the site and says when the wave was filmed. */
 function resolveCapture({ id, caption }) {
@@ -105,7 +111,7 @@ function resolveCapture({ id, caption }) {
     const moment = open ? filmedMoment(open.filmedAt, event.t) : null;
     const clock = moment ? clockIn(timeZone, moment) : null;
     const wave = clock ? { wave: `${clock.slice(0, 2)}:${clock.slice(2, 4)}`, day: moment.toLocaleDateString('en-CA', { timeZone }) } : {};
-    return { id, caption, ...wave };
+    return { id, caption, ...wave, at: event.at };
   }
   throw new Error(`Capture ${id} is not in any sessions/${date}/*.review.json`);
 }
@@ -137,7 +143,12 @@ const footage = mergeFootage(
 
   mkdirSync('src/content/sessions', { recursive: true });
   const sessionOut = `src/content/sessions/${date}.${lang}.md`;
-  writeFileSync(sessionOut, frontmatter({ date, title: titles[i], planNote: note, logistics, ...(footage.length ? { footage } : {}) }, summary.body));
+  const previous = existsSync(sessionOut) ? load(readFileSync(sessionOut, 'utf8').split(/^---$/m)[1] ?? '') : null;
+  const recording = previous?.recording ? { recording: previous.recording } : {};
+  writeFileSync(
+    sessionOut,
+    frontmatter({ date, title: titles[i], planNote: note, logistics, ...(footage.length ? { footage } : {}), ...recording }, resolveClipLinks(summary.body, opens)),
+  );
   console.log(`+ ${sessionOut}`);
 
   for (const sec of secs) {
@@ -147,7 +158,7 @@ const footage = mergeFootage(
     if (!f) throw new Error(`${src}: ${sec.title} is not in the plan table`);
     const taken = takeCaptures(sec.body);
     const captures = taken.captures.map(resolveCapture);
-    const body = taken.body.replace(/^\*\*([^*]+)\*\*$/gm, '### $1');
+    const body = resolveClipLinks(taken.body, opens).replace(/^\*\*([^*]+)\*\*$/gm, '### $1');
     mkdirSync(`src/content/insights/${date}`, { recursive: true });
     const out = `src/content/insights/${date}/${id}.${lang}.md`;
     writeFileSync(out, frontmatter({ date, surfer: id, ...f, ...(captures.length ? { captures } : {}) }, body));
