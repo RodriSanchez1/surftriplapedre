@@ -1,11 +1,22 @@
 # Screens catalog: design
 
 **Date:** 2026-10-29
-**Status:** approved in conversation (brainstorming, 2026-10-29).
+**Status:** approved in conversation (brainstorming, 2026-10-29). Not built yet: the plan is `docs/superpowers/plans/2026-10-29-screens-catalog.md`, tracked in a GitHub issue.
 
 ## Goal
 
 See every screen of the site, in every state, on a phone and a laptop, rendered by the real code. It replaces hand-made copies of screens in the Claude Design canvas: copies go stale as soon as the code changes, and keeping them up to date is slow and expensive. The canvas stays only for proposing new designs, which start from screenshots of this catalog.
+
+## Why
+
+Until now, AGENTS.md rule 7 asked for every screen to be drawn in the canvas, and for an existing screen to be redrawn from the code whenever a new design touched it. In practice:
+
+- **Copies go stale.** The canvas holds HTML copies, not the real components. Every change to the code (a token, a component, a new state) leaves the canvas behind, and nobody notices until a proposal is drawn on top of an old screen.
+- **Keeping them is expensive.** Redrawing `/review/` took 13 frames (laptop, phone, landscape, toasts) and a scripted harness outside the repo. Each redraw costs as much again.
+- **The canvas has no context.** It lives outside git and outside pull requests. The assistant in the online canvas does not know the repo, the specs or the rules; Claude Code does, but it can only reach the canvas through the artifacts tools.
+- **The code already knows every state.** `VideoReview` and `AudioUploader` already have a `demo` prop that fixes a state, and the tour already lists its steps. Exposing them in a catalog costs little, and the result cannot drift, because it *is* the code.
+
+So the split is: **the code holds what exists** (`/design/` for components, `/design/screens/` for screens), and **the canvas holds what is proposed** (a page per feature, starting from catalog screenshots, drawing only what changes). Board Graphic stays as the canvas's copy of the tokens. Tests and types keep the catalog complete without anyone having to remember.
 
 ## Decisions
 
