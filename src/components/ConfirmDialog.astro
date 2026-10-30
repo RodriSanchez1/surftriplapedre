@@ -1,0 +1,135 @@
+---
+/**
+ * The question before something is deleted, instead of the browser's confirm(): a modal dialog that
+ * src/lib/confirm.ts fills in and opens. Each page controller finds its own as a direct child of its root, so
+ * `id` must be unique on the page. With `demo` it is drawn in place, open and not modal, with those texts, for /design/.
+ */
+import { t, type Lang } from '../lib/i18n';
+import ToolIcon from './ToolIcon.astro';
+
+interface Props {
+  lang: Lang;
+  id: string;
+  demo?: { title: string; body: string; confirm: string; cancel?: string; thumb?: string };
+}
+
+const { lang, id, demo } = Astro.props;
+const Tag = demo ? 'div' : 'dialog';
+const cancel = t(lang, 'confirm.cancel');
+---
+
+<Tag
+  class:list={['confirm', { demo: !!demo }]}
+  data-confirm={demo ? undefined : ''}
+  role={demo ? 'group' : 'alertdialog'}
+  aria-labelledby={`${id}-title`}
+  aria-describedby={`${id}-body`}
+>
+  <div class="confirm-inner">
+    <div class="confirm-head">
+      <span class="confirm-badge" aria-hidden="true"><ToolIcon name="trash" /></span>
+      <div class="confirm-text">
+        <h2 class="confirm-title" id={`${id}-title`} data-confirm-title>{demo?.title}</h2>
+        <p class="confirm-body" id={`${id}-body`} data-confirm-body>{demo?.body}</p>
+      </div>
+    </div>
+    <img class="confirm-thumb" data-confirm-thumb alt="" src={demo?.thumb} hidden={!demo?.thumb} />
+    <div class="confirm-actions">
+      <button type="button" class="btn" data-confirm-no data-label={cancel}>{demo?.cancel ?? cancel}</button>
+      <button type="button" class="btn confirm-yes" data-confirm-yes>{demo?.confirm}</button>
+    </div>
+  </div>
+</Tag>
+
+<style>
+  /* The dialog is the card: no padding of its own, so a click on it (not on .confirm-inner) is the dimmed screen. */
+  .confirm {
+    width: min(28rem, calc(100vw - 2 * var(--s-3)));
+    max-height: calc(100dvh - 2 * var(--s-3));
+    padding: 0;
+    overflow: auto;
+    background: var(--c-paper);
+    color: var(--c-ink);
+    border: var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .confirm::backdrop {
+    background: var(--scrim);
+  }
+  /* On /design/: in the flow, open, not modal. */
+  .confirm.demo {
+    position: static;
+    display: block;
+    margin: 0;
+  }
+  .confirm-inner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+    padding: var(--s-5);
+  }
+  .confirm-head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-3);
+  }
+  .confirm-badge {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    box-sizing: border-box;
+    background: var(--c-red);
+    color: var(--c-white);
+    border: var(--border);
+    border-radius: 999px;
+  }
+  .confirm-badge :global(.tool-icon) {
+    width: 20px;
+    height: 20px;
+  }
+  .confirm-text {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    gap: var(--s-1);
+  }
+  .confirm-title {
+    margin: 0;
+    font: 20px/1.25 var(--font-strong);
+    overflow-wrap: anywhere;
+  }
+  .confirm-body {
+    margin: 0;
+    line-height: 1.5;
+  }
+  .confirm-thumb:not([hidden]) {
+    display: block;
+    align-self: center;
+    width: 100%;
+    max-width: 280px;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border: var(--border);
+    border-radius: var(--radius);
+  }
+  /* Phone: stacked, the red button on top and Cancelar below. Wider: in a row on the right, Cancelar first. */
+  .confirm-actions {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: var(--s-3);
+    margin-top: var(--s-2);
+  }
+  @media (min-width: 480px) {
+    .confirm-actions {
+      flex-direction: row;
+      justify-content: flex-end;
+    }
+  }
+  .confirm-yes {
+    background: var(--c-red);
+    color: var(--c-white);
+  }
+</style>
