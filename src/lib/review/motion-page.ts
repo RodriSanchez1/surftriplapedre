@@ -49,7 +49,8 @@ export function initMotion(video: HTMLVideoElement, o: MotionOptions): Motion {
   let lastStep = -Infinity;
   let raf = 0;
 
-  const halfFrame = () => 0.5 / o.fps();
+  // Any earlier time at all: on the edge of a frame (after the seek bar, say) half a frame back is float-equal, and it never moved.
+  const behind = (t: number) => t < video.currentTime - 1e-6;
   const once = (type: string) => new Promise<void>((resolve) => video.addEventListener(type, () => resolve(), { once: true }));
 
   /** One seek; `painted` turns true when its frame is on screen. */
@@ -82,7 +83,7 @@ export function initMotion(video: HTMLVideoElement, o: MotionOptions): Motion {
     if (mode === 'hold' && dir === -1) {
       if (painted && !video.seeking && backStepDue(now, lastStep, fps)) {
         const t = stepFrame(video.currentTime, fps, -1, video.duration);
-        if (t < video.currentTime - halfFrame()) {
+        if (behind(t)) {
           seekTo(t);
           lastStep = now;
         }
@@ -94,7 +95,7 @@ export function initMotion(video: HTMLVideoElement, o: MotionOptions): Motion {
         if (video.paused) void video.play().catch(() => {});
       } else {
         if (!video.paused) video.pause();
-        if (target < video.currentTime - halfFrame() && painted && !video.seeking) seekTo(target);
+        if (behind(target) && painted && !video.seeking) seekTo(target);
       }
     }
     // A forward hold just plays at SLOW_RATE: nothing to do each frame.
