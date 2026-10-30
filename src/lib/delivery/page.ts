@@ -49,7 +49,8 @@ const PAGE_CSS = `
 .kicker { font: 14px/1.2 var(--font-strong); }
 .delivery h1 { margin: 0; font: 44px/1.1 var(--font-display); font-weight: 400; }
 .delivery .notice { margin: 0; }
-.steps { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--s-4); font-size: 14px; line-height: 1.4; }
+.steps { margin: 0; padding-left: calc(var(--s-5) + var(--s-4)); display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--s-3) var(--s-5); font-size: 14px; line-height: 1.4; }
+.steps li { margin: 0; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: var(--s-5); }
 .card { display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-4); background: var(--c-paper); border: var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 .card-head { display: flex; align-items: center; gap: var(--s-3); }

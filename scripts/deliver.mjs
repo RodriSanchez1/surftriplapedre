@@ -114,7 +114,7 @@ writeFileSync(
     trip: trip.name,
     day: dayLabel(DEFAULT_LANG, date),
     cards,
-    without: without.map((id) => surferOf(id).name),
+    without: roster.filter((s) => without.includes(s.id)).map((s) => s.name),
     limitGb,
     css,
   }),
