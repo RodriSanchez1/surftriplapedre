@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { candidateDays, dayIn, findInListing, windowsPath } from '../src/lib/delivery/locate';
+import { candidateDays, dayIn, findInListing, matchesInListing, windowsPath } from '../src/lib/delivery/locate';
 
 const TZ = 'America/Montevideo'; // UTC-3
 
@@ -36,6 +36,12 @@ describe('findInListing', () => {
   });
   it('is null when the clip is not there', () => {
     expect(findInListing('C9999.MP4', listing)).toBeNull();
+  });
+  it('lists every match, so a repeated name can be reported', () => {
+    expect(matchesInListing('C0001.MP4', ['b/x/C0001.MP4', 'a/C0001.MP4', 'delivery/juan/C0001.MP4'])).toEqual([
+      'a/C0001.MP4',
+      'b/x/C0001.MP4',
+    ]);
   });
 });
 

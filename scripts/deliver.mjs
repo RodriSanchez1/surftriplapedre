@@ -105,6 +105,8 @@ const css = [
   font('archivo-black', 'Archivo Black'),
 ].join('\n');
 
+if (!cards.length) exit(`None of the tagged clips was found under ${root}: copy the day's card there first.`);
+
 const page = join(out, 'index.html');
 writeFileSync(
   page,

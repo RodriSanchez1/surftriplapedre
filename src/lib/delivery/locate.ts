@@ -18,15 +18,19 @@ export function candidateDays(filmedAt: string | null, talkDate: string, timeZon
 }
 
 /**
- * The path of a clip in a day folder's listing (relative paths with '/'), matched by file name.
- * The delivery folder is skipped. With several matches the shortest path wins, then alphabetical order,
- * so the choice is stable. Not there → null.
+ * Every path of a clip in a day folder's listing (relative paths with '/'), matched by file name.
+ * The delivery folder is skipped. Shortest path first, then alphabetical order, so the order is stable.
+ * More than one means two cards or cameras reused the name: the log cannot tell them apart.
  */
-export function findInListing(name: string, listing: string[]): string | null {
-  const matches = listing
+export function matchesInListing(name: string, listing: string[]): string[] {
+  return listing
     .filter((path) => !path.startsWith(`${DELIVERY_DIR}/`) && path.split('/').pop() === name)
     .sort((a, b) => a.length - b.length || a.localeCompare(b));
-  return matches[0] ?? null;
+}
+
+/** The first of matchesInListing, or null when the clip is not there. */
+export function findInListing(name: string, listing: string[]): string | null {
+  return matchesInListing(name, listing)[0] ?? null;
 }
 
 /** '/mnt/c/Users/x' → 'C:\Users\x', as the organizer sees it on Windows. Any other path is returned as is. */

@@ -4,7 +4,7 @@
 // <root>/<YYYY-MM-DD>/<any subfolders>/<clip>. See src/lib/delivery/locate.ts.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { candidateDays, findInListing } from '../src/lib/delivery/locate.ts';
+import { candidateDays, matchesInListing } from '../src/lib/delivery/locate.ts';
 import { parseLog } from '../src/lib/review/log.ts';
 
 /** The valid review logs in sessions/<date>/, by file name. */
@@ -34,9 +34,10 @@ export function clipFiles(root, talkDate, clips, timeZone) {
   for (const { clip, filmedAt } of clips) {
     let path = null;
     for (const day of candidateDays(filmedAt, talkDate, timeZone)) {
-      const found = findInListing(clip, listing(day));
+      const [found, ...others] = matchesInListing(clip, listing(day));
       if (found) {
         path = join(root, day, found);
+        if (others.length) console.warn(`- ${clip}: ${others.length + 1} files with this name in ${join(root, day)}, using ${found}`);
         break;
       }
     }
