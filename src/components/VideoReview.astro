@@ -12,6 +12,7 @@ import type { Texts } from '../lib/review/page';
 import AudioUploader from './AudioUploader.astro';
 import Avatar from './Avatar.astro';
 import ReviewKeys from './ReviewKeys.astro';
+import ConfirmDialog from './ConfirmDialog.astro';
 import TourOverlay from './TourOverlay.astro';
 import ToolIcon from './ToolIcon.astro';
 import { DEFAULT_W, MAX_W, MIN_W } from '../lib/review/list-width';
@@ -40,11 +41,9 @@ const texts: Texts = {
   openCapture: t(lang, 'review.openCapture'),
   clipTagged: t(lang, 'review.clipTagged'),
   deleteCapture: t(lang, 'review.deleteCapture'),
-  deleteCaptureConfirm: t(lang, 'review.deleteCaptureConfirm'),
   finishCount: t(lang, 'review.finishCount'),
   sessionLocked: t(lang, 'review.sessionLocked'),
   restored: t(lang, 'review.restored'),
-  discardConfirm: t(lang, 'review.discardConfirm'),
   nothing: t(lang, 'review.nothing'),
   uploading: t(lang, 'review.uploading'),
   done: t(lang, 'review.done'),
@@ -72,7 +71,16 @@ const texts: Texts = {
   deleteFailed: t(lang, 'review.deleteFailed'),
   deleteClip: t(lang, 'review.deleteClip'),
   keepClip: t(lang, 'review.keepClip'),
-  deleteClipConfirm: t(lang, 'review.deleteClipConfirm'),
+  deleteClipTitle: t(lang, 'review.deleteClipTitle'),
+  deleteClipBody: t(lang, 'review.deleteClipBody'),
+  deleteClipYes: t(lang, 'review.deleteClipYes'),
+  deleteCaptureTitle: t(lang, 'review.deleteCaptureTitle'),
+  deleteCaptureBody: t(lang, 'review.deleteCaptureBody'),
+  deleteCaptureYes: t(lang, 'review.deleteCaptureYes'),
+  discardTitle: t(lang, 'review.discardTitle'),
+  discardBody: t(lang, 'review.discardBody'),
+  discardYes: t(lang, 'review.discardYes'),
+  discardNo: t(lang, 'review.discardNo'),
 };
 const colors = [
   { value: '#ffd400', token: 'var(--c-yellow)' },
@@ -214,6 +222,7 @@ const demoClips = [
     </div>
   </div>
   {!demo && <ReviewKeys lang={lang} />}
+  {!demo && <ConfirmDialog lang={lang} id="review-confirm" />}
 
   <aside class="clips" id="clip-list" aria-label={t(lang, 'review.clips')}>
     <ol data-clip-list>
