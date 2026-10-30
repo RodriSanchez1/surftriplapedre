@@ -1,4 +1,5 @@
-// End-to-end workflow: coach audios in Drive → local transcription → insights.
+// End-to-end workflow: coach audios and video reviews in Drive → local transcription (the talk, and the coach's
+// narration in each reviewed clip) → insights → one folder per surfer with their clips (see scripts/deliver.mjs).
 //
 // Usage:
 //   node scripts/session-auto.mjs                 processes the dates that are ready
@@ -11,15 +12,19 @@
 // --force       reprocesses an already processed date (overwrites the insights)
 //
 // Variables: SURFTRIP_RCLONE_REMOTE (default "drive"), SURFTRIP_MODEL (default "sonnet"),
-// SURFTRIP_BASE_BRANCH (default "main").
+// SURFTRIP_BASE_BRANCH (default "main"), SURFTRIP_FOOTAGE_DIR (the footage folder, one folder per day;
+// without it there is no narration and no delivery).
 // It never pushes: it leaves a commit on feat/session-<date> and goes back to the branch it was on.
 import { spawnSync } from 'node:child_process';
 import {
   appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync,
 } from 'node:fs';
+import { basename } from 'node:path';
 import { parseArgs } from 'node:util';
 import { load } from 'js-yaml';
-import { groupByDate, dateStatus } from '../src/lib/audio/pending.ts';
+import { groupByDate, dateStatus, sessionDates } from '../src/lib/audio/pending.ts';
+import { reviewedClips } from '../src/lib/delivery/plan.ts';
+import { clipFiles, readLogs } from './clip-files.mjs';
 
 const { values: op } = parseArgs({
   options: {
@@ -36,6 +41,7 @@ if (op.date && !/^\d{4}-\d{2}-\d{2}$/.test(op.date)) exit(`Invalid date: ${op.da
 const REMOTE = process.env.SURFTRIP_RCLONE_REMOTE ?? 'drive';
 const MODEL = process.env.SURFTRIP_MODEL ?? 'sonnet';
 const BASE_BRANCH = process.env.SURFTRIP_BASE_BRANCH ?? 'main';
+const FOOTAGE = process.env.SURFTRIP_FOOTAGE_DIR;
 const SKILL = '.claude/skills/process-session/SKILL.md';
 const LOCK = 'sessions/.session-auto.lock';
 
@@ -130,6 +136,7 @@ function download(date, files) {
 }
 
 function transcribe(date, audios) {
+  if (!audios.length) return say('No talk audio: the narration is the only source.');
   const names = audios.map((a) => a.name);
   const raw = `sessions/${date}/raw-transcript.json`;
   if (existsSync(raw) && JSON.stringify(JSON.parse(readFileSync(raw, 'utf8')).audios) === JSON.stringify(names)) {
@@ -149,6 +156,43 @@ function reviewTimeline(date) {
     say(`Video timeline ready: sessions/${date}/review-timeline.md`);
   } catch (e) {
     say(`The video timeline failed, the insights go on without it: ${e.message}`);
+  }
+}
+
+/** Transcribes what the coach said while filming each reviewed clip. Returns how many clips were found on disk. */
+function narration(date) {
+  if (!FOOTAGE) {
+    say('SURFTRIP_FOOTAGE_DIR is not set: no narration.');
+    return 0;
+  }
+  const logs = readLogs(date);
+  if (!logs.length) return 0;
+  const files = clipFiles(FOOTAGE, date, reviewedClips(logs), trip.timeZone);
+  for (const [clip, path] of files) if (!path) say(`- ${clip}: not found under ${FOOTAGE}`);
+  const found = [...files.values()].filter(Boolean);
+  if (!found.length) return 0;
+  const out = `sessions/${date}/narration.json`;
+  const names = found.map((p) => basename(p)).sort();
+  if (existsSync(out) && JSON.stringify(Object.keys(JSON.parse(readFileSync(out, 'utf8')).clips ?? {}).sort()) === JSON.stringify(names)) {
+    say('The narration was already transcribed for these clips.');
+    return found.length;
+  }
+  if (!has('uv')) exit('uv is not installed (https://docs.astral.sh/uv/).');
+  say(`Transcribing the narration of ${found.length} clip(s)…`);
+  run('uv', ['run', 'scripts/transcribe.py', '--per-file', '--output', `sessions/${date}`, ...found]);
+  say(`Narration ready: ${out}`);
+  return found.length;
+}
+
+/** One folder per surfer with their clips, and the page to send them. A failure here does not undo the insights. */
+function deliver(date) {
+  if (!FOOTAGE) return say('SURFTRIP_FOOTAGE_DIR is not set: no delivery folders.');
+  if (!readdirSync(`sessions/${date}`).some((f) => f.endsWith('.review.json'))) return;
+  try {
+    run('node', ['scripts/deliver.mjs', date]);
+    say(`Delivery ready: ${FOOTAGE}/${date}/delivery/index.html`);
+  } catch (e) {
+    say(`The delivery failed: ${e.message}`);
   }
 }
 
@@ -196,16 +240,17 @@ if (ignored.length && !op.local) console.log(`Ignored (different name): ${ignore
 
 const now = new Date();
 const wait = Number(op.wait);
-const rows = [...byDate]
-  .filter(([date]) => !op.date || date === op.date)
-  .map(([date, audios]) => {
+const rows = sessionDates(byDate, review)
+  .filter((date) => !op.date || date === op.date)
+  .map((date) => {
+    const audios = byDate.get(date) ?? [];
     const metas = meta.get(date) ?? [];
     const reviews = review.get(date) ?? [];
     return { date, audios, metas, reviews, status: dateStatus([...audios, ...metas, ...reviews], processedFiles(date), now, wait) };
   });
 
 if (!rows.length) {
-  console.log(op.date ? `There are no audios for ${op.date}.` : 'There are no audios.');
+  console.log(op.date ? `There is nothing to process for ${op.date}.` : 'There is nothing to process.');
   process.exit(0);
 }
 for (const { date, audios, metas, reviews, status } of rows) {
@@ -214,7 +259,7 @@ for (const { date, audios, metas, reviews, status } of rows) {
   const extra =
     (metas.length ? ` + ${metas.map((m) => m.name).join(', ')}` : '') +
     (reviews.length ? ` + ${logs} review log${logs === 1 ? '' : 's'}, ${captures} capture${captures === 1 ? '' : 's'}` : '');
-  console.log(`${date}  ${status.padEnd(10)} ${audios.map((a) => a.name).join(', ')}${extra}`);
+  console.log(`${date}  ${status.padEnd(10)} ${audios.map((a) => a.name).join(', ') || '(no talk audio)'}${extra}`);
 }
 if (op.list) process.exit(0);
 
@@ -238,9 +283,13 @@ for (const { date, audios, metas, reviews } of toProcess) {
   try {
     if (!op.local) download(date, [...audios, ...metas, ...reviews]);
     transcribe(date, audios);
+    const clips = narration(date);
+    if (!audios.length && !clips) {
+      throw new Error('No talk audio and no reviewed clip found on disk: there is nothing to make insights from.');
+    }
     reviewTimeline(date);
     if (op['no-claude']) {
-      say('No Claude: the raw transcript is left as is.');
+      say('No Claude: the transcripts are left as they are.');
       continue;
     }
     generateInsights(date);
@@ -248,6 +297,7 @@ for (const { date, audios, metas, reviews } of toProcess) {
       `sessions/${date}/processed.json`,
       JSON.stringify({ audios: audios.map((a) => a.name), meta: metas.map((m) => m.name), review: reviews.map((f) => f.name), date: new Date().toISOString() }, null, 1),
     );
+    deliver(date);
     say(`Done. Review feat/session-${date} and confirm the push.`);
   } catch (e) {
     failures++;
