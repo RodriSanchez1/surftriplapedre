@@ -12,9 +12,11 @@ interface Props {
   wave?: string;
   /** Day it was filmed, 'YYYY-MM-DD'. */
   day?: string;
+  /** The review recording at the moment of the capture. Without it there is no video link. */
+  video?: string;
 }
 
-const { lang, src, caption, wave, day } = Astro.props;
+const { lang, src, caption, wave, day, video } = Astro.props;
 const url = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/${src}`;
 const when = wave && day ? format(t(lang, 'capture.wave'), { time: wave, date: dayMonth(day) }) : '';
 const text = when ? `${when} — ${caption}` : caption;
@@ -24,7 +26,19 @@ const text = when ? `${when} — ${caption}` : caption;
   <a href={url} target="_blank" rel="noopener">
     <img src={url} alt={text} loading="lazy" />
   </a>
-  <figcaption>{text}</figcaption>
+  <figcaption>
+    {text}
+    {
+      video && (
+        <>
+          {' '}
+          <a class="watch" href={video} target="_blank" rel="noopener">
+            {t(lang, 'capture.watch')}
+          </a>
+        </>
+      )
+    }
+  </figcaption>
 </figure>
 
 <style>
@@ -47,5 +61,9 @@ const text = when ? `${when} — ${caption}` : caption;
     margin-top: var(--s-2);
     font-family: var(--font-body);
     font-size: 0.9rem;
+  }
+  .watch {
+    white-space: nowrap;
+    font-weight: 700;
   }
 </style>

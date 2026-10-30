@@ -1,5 +1,4 @@
 ---
-import { render } from 'astro:content';
 import BaseLayout from '../components/BaseLayout.astro';
 import BoltBand from '../components/BoltBand.astro';
 import Avatar from '../components/Avatar.astro';
@@ -12,6 +11,7 @@ import { dayMonth } from '../lib/calendar';
 import { pathFor, t, type Lang } from '../lib/i18n';
 import { wasInWater } from '../lib/footage';
 import { insightsForSurfer } from '../lib/localized';
+import { linkReviewMoments } from '../lib/review/recording';
 
 interface Props {
   lang: Lang;
@@ -27,9 +27,12 @@ const meta = surferMeta(site, lang, id);
 const surfer = surfers.find((s) => s.id === id);
 if (!surfer) throw new Error(`Surfer "${id}" is not in surfers.yaml`);
 
-const items = await Promise.all(
-  insightsForSurfer(insights, id, lang).map(async (l) => ({ ...l, Content: (await render(l.entry)).Content })),
-);
+/** The review recording of a session (the same in every language). */
+const recordingOf = (date: string) => sessions.find((s) => s.id === `${date}.es`)?.data.recording;
+const items = insightsForSurfer(insights, id, lang).map((l) => ({
+  ...l,
+  html: linkReviewMoments(l.entry.rendered?.html ?? '', recordingOf(l.entry.data.date)),
+}));
 const current = items[0]?.entry.data;
 
 // Sessions where the surfer has no insight because they were not in the water of the reviewed footage.
@@ -38,8 +41,8 @@ const absences = sessions
   .filter((s) => s.id.endsWith('.es') && !insightDates.has(s.id.slice(0, -3)) && !wasInWater(s.data.footage, id))
   .map((s) => ({ date: s.id.slice(0, -3) }));
 const history = [
-  ...items.map(({ entry, fallback, Content }) => ({ date: entry.data.date, fallback, Content, captures: entry.data.captures })),
-  ...absences.map(({ date }) => ({ date, fallback: false, Content: undefined, captures: [] })),
+  ...items.map(({ entry, fallback, html }) => ({ date: entry.data.date, fallback, html, captures: entry.data.captures })),
+  ...absences.map(({ date }) => ({ date, fallback: false, html: undefined, captures: [] })),
 ].sort((a, b) => b.date.localeCompare(a.date));
 ---
 
@@ -62,15 +65,15 @@ const history = [
 
     {history.length > 0 && <h2 class="section-title">{t(lang, 'surfer.history')}</h2>}
     {
-      history.map(({ date, fallback, Content, captures }) => (
+      history.map(({ date, fallback, html, captures }) => (
         <InsightBlock
           heading={`${t(lang, 'session.title')} ${dayMonth(date)}`}
           fallback={fallback}
           href={pathFor(lang, `/sessions/${date}/`, base)}
           linkText={t(lang, 'surfer.seeSession')}
         >
-          {Content ? <Content /> : <p>{t(lang, 'surfer.notInWater')}</p>}
-          <CaptureGrid lang={lang} date={date} captures={captures} />
+          {html !== undefined ? <Fragment set:html={html} /> : <p>{t(lang, 'surfer.notInWater')}</p>}
+          <CaptureGrid lang={lang} date={date} captures={captures} recording={recordingOf(date)} />
         </InsightBlock>
       ))
     }

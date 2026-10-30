@@ -189,6 +189,7 @@ const es = {
   'footage.add': 'Agregar otra sesión',
   'footage.remove': 'Quitar esta sesión',
   'capture.wave': 'Ola de las {time} · {date}',
+  'capture.watch': 'Ver en el video ▶',
 } as const;
 
 export type UiKey = keyof typeof es;
@@ -380,6 +381,7 @@ const pt: Record<UiKey, string> = {
   'footage.add': 'Adicionar outra sessão',
   'footage.remove': 'Remover esta sessão',
   'capture.wave': 'Onda das {time} · {date}',
+  'capture.watch': 'Ver no vídeo ▶',
 };
 
 const ui: Record<Lang, Record<UiKey, string>> = { es, pt };

@@ -1,5 +1,4 @@
 ---
-import { render } from 'astro:content';
 import BaseLayout from '../components/BaseLayout.astro';
 import BoltBand from '../components/BoltBand.astro';
 import InsightBlock from '../components/InsightBlock.astro';
@@ -12,6 +11,7 @@ import { sessionMeta } from '../lib/og/meta';
 import { dayMonth } from '../lib/calendar';
 import { pathFor, t, type Lang } from '../lib/i18n';
 import { insightsForSession, pickLang } from '../lib/localized';
+import { linkReviewMoments } from '../lib/review/recording';
 
 interface Props {
   lang: Lang;
@@ -26,15 +26,14 @@ const meta = sessionMeta(site, lang, date);
 
 const session = pickLang(sessions, date, lang);
 if (!session) throw new Error(`src/content/sessions/${date}.es.md does not exist`);
-const { Content } = await render(session.entry);
+const recording = session.entry.data.recording;
+const summaryHtml = linkReviewMoments(session.entry.rendered?.html ?? '', recording);
 
 const names = new Map(surfers.map((s) => [s.id, s.data.name]));
-const items = await Promise.all(
-  insightsForSession(insights, date, lang, surfers.map((s) => s.id)).map(async (l) => ({
-    ...l,
-    Content: (await render(l.entry)).Content,
-  })),
-);
+const items = insightsForSession(insights, date, lang, surfers.map((s) => s.id)).map((l) => ({
+  ...l,
+  html: linkReviewMoments(l.entry.rendered?.html ?? '', recording),
+}));
 ---
 
 <BaseLayout title={`${t(lang, 'session.title')} ${dayMonth(date)} · ${trip.name}`} lang={lang} team={trip.team} siteName={trip.name} description={meta.description} image={meta.key}>
@@ -57,7 +56,7 @@ const items = await Promise.all(
     <h2 class="section-title">{t(lang, 'session.summary')}</h2>
     <section class="prose">
       {session.fallback && <TranslationBadge />}
-      <Content />
+      <Fragment set:html={summaryHtml} />
     </section>
 
     <h2 class="section-title">{t(lang, 'session.plan')}</h2>
@@ -100,7 +99,7 @@ const items = await Promise.all(
 
     <h2 class="section-title">{t(lang, 'session.surfers')}</h2>
     {
-      items.map(({ entry, fallback, Content: Insight }) => (
+      items.map(({ entry, fallback, html }) => (
         <InsightBlock
           id={entry.data.surfer}
           heading={names.get(entry.data.surfer) ?? entry.data.surfer}
@@ -109,8 +108,8 @@ const items = await Promise.all(
           linkText={names.get(entry.data.surfer)}
         >
           <Avatar slot="media" id={entry.data.surfer} name="" size="sm" />
-          <Insight />
-          <CaptureGrid lang={lang} date={entry.data.date} captures={entry.data.captures} />
+          <Fragment set:html={html} />
+          <CaptureGrid lang={lang} date={entry.data.date} captures={entry.data.captures} recording={recording} />
         </InsightBlock>
       ))
     }
