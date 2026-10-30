@@ -5,6 +5,7 @@
  */
 import { clampToTrip, dayMonth, todayIn } from '../calendar';
 import { format } from '../i18n';
+import { ask, confirmIn } from '../confirm';
 import { googleAccount, loadGoogle, LoginError, SIGNED_IN } from '../audio/google';
 import { folderIn, send, verifyAccess, PermissionError, type Dependencies } from '../audio/upload';
 import { clock, DEFAULT_FPS, length, middleEllipsis, position, scrubFrames, sortClips, stepFrame, type Clip } from './clips';
@@ -44,11 +45,9 @@ export interface Texts {
   openCapture: string;
   clipTagged: string;
   deleteCapture: string;
-  deleteCaptureConfirm: string;
   finishCount: string;
   sessionLocked: string;
   restored: string;
-  discardConfirm: string;
   nothing: string;
   uploading: string;
   done: string;
@@ -72,7 +71,16 @@ export interface Texts {
   deleteFailed: string;
   deleteClip: string;
   keepClip: string;
-  deleteClipConfirm: string;
+  deleteClipTitle: string;
+  deleteClipBody: string;
+  deleteClipYes: string;
+  deleteCaptureTitle: string;
+  deleteCaptureBody: string;
+  deleteCaptureYes: string;
+  discardTitle: string;
+  discardBody: string;
+  discardYes: string;
+  discardNo: string;
 }
 
 /** An event as the page records it: the time and the clip are filled in by record(). */
@@ -151,6 +159,8 @@ export function init(root: HTMLElement): void {
   /** The keyboard shortcuts: a modal dialog from the ⌨ button (not on /design/'s demo, which has no script). */
   const keysDialog = root.querySelector<HTMLDialogElement>('[data-keys]');
   const keysButton = root.querySelector<HTMLElement>('[data-action="keys"]');
+  /** The question before deleting (ConfirmDialog.astro). The recorder panel inside has its own. */
+  const confirmDialog = confirmIn(root);
   const filesInput = $<HTMLInputElement>('[data-files]');
   /** A phone: the clip list is a drawer over the picture instead of a column. */
   const compact = matchMedia('(max-width: 760px), (orientation: landscape) and (max-height: 500px)');
@@ -705,11 +715,16 @@ export function init(root: HTMLElement): void {
   }
 
   /** From the clip list or the Delete key: marks the clip to delete after the upload (asking first), or takes the mark off. */
-  function toggleDelete(entry: Entry) {
+  async function toggleDelete(entry: Entry) {
     if (uploading) return;
     const name = entry.file.name;
     if (clipTags(draft, name).kinds.includes('delete')) return keepClip(name);
-    if (!confirm(format(texts.deleteClipConfirm, { name }))) return;
+    const yes = await ask(confirmDialog, {
+      title: format(texts.deleteClipTitle, { name }),
+      body: texts.deleteClipBody,
+      confirm: texts.deleteClipYes,
+    });
+    if (!yes || uploading) return;
     const d = ensureDraft();
     d.clips = { ...d.clips, [name]: withDelete(clipTags(d, name), true) };
     persist();
@@ -719,7 +734,7 @@ export function init(root: HTMLElement): void {
 
   function toggleDeleteFrom(target: Element) {
     const entry = clips.find((c) => c.item.contains(target)) ?? current;
-    if (entry) toggleDelete(entry);
+    if (entry) void toggleDelete(entry);
   }
 
   /** The dots of who surfs in the capture's clip: captures follow their clip's tags. */
@@ -807,7 +822,15 @@ export function init(root: HTMLElement): void {
   }
 
   async function deleteCapture(file: string) {
-    if (!draft || uploading || !confirm(texts.deleteCaptureConfirm)) return;
+    if (!draft || uploading) return;
+    const thumb = shots.querySelector<HTMLImageElement>(`[data-file="${CSS.escape(file)}"] img`)?.src;
+    const yes = await ask(confirmDialog, {
+      title: texts.deleteCaptureTitle,
+      body: texts.deleteCaptureBody,
+      confirm: texts.deleteCaptureYes,
+      thumb,
+    });
+    if (!yes || !draft || uploading) return;
     draft.log = { ...draft.log, events: draft.log.events.filter((e) => !(e.type === 'capture' && e.file === file)) };
     blobs.delete(file);
     persist();
@@ -954,7 +977,14 @@ export function init(root: HTMLElement): void {
   }
 
   async function discard() {
-    if (uploading || !confirm(texts.discardConfirm)) return;
+    if (uploading) return;
+    const yes = await ask(confirmDialog, {
+      title: texts.discardTitle,
+      body: texts.discardBody,
+      confirm: texts.discardYes,
+      cancel: texts.discardNo,
+    });
+    if (!yes || uploading) return;
     await writes;
     await store?.clear();
     draft = null;
@@ -1306,7 +1336,7 @@ export function init(root: HTMLElement): void {
     'keep-clip': (b) => keepClip(b.dataset.clip!),
     'delete-clip': (b) => {
       const entry = clips.find((c) => c.item.contains(b));
-      if (entry) toggleDelete(entry);
+      if (entry) void toggleDelete(entry);
     },
     capture: () => void saveCapture(),
     'open-capture': (b) => void openCapture(b.dataset.file!),
@@ -1393,6 +1423,9 @@ export function init(root: HTMLElement): void {
     if (tour?.isOpen()) return;
     // The shortcuts dialog handles its own keys (Esc closes it); none of the editor's shortcuts run under it.
     if (keysDialog?.open) return;
+    // A confirmation handles its own keys (Esc is no): Supr does not ask again and Space does not play under it.
+    // The recorder panel inside has its own, so any open one counts.
+    if (root.querySelector('dialog[data-confirm][open]')) return;
     if (root.dataset.signedIn === 'false') return;
     const target = e.target as HTMLElement;
     // Escape puts away the arrow menu first and gives the focus back to its button.

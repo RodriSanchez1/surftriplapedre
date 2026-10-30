@@ -27,7 +27,7 @@ export interface FolderVideo {
 
 declare global {
   interface Window {
-    showDirectoryPicker?: (options?: { id?: string; mode?: 'read' }) => Promise<FileSystemDirectoryHandle>;
+    showDirectoryPicker?: (options?: { id?: string; mode?: 'read' | 'readwrite' }) => Promise<FileSystemDirectoryHandle>;
   }
 }
 
@@ -39,17 +39,23 @@ export function isVideo(name: string): boolean {
   return VIDEO.test(name) && !name.startsWith('.');
 }
 
-/** Opens the folder picker. Throws an AbortError DOMException if the coach cancels. */
+/**
+ * Opens the folder picker, asking to read and write at once: one browser prompt covers loading the clips and
+ * deleting the marked ones after the upload. Throws an AbortError DOMException if the coach cancels.
+ */
 export function pickFolder(): Promise<FileSystemDirectoryHandle> {
-  return window.showDirectoryPicker!({ id: 'surftrip-review', mode: 'read' });
+  return window.showDirectoryPicker!({ id: 'surftrip-review', mode: 'readwrite' });
 }
 
-/** Whether the page can still read a remembered folder. With ask = true it asks (needs a tap). */
+/**
+ * Whether the page can still use a remembered folder, to read it and to delete the marked clips after the upload.
+ * With ask = true it asks (needs a tap). A folder remembered with read permission only asks once more.
+ */
 export async function canRead(handle: FileSystemDirectoryHandle, ask: boolean): Promise<boolean> {
   const h = handle as unknown as DirectoryHandle;
   if (!h.queryPermission) return true;
-  if ((await h.queryPermission({ mode: 'read' })) === 'granted') return true;
-  return ask && !!h.requestPermission && (await h.requestPermission({ mode: 'read' })) === 'granted';
+  if ((await h.queryPermission({ mode: 'readwrite' })) === 'granted') return true;
+  return ask && !!h.requestPermission && (await h.requestPermission({ mode: 'readwrite' })) === 'granted';
 }
 
 /**
