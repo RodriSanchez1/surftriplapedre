@@ -37,7 +37,7 @@ Today every pointer move asks for a seek, and the moves that arrive during a see
 | Spacing | The transport's button groups (`|◀ ▶ ▶|` and speed, volume, fullscreen) get `var(--s-3)` (12 px) between buttons instead of `var(--s-1)`, so a button's shadow, even lifted on hover, never touches the next one. Checked to fit at 390 px. |
 | Menus | At most one of the speed menu, the volume popover and the arrow menu is open at a time. The speed menu works like the arrow menu: ↑/↓ move, Enter picks, Esc closes and gives the focus back to its button. |
 | Slow-motion speed | Fixed at 0.25×, whatever speed is picked in the menu. |
-| Backwards | One seek at a time, waiting for the frame to be painted before asking for the next one, paced at 0.25×. On heavy clips it goes slower than 0.25× but evenly. Rejected: a decoded-frame buffer (smooth but ~250 MB, a 1–2 s wait and much more code) and WebCodecs (a demuxer dependency, uneven HEVC support). The trip ends on 1/11: the simple engine ships now. |
+| Backwards | From a buffer of decoded frames (see "Backwards buffer"), added after the owner tried the first engine on a real clip. The first engine (one seek per frame) could not keep up: the camera films 1080p at 120 fps with a keyframe every 0.5 s, and one frame back cost 400–700 ms in headless Chromium against the 33 ms that 0.25× needs. Still rejected: WebCodecs (a demuxer dependency, uneven HEVC support). |
 | Next-clip button | None. The clip list already does it with the mouse; the bar has no room on a phone. Keyboard only. |
 | Keys | ←/→: a tap moves one frame, held is slow motion. Shift+←/→: jump 5 s (as today). N / Shift+N: next / previous clip in list order, no wrap at the ends. ↑/↓: volume ±10%. M: mute. |
 
@@ -46,7 +46,7 @@ Today every pointer move asks for a seek, and the moves that arrive during a see
 One engine moves the picture for the held buttons, the held arrow keys and the drag. It has a **target time** and brings the picture to it.
 
 - **Forward:** native playback. Holding sets the rate to 0.25×. Dragging plays at the rate needed to catch the target (clamped to the range the browser allows) and pauses when it gets there.
-- **Backward:** one seek at a time to the next frame towards the target. It waits for the frame to be painted (`requestVideoFrameCallback`, or `seeked` where that is missing) before the next seek, never faster than 0.25× when holding.
+- **Backward:** frames come from the backwards buffer, drawn on a canvas over the video, never faster than 0.25× when holding. A frame the buffer does not have yet is waited for (holding) or sought on the video directly (dragging, as the first engine did).
 - **Holding:** pressing `|◀` / `▶|` or ←/→ for less than ~250 ms is a tap: one frame, as today. Longer, the target moves at 0.25× in that direction until the release. Key auto-repeat is ignored; keyup ends it. Releasing pauses on the exact frame (`stepFrame` snaps it).
 - **Dragging:** paused, no tool, no zoom (as today). The target follows the pointer at `SCRUB_PX_PER_FRAME` (3 px per frame) from where the drag started.
 - **Ending:** on release, pointer cancel, losing focus (blur) or opening another clip, the engine stops, pauses and restores the speed picked in the menu.
@@ -64,6 +64,17 @@ So `review-timeline` and the log format do not change.
 - `src/lib/review/motion.ts`, pure and tested: the tap-or-hold decision, where the target is after a given time held, the forward rate needed to reach a target, the next backwards step and when it is due, the volume step and what is kept in storage.
 - `src/lib/review/motion-page.ts`: the engine on the real `<video>`, with an interface for `page.ts` (start holding in a direction, follow a drag target, stop, "is moving"). `page.ts` uses it from the frame buttons, the arrow keys and the existing drag handlers, and checks "is moving" in its `play`/`pause`/`ratechange` listeners.
 - The volume and speed popovers can live in a small `src/lib/review/playback-page.ts` if `page.ts` would grow too much (it is already 1,500+ lines).
+
+## Backwards buffer
+
+Native playback is smooth forward, so backwards is built from it: a second, hidden `<video>` on the same clip plays the stretch just before the picture forward at 0.5×, keeps every frame it presents (`requestVideoFrameCallback` + `createImageBitmap`), and the engine shows those frames newest first.
+
+- **Measured** on the owner's clip C0223 (1080p, 119.88 fps, H.264 at 60 Mbps, keyframe every 0.5 s) in headless Chromium with software decoding: filling 0.5 s of clip takes 1.1 s and keeps 55–56 of 60 frames; showing it at 0.25× takes 2 s. Filling the stretch before while one is shown, 3 s of clip played back in 12.3 s (12 s ideal), a median of 33 ms between frames, 95% under 48 ms, one gap of 350 ms. Hardware decoding in Chrome can only do better.
+- **Stretches** end where the oldest buffered frame starts. The first is 1/8 s, so it is ready soon; the next ones are 1/4 s. It starts filling when `|◀` or ← goes down, before it is known whether it is a tap, so a hold has its first frames by the time it starts.
+- **Size.** Frames are kept at the size the picture is drawn (CSS size × device pixel ratio), never wider than the clip nor than 1280 px. At most 1/2 s of clip is kept (60 frames at 120 fps, ~220 MB at 1280×720); the frames furthest from the picture go first. All are closed when the clip changes or 10 s after the last use.
+- **Handing back to the video.** While the canvas shows the frames, the video stays where it was. On stop (or when a drag turns forward) the video seeks to the frame on the canvas, and the canvas is hidden once that frame is painted, so the picture never jumps.
+- **The canvas** sits in `.frame` right over the video, with the video's `object-fit` and the zoom's transform, so zoom and the drawing layer work the same. A capture taken while slow motion runs is ignored (the video is behind the canvas); after the release it works as usual.
+- **Missed frames.** When the hidden video skips a frame, the one before it stays on screen a little longer.
 
 ## Text and help
 
@@ -86,7 +97,7 @@ So `review-timeline` and the log format do not change.
 
 ## Out of scope
 
-- Smooth backwards playback on heavy 4K clips (needs a frame buffer or WebCodecs).
+- WebCodecs, and finding keyframes from the file's index to start stretches on them.
 - A next-clip button.
 - Auto-playing the next clip at the end of one.
 - Logging volume changes.
