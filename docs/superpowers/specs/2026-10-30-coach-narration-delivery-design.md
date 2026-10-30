@@ -1,6 +1,6 @@
 # Coach narration and delivery to surfers
 
-Date: 2026-10-30. Status: approved in brainstorming, pending spec review.
+Date: 2026-10-30. Status: approved.
 
 ## Goal
 
@@ -59,14 +59,16 @@ The coach reviews in Chrome, which runs on Windows, so the clips live on the Win
 2. Each clip is located by file name under `<root>/<filming date>/`, searched recursively. The filming date is `filmedAt` in the trip time zone. The date folder is needed because cameras repeat file names across days. If `filmedAt` is null, the talk date folder is used.
 3. ffmpeg extracts each clip's audio (mono, 16 kHz) to a temporary file.
 4. `transcribe.py --per-file` transcribes each file on its own, loading the model once, with the same es/pt detection per span and the same vocabulary. It writes `sessions/<date>/narration.json`: for each clip file name, its segments with times relative to the clip.
-5. `review-timeline.mjs` adds a narration block under each clip heading of `sessions/<date>/review-timeline.md`:
+5. `review-timeline.mjs` adds a narration block under the first heading of each clip in `sessions/<date>/review-timeline.md` (the timeline is written for the skill, in English, like its headings today):
 
 ```
-### 10:42 · C0232.MP4 · Juan
-Narración:
-- 0:04 "boa remada, entrou cedo"
-- 0:11 "atrasou o bottom, tem que olhar pra parede"
+## --:-- · C0232.MP4 · surfers Juan · wave filmed 29/10 10:42:05 · clip length 0:18.0
+Narration (the coach, while filming):
+- 0:04.0 (pt) boa remada, entrou cedo
+- 0:11.2 (pt) atrasou o bottom, tem que olhar pra parede
 ```
+
+   `review-timeline.mjs` no longer needs a talk transcript: without `raw-transcript.json` every talk minute shows `--:--`.
 
 `narration.json` and `review-timeline.md` are local and listed in `.gitignore`.
 
@@ -76,8 +78,8 @@ The `process-session` skill gains one rule: when the timeline has narration, it 
 
 ### Errors
 
-- A clip not found on disk: logged in `auto.log`, shown in the timeline as `(archivo no encontrado)`, and the rest go on.
-- A clip with no speech: `(sin narración)`.
+- A clip not found on disk: logged in `auto.log`, left out of `narration.json`, shown in the timeline as `Narration: (clip file not found on disk)`, and the rest go on.
+- A clip with no speech (or no audio track): `Narration: (no speech)`.
 - No clip found at all and no talk audio: the date is not processed and `auto.log` says why, instead of producing empty insights.
 
 ## Delivery
@@ -108,12 +110,14 @@ A local page opened with a double click. One card per surfer, with their colour:
 ```
 
 - The path is shown as a Windows path, with a copy button.
-- **Mandar por WhatsApp** is enabled only once a valid WeTransfer link is pasted (`https://we.tl/...` or `https://wetransfer.com/...`). It opens `https://wa.me/?text=<message>`.
+- **Mandar por WhatsApp** is enabled only once a valid WeTransfer link is pasted (`https://we.tl/<id>` or `https://wetransfer.com/downloads/<id>`). An invalid link gets a red border and a help line. It opens `https://wa.me/?text=<message>`. Once sent, the card shows "Mandado el dd/mm a las HH:mm" and the button becomes "Mandar de nuevo".
+- **Ver el mensaje** (closed by default) shows the message as it will be sent, updated as the link is pasted.
 - The message (Spanish, from `src/lib/i18n.ts`), for example: "¡Hola Juan! 🏄 Acá están tus 7 olas del jueves 29/10: <WeTransfer link>. Y lo que dijo Douglas de cada una: https://lapedrera.erkscode.com/sessions/2026-10-29/#juan". The coach's name comes from `trip.yaml`, the site from `astro.config.mjs` `site`, and the anchor is the surfer id (already on the session page).
 - The pasted link and the "sent" time are saved in the browser (`localStorage`, keyed by date and surfer), so a rebuilt page keeps them.
 - A card whose folder is bigger than `SURFTRIP_DELIVERY_LIMIT_GB` (default 3, the WeTransfer free limit per transfer) shows the size in a warning colour.
-- A note at the top reminds that the session must be published (pushed) before sending, or the site link gives 404.
-- The page inlines `src/styles/tokens.css` and the site's fonts, so it looks like the site (AGENTS rule 3). It is drawn first in the canvas "Surftrip: UI de la app", on a page "Entrega a los surfistas" (AGENTS rule 7).
+- A note at the top reminds that the session must be published (pushed) before sending, or the site link gives 404. Under it, the four steps (copy the path, "Obtener link" on WeTransfer, paste the link, send).
+- Surfers with no tagged waves get no card: one line at the bottom names them.
+- The page inlines `src/styles/tokens.css` and the site's fonts, so it looks like the site (AGENTS rule 3). Approved design (30/10): canvas "Surftrip: UI de la app", page "Entrega a los surfistas", artboard `Delivery-Laptop.dc.html`. Laptop only: the page opens on the computer that holds the clips.
 
 ## Code
 
@@ -122,12 +126,13 @@ Pure logic with tests (Vitest), in `src/lib/delivery/`, importing nothing Node c
 | Unit | Does |
 |---|---|
 | `plan.ts` | From the date's review logs and the roster: which clips go to which surfer, under which name. Merging, exclusions, clips with two surfers. |
-| `locate.ts` | From the root, `filmedAt`, the talk date and a file name: the clip's path or "not found". The file listing is passed in, so it can be tested. |
+| `locate.ts` | The day folders to search for a clip (filming day, then talk date), the clip's path in a folder listing, and a WSL path shown as a Windows path. The file listing is passed in, so it can be tested. |
 | `message.ts` | The WhatsApp text, the `wa.me` URL, WeTransfer link validation, the size warning. |
 | `page.ts` | The `index.html` as a string. |
 
 Scripts and skill:
 
+- `scripts/clip-files.mjs`: finds the day's reviewed clips on disk (shared by `session-auto` and `deliver`).
 - `scripts/deliver.mjs` (`npm run deliver -- <date>`): builds the folders (hardlink, else copy) and writes `index.html`.
 - `scripts/transcribe.py`: `--per-file` mode, writing `narration.json`.
 - `scripts/review-timeline.mjs` and `src/lib/review/timeline.ts`: the narration block.
@@ -142,7 +147,7 @@ Scripts and skill:
 ## Testing
 
 - Unit tests for the four units in `src/lib/delivery/` and for the narration block in the timeline.
-- Before writing the plan, a scratchpad check of: hardlinks from WSL on `/mnt/c`, and `localStorage` on a page opened as `file://` in Chrome.
+- Checked on 30/10 in the scratchpad: hardlinks from WSL on `/mnt/c` work (9p drvfs, link count 2), and `localStorage` on a `file://` page persists across reloads and browser restarts (Chromium).
 - An end-to-end run with two or three test clips with a voice track (generated with ffmpeg) and a review log with tags.
 - The real test with the chosen camera and mic on the beach is for the organizer, before the trip.
 
