@@ -109,12 +109,13 @@ describe('pendingClips', () => {
     expect(pendingClips(working())).toEqual(['a.mp4', 'c.mp4']);
   });
 
-  it('is the clips whose tags changed since the last upload, a clip that lost its tags included', () => {
+  it('is the tagged clips whose tags changed since the last upload; a clip that lost every tag is not', () => {
     let s = afterUpload(working(), '2026-10-27T22:00:00.000Z');
     expect(pendingClips(s)).toEqual([]);
     s = setTags(s, 'b.mp4', { surfers: ['ciro'], kinds: [] });
     s = setTags(s, 'a.mp4', { surfers: [], kinds: [] });
-    expect(pendingClips(s)).toEqual(['a.mp4', 'b.mp4']);
+    s = setTags(s, 'c.mp4', { surfers: ['rodo'], kinds: ['delete'] });
+    expect(pendingClips(s)).toEqual(['b.mp4', 'c.mp4']);
   });
 });
 

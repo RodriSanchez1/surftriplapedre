@@ -82,11 +82,16 @@ function sameTags(a: ClipTags, b: ClipTags): boolean {
   return a.surfers.join('\n') === b.surfers.join('\n') && a.kinds.join('\n') === b.kinds.join('\n');
 }
 
-/** Clips whose tags differ from the last upload (every tagged clip before the first one), by name. */
+/**
+ * Tagged clips whose tags differ from the last upload (every tagged clip before the first one), by name.
+ * A clip whose tags were all taken off does not count: the log has no way to say "no tags" (clips without tags
+ * are left out of it), so there would be nothing to send.
+ */
 export function pendingClips(state: FolderState): string[] {
   const last = state.uploads.at(-1)?.clips ?? {};
-  const names = new Set([...Object.keys(state.clips), ...Object.keys(last)]);
-  return [...names].filter((c) => !sameTags(clipTags(state, c), last[c] ?? { surfers: [], kinds: [] })).sort();
+  return Object.keys(state.clips)
+    .filter((c) => !sameTags(clipTags(state, c), last[c] ?? { surfers: [], kinds: [] }))
+    .sort();
 }
 
 /** The review in progress is in Drive: it joins the uploads, with its captures and a copy of the tags. */

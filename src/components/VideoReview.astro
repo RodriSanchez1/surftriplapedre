@@ -162,14 +162,14 @@ const demoClips = [
       <span class="lock" data-lock-icon aria-hidden="true" hidden>🔒</span>
       <span class="visually-hidden" id="lock-why" data-lock-why aria-hidden="true"></span>
     </label>
-    <button type="button" class="btn bar-pick" data-action="pick-folder" title={t(lang, 'review.pickFolder')} aria-label={t(lang, 'review.pickFolder')}>
+    <button type="button" class="btn bar-pick" data-action="pick-folder" data-lock title={t(lang, 'review.pickFolder')} aria-label={t(lang, 'review.pickFolder')}>
       <span aria-hidden="true">📁</span><span class="label">{t(lang, 'review.pickFolder')}</span>
     </button>
     <label class="btn bar-pick" data-pick-files title={t(lang, 'review.pickFiles')} hidden>
       <span aria-hidden="true">🎞</span><span class="label">{t(lang, 'review.pickFiles')}</span>
       <input type="file" multiple accept="video/*,.mp4,.mov,.m4v" class="visually-hidden" data-files aria-label={t(lang, 'review.pickFiles')} />
     </label>
-    <button type="button" class="btn reopen" data-action="reopen" hidden></button>
+    <button type="button" class="btn reopen" data-action="reopen" data-lock hidden></button>
     <span class="spacer"></span>
     <button type="button" class="btn tour-replay" data-tour-replay title={t(lang, 'tour.replay')} aria-label={t(lang, 'tour.replay')}>?</button>
     <button

@@ -94,7 +94,8 @@ describe('pendingCount', () => {
     expect(pendingCount(state)).toBe(2 + 4);
     const up = afterUpload(state, '2026-10-27T22:00:00.000Z');
     expect(pendingCount(up)).toBe(0);
-    expect(pendingCount(setTags(up, 'a.mp4', { surfers: [], kinds: [] }))).toBe(1);
+    expect(pendingCount(setTags(up, 'a.mp4', { surfers: ['juan'], kinds: [] }))).toBe(1);
+    expect(pendingCount(setTags(up, 'a.mp4', { surfers: [], kinds: [] }))).toBe(0);
   });
 });
 

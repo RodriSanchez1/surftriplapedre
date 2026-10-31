@@ -16,7 +16,7 @@ import { initReverse } from './reverse-page';
 import { initPlayback } from './playback-page';
 import { cursorFor, ICONS } from './icons';
 import { placeMenu } from './menu';
-import { askWrite, canPickFolder, canRead, canWrite, isVideo, pickFolder, removeVideos, uniqueDirs, videosIn } from './folder';
+import { askWrite, canPickFolder, canRead, isVideo, pickFolder, removeVideos, uniqueDirs, videosIn } from './folder';
 import { FolderStore } from './folder-store';
 import {
   addEvent,
@@ -782,7 +782,7 @@ export function init(root: HTMLElement): void {
     const surfers = chips().filter((c) => c.checked).map((c) => c.value);
     const kinds = kindChips().filter((c) => c.checked).map((c) => c.value as ClipKind);
     const name = current.file.name;
-    // Tags belong to the folder, not to a review: tagging alone starts no review.
+    // Tags belong to the folder, not to a review: they live outside the draft and count as pending until uploaded.
     state = withTags(state, name, withDelete({ surfers, kinds }, clipTags(state, name).kinds.includes('delete')));
     persist();
     paintStatus();
@@ -1172,12 +1172,13 @@ export function init(root: HTMLElement): void {
   /** Keeps the work in the folder's .analysis/. A folder with none takes the browser's unfinished work, once. */
   async function useFolder(handle: FileSystemDirectoryHandle) {
     await writes;
-    if (!(await canWrite(handle))) {
+    const folder = new FolderStore(handle);
+    // No permission, or media that refuses writes (a locked SD card): the work goes to the browser.
+    if (!(await folder.writable())) {
       say(texts.folderReadOnly, 'warn');
       place = 'none';
       return useBrowser();
     }
-    const folder = new FolderStore(handle);
     let next: FolderState | undefined;
     try {
       next = await folder.state();
@@ -1194,23 +1195,28 @@ export function init(root: HTMLElement): void {
     await show(next ?? (await adopt(folder)) ?? emptyState(), true);
   }
 
-  /** Moves the browser's work into a folder that has none: each image, then the state, then the browser forgets it. */
+  /**
+   * Moves the old single draft (from before the folder kept its work) into a folder that has none: each image,
+   * then the state, then the browser forgets it. Other browser work stays put: it may belong to other clips.
+   */
   async function adopt(folder: FolderStore): Promise<FolderState | undefined> {
-    const old = browser && (await browser.state().catch(() => undefined));
+    const old = browser && (await browser.legacy().catch(() => undefined));
     if (!browser || !old || !hasWork(old)) return undefined;
+    const files = draftCaptures(old).map((e) => e.file);
     try {
-      for (const e of [...draftCaptures(old), ...uploadedCaptures(old)]) {
-        const blob = await browser.capture(e.file);
-        if (blob) await folder.saveCapture(e.file, blob);
+      for (const file of files) {
+        const blob = await browser.capture(file);
+        if (blob) await folder.saveCapture(file, blob);
       }
       await folder.saveState(old);
-      await browser.clear();
-      return old;
     } catch (e) {
       console.error(e);
       say(texts.saveFailed, 'error', true);
       return undefined;
     }
+    // The folder has it now; if the browser cannot forget it, it is only offered again.
+    await browser.forgetLegacy(files).catch((e) => console.error(e));
+    return old;
   }
 
   async function loadFolder(handle: FileSystemDirectoryHandle) {
@@ -1223,6 +1229,8 @@ export function init(root: HTMLElement): void {
   }
 
   async function chooseFolder() {
+    // Mid-upload the page is sending this folder's review: another folder would take over its state.
+    if (uploading) return;
     try {
       const handle = await pickFolder();
       void browser?.saveFolder(handle).catch(() => {});
@@ -1234,6 +1242,7 @@ export function init(root: HTMLElement): void {
   }
 
   async function reopen() {
+    if (uploading) return;
     const handle = await browser?.folder();
     if (!handle) return;
     if (await canRead(handle, true)) {
@@ -1244,7 +1253,8 @@ export function init(root: HTMLElement): void {
 
   /** On load: the remembered folder if it can be read without asking; otherwise the browser's work and a reopen button. */
   async function restore() {
-    if (!browser) return;
+    // The coach may have opened clips before IndexedDB answered: that choice stands.
+    if (!browser || place !== 'none') return;
     const handle = canPickFolder() ? await browser.folder() : undefined;
     if (handle && (await canRead(handle, false))) return loadFolder(handle);
     await useBrowser();
@@ -1558,6 +1568,7 @@ export function init(root: HTMLElement): void {
 
   filesInput.addEventListener('change', (e) => {
     const input = e.target as HTMLInputElement;
+    if (uploading) return;
     folderHandle = null;
     dirs = new Map();
     const files = [...(input.files ?? [])];
@@ -1575,6 +1586,7 @@ export function init(root: HTMLElement): void {
     e.preventDefault();
     viewer.removeAttribute('data-dragging');
     const dropped = [...(e.dataTransfer?.files ?? [])];
+    if (uploading) return;
     folderHandle = null;
     dirs = new Map();
     if (dropped.length) void useBrowser().then(() => loadFiles(dropped.filter((f) => isVideo(f.name))));

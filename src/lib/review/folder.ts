@@ -58,13 +58,6 @@ export async function canRead(handle: FileSystemDirectoryHandle, ask: boolean): 
   return ask && !!h.requestPermission && (await h.requestPermission({ mode: 'readwrite' })) === 'granted';
 }
 
-/** Whether the page may write in the folder now, without asking. Without the permissions API it tries and finds out. */
-export async function canWrite(handle: FileSystemDirectoryHandle): Promise<boolean> {
-  const h = handle as unknown as DirectoryHandle;
-  if (!h.queryPermission) return true;
-  return (await h.queryPermission({ mode: 'readwrite' })) === 'granted';
-}
-
 /**
  * Asks to write in the folder. It calls requestPermission synchronously (no await before it) so it runs
  * inside the tap that triggered it: the prompt needs that user activation, and anything awaited first

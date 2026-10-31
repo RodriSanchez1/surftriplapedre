@@ -75,11 +75,11 @@ The model replaces `Draft` in the page. The tags move out of the draft into `cli
 **Opening a folder** (Chrome or Edge, folder picked or reopened):
 
 1. With write permission, read `.analysis/review.json`. If it is there, load the tags, every capture (uploaded and pending) and the review in progress. The date of the talk comes from the review in progress, if there is one.
-2. If it is not there and the browser has an old draft with something in it, that draft moves into the folder **once** (state and capture images), and it is deleted from the browser. This keeps today's unfinished work.
+2. If it is not there and the browser still has the **old single draft** (from before this change) with something in it, that draft moves into the folder **once** (state and capture images), and it is deleted from the browser. This keeps today's unfinished work. Work the browser keeps for files picked one by one does not move: it may belong to other clips.
 3. If there is neither, the folder starts empty. `.analysis/` is created on the first write, not on opening, so opening a folder only to watch leaves nothing behind.
 4. The "Seguís con el análisis sin subir…" notice keeps showing when there is a review in progress. It now says "in this folder", not "on this device".
 
-**Without write permission** (the browser refused it, read-only media): the page uses `ReviewStore` like today and says once: "No puedo guardar en la carpeta; lo guardo en este navegador." (`review.folderReadOnly`).
+**Without write permission** (the browser refused it, read-only media such as a locked SD card, which grants the permission and still refuses writes; `FolderStore.writable()` creates and removes a probe file to find out): the page uses `ReviewStore` like today and says once: "No puedo guardar en la carpeta; lo guardo en este navegador." (`review.folderReadOnly`).
 
 **Browsers without folders** (Safari, Firefox: clips picked one by one): `ReviewStore`, no change in behaviour, now with the ✓ marks too.
 
@@ -100,7 +100,7 @@ If the upload is cut, `draft.sessions` and `draft.uploaded` resume it, like toda
 ## What counts as pending
 
 - Captures in the review in progress.
-- Clips whose tags differ from the last upload's copy (or that were never uploaded with tags). Taking every tag off a clip that was uploaded tagged also counts.
+- Tagged clips whose tags differ from the last upload's copy (or that were never uploaded). Taking every tag off a clip does not count: the log leaves out clips without tags, so there is nothing to send.
 
 The counter on the button (`Subir (n)`) counts those. Right after an upload it is 0. Uploading only changed tags is allowed: it makes a review with no captures, and the pipeline already handles several reviews per date.
 
@@ -128,6 +128,11 @@ This is a small UI change. It goes straight to the code (rule 7): the panel's de
 - One talk over several folders.
 - Syncing `.analysis/` with Drive, or reading it back from Drive.
 - Cleaning `clips` entries of clips deleted by hand outside the app. They stay in the JSON and are not shown.
+
+## Known limits
+
+- While an upload runs, opening another folder, reopening one, picking files or dropping them does nothing: the upload is sending this folder's review.
+- If deleting the marked clips is refused or fails after an upload, they keep their mark but nothing is pending, so Subir stays disabled until something else changes.
 
 ## Checks
 

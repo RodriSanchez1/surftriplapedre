@@ -68,6 +68,20 @@ export class ReviewStore implements StateStore {
     await complete(tx);
   }
 
+  /** The old single draft as a state, if it is still here: the only browser work that moves into a folder. */
+  async legacy(): Promise<FolderState | undefined> {
+    const old = await this.#get<LegacyDraft>(KV, LEGACY_DRAFT);
+    return old ? fromDraft(old) : undefined;
+  }
+
+  /** Forgets the old draft and the images that moved with it; the browser's own state stays. */
+  async forgetLegacy(files: string[]): Promise<void> {
+    const tx = this.#db.transaction([KV, CAPTURES], 'readwrite');
+    tx.objectStore(KV).delete(LEGACY_DRAFT);
+    for (const file of files) tx.objectStore(CAPTURES).delete(file);
+    await complete(tx);
+  }
+
   capture(file: string): Promise<Blob | undefined> {
     return this.#get<Blob>(CAPTURES, file);
   }

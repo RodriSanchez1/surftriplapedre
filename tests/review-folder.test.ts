@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { askWrite, canRead, canWrite, pickFolder, removeVideos, uniqueDirs, videosIn } from '../src/lib/review/folder';
+import { askWrite, canRead, pickFolder, removeVideos, uniqueDirs, videosIn } from '../src/lib/review/folder';
 
 type FakeFile = { kind: 'file'; name: string; getFile(): Promise<File> };
 interface FakeDir {
@@ -128,19 +128,5 @@ describe('canRead', () => {
 
   it('is true where the browser has no permissions API', async () => {
     expect(await canRead({} as FileSystemDirectoryHandle, false)).toBe(true);
-  });
-});
-
-describe('canWrite', () => {
-  const h = (state: string) => ({ queryPermission: async () => state }) as unknown as FileSystemDirectoryHandle;
-
-  it('is true only with readwrite granted, and never asks', async () => {
-    expect(await canWrite(h('granted'))).toBe(true);
-    expect(await canWrite(h('prompt'))).toBe(false);
-    expect(await canWrite(h('denied'))).toBe(false);
-  });
-
-  it('is true where the browser has no permissions API', async () => {
-    expect(await canWrite({} as FileSystemDirectoryHandle)).toBe(true);
   });
 });

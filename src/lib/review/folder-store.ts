@@ -11,6 +11,8 @@ import type { StateStore } from './store';
 export const ANALYSIS_DIR = '.analysis';
 const STATE_FILE = 'review.json';
 const CAPTURES_DIR = 'captures';
+/** Created and removed at once to find out whether the folder takes writes. */
+const PROBE = '.analysis-probe';
 
 function missing(e: unknown): boolean {
   return e instanceof DOMException && e.name === 'NotFoundError';
@@ -52,6 +54,20 @@ export class FolderStore implements StateStore {
     const writable = await (await dir.getFileHandle(name, { create: true })).createWritable();
     await writable.write(data);
     await writable.close();
+  }
+
+  /**
+   * Whether the folder takes writes now: permission granted and media not locked (a locked SD card grants the
+   * permission and still refuses every write). Leaves nothing behind.
+   */
+  async writable(): Promise<boolean> {
+    try {
+      await this.#root.getFileHandle(PROBE, { create: true });
+      await this.#root.removeEntry(PROBE);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async state(): Promise<FolderState | undefined> {

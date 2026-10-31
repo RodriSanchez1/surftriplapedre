@@ -56,6 +56,23 @@ describe('review store', () => {
     expect(await store.state()).toEqual(emptyState());
   });
 
+  it('gives the old draft apart and forgets it with its images, keeping the browser state', async () => {
+    const idb = fresh();
+    await putRaw(idb, 'draft', { log: { ...log, events: [] }, sessions: {}, uploaded: [], clips: { 'a.mp4': { surfers: ['rodo'], kinds: [] } } });
+    const store = await openReviewStore(idb);
+    await store.saveCapture('old.jpg', new Blob(['jpeg']));
+    await store.saveCapture('mine.jpg', new Blob(['jpeg']));
+    expect((await store.legacy())?.clips).toEqual({ 'a.mp4': { surfers: ['rodo'], kinds: [] } });
+
+    await store.forgetLegacy(['old.jpg']);
+    expect(await store.legacy()).toBeUndefined();
+    expect(await store.capture('old.jpg')).toBeUndefined();
+    expect(await store.capture('mine.jpg')).toBeDefined();
+
+    await store.saveState(emptyState());
+    expect(await store.legacy()).toBeUndefined();
+  });
+
   it('keeps the remembered folder when cleared', async () => {
     const store = await openReviewStore(fresh());
     await store.saveFolder({ name: 'clips' } as unknown as FileSystemDirectoryHandle);

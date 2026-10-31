@@ -42,6 +42,18 @@ describe('FolderStore', () => {
     await expect(new FolderStore(root.handle).state()).rejects.toThrow();
   });
 
+  it('finds out whether the folder takes writes and leaves nothing behind', async () => {
+    const root = new FakeDir('clips');
+    expect(await new FolderStore(root.handle).writable()).toBe(true);
+    expect([...root.entries.keys()]).toEqual([]);
+
+    const locked = new FakeDir('card');
+    locked.getFileHandle = async () => {
+      throw new DOMException('read-only', 'NoModificationAllowedError');
+    };
+    expect(await new FolderStore(locked.handle).writable()).toBe(false);
+  });
+
   it('is never listed as clips', async () => {
     const root = new FakeDir('clips');
     await new FolderStore(root.handle).saveState(tagged);
