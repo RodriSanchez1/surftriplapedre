@@ -33,6 +33,22 @@ Measured in headless Chromium (software decoding, so absolute numbers are worse 
 
 **WebCodecs, measured in the same headless Chromium, software only** (hardware is not offered there): the whole 17 s clip C0223 decodes at 175 frames a second, 1.5× faster than real time; one keyframe interval (120 frames) in 644 ms; the same 120 frames shrunk to 960×540 with `createImageBitmap` in ~2 s. Backwards at 0.25× shows those 120 frames in 4 s, so even without a GPU there is room. The owner's Chrome with a GPU can only do better; the spike measures it.
 
+### After stage 1 (31/10)
+
+Same headless Chromium, same 10 clips, with `scripts/perf/` against `astro preview`. Baseline is the branch before the code changes.
+
+| What | Before | After |
+|---|---|---|
+| Thumbnails of 10 clips, first visit | 10.2 s, 10 made | 2.1 s, 10 made |
+| Same folder again | 9.1 s, 10 made | 0.44 s, 0 made |
+| `/review/` playing while thumbnails are due (C0223, 5 s) | 90.6% of real time, 4 gaps > 50 ms | 98.3% and 98.8%, no gap > 50 ms (thumbnails wait: 0/10 made while it plays) |
+| Main thread while playing 5 s, thumbnails done | ~980 ms, 64 layouts a second | 511 ms, 31 layouts a second |
+| Backwards hold, 4 s | ~54–57 frames | 52, 53, 57 frames (untouched, as planned) |
+| Forward slow motion, 4 s | ~90–98 frames | 96 frames |
+| Bare `<video>`, for reference | 98.8% | — |
+
+The spike page ran to the end on C0223 at 1280 and 390 px: hardware not offered (headless), software 173–178 frames a second for the whole clip, 181–185 for one keyframe interval, 63 for that interval shrunk to 960×540.
+
 ## Decisions
 
 | Topic | Decision |
