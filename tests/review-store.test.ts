@@ -73,6 +73,29 @@ describe('thumbnail store', () => {
   });
 });
 
+describe('review store across tabs', () => {
+  it('rejects instead of waiting when another tab holds an older version open', async () => {
+    const idb = fresh();
+    const req = idb.open('surftrip-review', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('kv');
+    await new Promise((resolve) => (req.onsuccess = resolve)); // stays open, with no versionchange handler
+    await expect(openReviewStore(idb)).rejects.toThrow('blocked');
+    req.result.close();
+  });
+
+  it('closes its connection when a newer version is requested', async () => {
+    const idb = fresh();
+    await openReviewStore(idb);
+    const req = idb.open('surftrip-review', 3);
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result);
+      req.onblocked = () => reject(new Error('blocked'));
+    });
+    expect(db.version).toBe(3);
+    db.close();
+  });
+});
+
 describe('clipTags', () => {
   const log = newLog('2026-10-27', '2026-10-27_183012', new Date('2026-10-27T21:30:12Z'));
   const capture = (clip: string, surfers: string[], n: number) => ({

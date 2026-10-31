@@ -25,6 +25,8 @@ export interface ClipInfo {
 const EPOCH_1904 = 2_082_844_800;
 /** Larger moov boxes are not read: no camera clip needs that much. */
 const MAX_MOOV = 64 * 1024 * 1024;
+/** ~19 h at 120 fps; more samples than this means a broken header. */
+const MAX_SAMPLES = 1 << 23;
 
 interface Box {
   type: string;
@@ -146,6 +148,7 @@ function keyframeTimes(moov: Uint8Array, track: VideoTrack): number[] | null {
   for (let i = 0, t = 0, n = u32(moov, stts.start + 4); i < n; i++) {
     const count = u32(moov, stts.start + 8 + 8 * i);
     const delta = u32(moov, stts.start + 12 + 8 * i);
+    if (decoded.length + count > MAX_SAMPLES) return null;
     for (let k = 0; k < count; k++, t += delta) decoded.push(t);
   }
   // ctts: how much later each sample is shown than decoded (B-frames). Read signed, as version 1 writes it.
@@ -175,11 +178,13 @@ export async function readClipInfo(read: Read, size: number): Promise<ClipInfo> 
     if (!moov) return { filmedAt: null, fps: null, keyframes: null };
     const [root] = children(moov, 0, moov.length);
     const track = videoTrack(moov, root);
-    return {
-      filmedAt: creationTime(moov, root),
-      fps: track && frameRate(moov, track),
-      keyframes: track && keyframeTimes(moov, track),
-    };
+    let keyframes: number[] | null = null;
+    try {
+      keyframes = track && keyframeTimes(moov, track);
+    } catch {
+      // A broken sample table must not cost the filming time and frame rate.
+    }
+    return { filmedAt: creationTime(moov, root), fps: track && frameRate(moov, track), keyframes };
   } catch {
     return { filmedAt: null, fps: null, keyframes: null };
   }

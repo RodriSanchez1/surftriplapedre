@@ -154,5 +154,14 @@ export async function openReviewStore(idb: IDBFactory = indexedDB): Promise<Revi
     if (!db.objectStoreNames.contains(CAPTURES)) db.createObjectStore(CAPTURES);
     if (!db.objectStoreNames.contains(THUMBS)) db.createObjectStore(THUMBS).createIndex(USED, USED);
   };
-  return new ReviewStore(await result(req));
+  // A tab still holding an older version blocks the open. Reject instead of waiting: the page then works without
+  // saving, rather than restoring over work done since.
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error('review store blocked by another tab'));
+  });
+  // Let a newer version open without waiting for this tab.
+  db.onversionchange = () => db.close();
+  return new ReviewStore(db);
 }

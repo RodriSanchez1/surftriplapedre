@@ -486,8 +486,10 @@ export function init(root: HTMLElement): void {
   }
 
   /** While the video plays or slow motion moves it, thumbnails wait: they would take the decoder from the picture. */
+  // A video that errored may never report paused, so it counts as idle too.
+  const idle = () => (video.paused || video.error !== null) && !motion.quiet;
   async function whenIdle() {
-    while (!video.paused || motion.quiet) await new Promise((r) => setTimeout(r, 250));
+    while (!idle()) await new Promise((r) => setTimeout(r, 250));
   }
 
   /**
@@ -516,7 +518,12 @@ export function init(root: HTMLElement): void {
     canvas.width = 160;
     canvas.height = 90;
     for (const entry of missing) {
-      await whenIdle();
+      if (!idle()) {
+        // Do not hold the last clip's file open while waiting: on Windows it could not be deleted.
+        probe.removeAttribute('src');
+        probe.load();
+        await whenIdle();
+      }
       if (gen !== loadGen) break; // another folder was opened
       if (!clips.includes(entry)) continue; // deleted after the upload
       try {
@@ -1196,6 +1203,7 @@ export function init(root: HTMLElement): void {
   });
   video.addEventListener('ended', () => {
     root.dataset.playing = 'false';
+    paintTime();
   });
   video.addEventListener('seeked', () => {
     paintTime();

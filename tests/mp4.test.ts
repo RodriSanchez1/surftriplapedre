@@ -148,6 +148,28 @@ describe('readClipInfo keyframes', () => {
     expect((await readClipInfo(r.read, r.size)).keyframes).toHaveLength(1);
   });
 
+  /** A video track whose stss and stts are written by hand, to break them. */
+  const brokenTrak = (stss: number[], stts: number[]) => {
+    const mdhd = box('mdhd', [0, 0, 0, 0], be32(0), be32(0), be32(60000), be32(0), [0, 0, 0, 0]);
+    const hdlr = box('hdlr', [0, 0, 0, 0], be32(0), ascii('vide'), new Array(12).fill(0), [0]);
+    return box('trak', box('mdia', mdhd, hdlr, box('minf', box('stbl', box('stts', stts), box('stss', stss)))));
+  };
+
+  it('keeps the filming time and frame rate when stss claims more entries than it holds', async () => {
+    const r = moov(brokenTrak([0, 0, 0, 0, ...be32(1_000_000), ...be32(1)], [0, 0, 0, 0, ...be32(1), ...be32(240), ...be32(1001)]));
+    const info = await readClipInfo(r.read, r.size);
+    expect(info.keyframes).toBeNull();
+    expect(info.fps).toBeCloseTo(59.94, 2);
+    expect(info.filmedAt).not.toBeNull();
+  });
+
+  it('gives up on a garbage sample_count without building the table', async () => {
+    const r = moov(brokenTrak([0, 0, 0, 0, ...be32(1), ...be32(1)], [0, 0, 0, 0, ...be32(1), ...be32(0xffffffff), ...be32(1001)]));
+    const info = await readClipInfo(r.read, r.size);
+    expect(info.keyframes).toBeNull();
+    expect(info.fps).toBeCloseTo(59.94, 2);
+  });
+
   it('is null without stss: every frame is a keyframe', async () => {
     const r = moov(tableTrak(camera));
     expect((await readClipInfo(r.read, r.size)).keyframes).toBeNull();
