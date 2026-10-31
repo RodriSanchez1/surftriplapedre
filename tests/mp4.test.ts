@@ -29,6 +29,29 @@ function videoTrak(timescale: number, delta: number): number[] {
   return box('trak', box('mdia', mdhd, hdlr, box('minf', box('stbl', stts))));
 }
 
+/** A 64-bit big-endian signed number (elst version 1's media_time can be -1). */
+const be64signed = (n: number) => [...be32(Math.floor(n / 2 ** 32) >>> 0), ...be32(((n % 2 ** 32) + 2 ** 32) % 2 ** 32)];
+
+/** A video track with a sample table: one stts run per delta, and optional ctts, stss and elst. */
+function tableTrak(o: {
+  timescale: number;
+  deltas: number[];
+  ctts?: number[];
+  stss?: number[];
+  elst?: number[];
+  elstVersion?: 0 | 1;
+}): number[] {
+  const mdhd = box('mdhd', [0, 0, 0, 0], be32(0), be32(0), be32(o.timescale), be32(0), [0, 0, 0, 0]);
+  const hdlr = box('hdlr', [0, 0, 0, 0], be32(0), ascii('vide'), new Array(12).fill(0), [0]);
+  const stts = box('stts', [0, 0, 0, 0], be32(o.deltas.length), ...o.deltas.map((d) => [...be32(1), ...be32(d)]));
+  const ctts = o.ctts ? [box('ctts', [0, 0, 0, 0], be32(o.ctts.length), ...o.ctts.map((c) => [...be32(1), ...be32(c)]))] : [];
+  const stss = o.stss ? [box('stss', [0, 0, 0, 0], be32(o.stss.length), ...o.stss.map(be32))] : [];
+  const v = o.elstVersion ?? 0;
+  const entry = (media: number) => (v === 1 ? [...be64(1000), ...be64signed(media)] : [...be32(1000), ...be32(media)]);
+  const edts = o.elst ? [box('edts', box('elst', [v, 0, 0, 0], be32(o.elst.length), ...o.elst.map((m) => [...entry(m), 0, 1, 0, 0])))] : [];
+  return box('trak', ...edts, box('mdia', mdhd, hdlr, box('minf', box('stbl', stts, ...ctts, ...stss))));
+}
+
 function soundTrak(): number[] {
   const hdlr = box('hdlr', [0, 0, 0, 0], be32(0), ascii('soun'), new Array(12).fill(0), [0]);
   return box('trak', box('mdia', hdlr));
@@ -70,16 +93,63 @@ describe('readClipInfo', () => {
 
   it('returns null filmedAt when the camera wrote zero', async () => {
     const r = reader([...ftyp, ...box('moov', mvhd(0), videoTrak(25, 1))]);
-    expect(await readClipInfo(r.read, r.size)).toEqual({ filmedAt: null, fps: 25 });
+    expect(await readClipInfo(r.read, r.size)).toEqual({ filmedAt: null, fps: 25, keyframes: null });
   });
 
   it('returns nulls for something that is not an MP4', async () => {
     const r = reader(ascii('this is not a video at all, just text'));
-    expect(await readClipInfo(r.read, r.size)).toEqual({ filmedAt: null, fps: null });
+    expect(await readClipInfo(r.read, r.size)).toEqual({ filmedAt: null, fps: null, keyframes: null });
   });
 
   it('returns nulls when there is no moov', async () => {
     const r = reader([...ftyp, ...box('mdat', [1, 2, 3])]);
-    expect(await readClipInfo(r.read, r.size)).toEqual({ filmedAt: null, fps: null });
+    expect(await readClipInfo(r.read, r.size)).toEqual({ filmedAt: null, fps: null, keyframes: null });
+  });
+});
+
+describe('readClipInfo keyframes', () => {
+  const moov = (trak: number[]) => reader([...ftyp, ...box('mdat', [1, 2, 3]), ...box('moov', mvhd(filmed), soundTrak(), trak)]);
+  // As the camera writes it: 120000 units a second, 1001 a frame, B-frames shown 2002 or 5005 later, and an edit
+  // that starts the track at 1001 so the first frame shows at 0.
+  const camera = { timescale: 120000, deltas: new Array(8).fill(1001), ctts: [2002, 5005, 2002, 2002, 2002, 5005, 2002, 2002], elst: [1001] };
+
+  it('gives when each sync sample is shown, with ctts and the edit start', async () => {
+    const r = moov(tableTrak({ ...camera, stss: [1, 5] }));
+    const info = await readClipInfo(r.read, r.size);
+    expect(info.keyframes).toHaveLength(2);
+    expect(info.keyframes![0]).toBeCloseTo(1001 / 120000, 9);
+    expect(info.keyframes![1]).toBeCloseTo((4 * 1001 + 2002 - 1001) / 120000, 9);
+  });
+
+  it('sorts them by when they are shown', async () => {
+    const r = moov(tableTrak({ ...camera, ctts: [9009, 0, 0, 0, 0, 0, 0, 0], stss: [1, 2] }));
+    const { keyframes } = await readClipInfo(r.read, r.size);
+    expect(keyframes![0]).toBeLessThan(keyframes![1]);
+    expect(keyframes![1]).toBeCloseTo((9009 - 1001) / 120000, 9);
+  });
+
+  it('works without ctts or elst', async () => {
+    const r = moov(tableTrak({ timescale: 30000, deltas: new Array(6).fill(1000), stss: [1, 4] }));
+    expect((await readClipInfo(r.read, r.size)).keyframes).toEqual([0, 0.1]);
+  });
+
+  it('skips an empty first edit', async () => {
+    const r = moov(tableTrak({ ...camera, elst: [-1 >>> 0, 1001], stss: [1] }));
+    expect((await readClipInfo(r.read, r.size)).keyframes![0]).toBeCloseTo(1001 / 120000, 9);
+  });
+
+  it('reads a version 1 elst', async () => {
+    const r = moov(tableTrak({ ...camera, elstVersion: 1, elst: [-1, 1001], stss: [1] }));
+    expect((await readClipInfo(r.read, r.size)).keyframes![0]).toBeCloseTo(1001 / 120000, 9);
+  });
+
+  it('leaves out sample numbers past the last sample', async () => {
+    const r = moov(tableTrak({ ...camera, stss: [1, 99] }));
+    expect((await readClipInfo(r.read, r.size)).keyframes).toHaveLength(1);
+  });
+
+  it('is null without stss: every frame is a keyframe', async () => {
+    const r = moov(tableTrak(camera));
+    expect((await readClipInfo(r.read, r.size)).keyframes).toBeNull();
   });
 });
