@@ -49,6 +49,7 @@ import {
   type FolderState,
 } from './state';
 import { openReviewStore, type ReviewStore, type StateStore } from './store';
+import { thumbKey, thumbTime } from './thumbs';
 import { initListWidth } from './list-width-page';
 import { initTour, type Tour } from './tour-page';
 
@@ -110,6 +111,8 @@ type NewEvent = ReviewEvent extends infer E ? (E extends ReviewEvent ? Omit<E, '
 
 interface Entry extends Clip {
   url: string;
+  /** When its keyframes are shown (mp4.ts); null when the header has no table. */
+  keyframes: number[] | null;
   duration: number | null;
   error: boolean;
   item: HTMLElement;
@@ -117,6 +120,8 @@ interface Entry extends Clip {
 
 /** Characters of a file name shown in the clip list before the middle is cut. */
 const NAME_MAX = 14;
+/** While playing, the time readout and the seek bar are painted at most this often (ms). */
+const READOUT_MS = 30;
 /** Landscape, extras and delete as icons, in the order of the kinds. */
 const KIND_ICONS: Record<ClipKind, string> = { landscape: '🏞', extras: '🎉', delete: '🗑' };
 function kindIcons(kinds: ClipKind[]): string {
@@ -219,6 +224,8 @@ export function init(root: HTMLElement): void {
   let dirs = new Map<string, FileSystemDirectoryHandle>();
   /** Counts folder loads, so a slow thumbnail pass can tell that another folder was opened. */
   let loadGen = 0;
+  /** The thumbnails' object URLs, let go when another folder opens. */
+  let thumbUrls: string[] = [];
   /** The guided tour: while it is open the shortcuts are off and messages wait for it to close. */
   let tour: Tour | null = null;
   let heldMessage: Parameters<typeof say> | null = null;
@@ -476,6 +483,8 @@ export function init(root: HTMLElement): void {
     const gen = ++loadGen;
     reverse.load(null);
     for (const c of clips) URL.revokeObjectURL(c.url);
+    for (const u of thumbUrls) URL.revokeObjectURL(u);
+    thumbUrls = [];
     clips = [];
     current = null;
     list.replaceChildren();
@@ -496,6 +505,7 @@ export function init(root: HTMLElement): void {
           filmedAt: info.filmedAt ?? new Date(file.lastModified),
           filmedAtSource: info.filmedAt ? ('metadata' as const) : ('file-date' as const),
           fps: info.fps,
+          keyframes: info.keyframes,
         };
       }),
     );
@@ -517,28 +527,68 @@ export function init(root: HTMLElement): void {
     void thumbnails(clips, gen);
   }
 
-  /** Duration, a thumbnail and whether it plays, one clip at a time with a hidden video. */
+  function showThumb(entry: Entry, image: Blob) {
+    const url = URL.createObjectURL(image);
+    thumbUrls.push(url);
+    entry.item.querySelector<HTMLImageElement>('[data-clip-thumb]')!.src = url;
+  }
+
+  // A video that errored may never report paused, so it counts as idle too.
+  const idle = () => (video.paused || video.error !== null) && !motion.quiet;
+  /** While the video plays or slow motion moves it, thumbnails wait: they would take the decoder from the picture. */
+  async function whenIdle() {
+    while (!idle()) await new Promise((r) => setTimeout(r, 250));
+  }
+
+  /**
+   * Duration, a thumbnail and whether it plays: the ones kept from an earlier visit at once, then the rest one clip
+   * at a time with a hidden video, each kept for next time.
+   */
   async function thumbnails(entries: Entry[], gen: number) {
+    const missing: Entry[] = [];
+    for (const entry of entries) {
+      const saved = await browser?.thumb(thumbKey(entry.file)).catch(() => undefined);
+      if (gen !== loadGen) return; // another folder was opened
+      if (!saved) {
+        missing.push(entry);
+        continue;
+      }
+      entry.duration = saved.duration;
+      showThumb(entry, saved.image);
+      paintItem(entry);
+    }
+    if (!missing.length) return;
     const probe = document.createElement('video');
     probe.muted = true;
-    probe.preload = 'auto';
+    // Only the header up front; the seek reads the frame. loadeddata need not come with this preload.
+    probe.preload = 'metadata';
     const canvas = document.createElement('canvas');
     canvas.width = 160;
     canvas.height = 90;
-    for (const entry of entries) {
+    for (const entry of missing) {
+      if (!idle()) {
+        // Do not hold the last clip's file open while waiting: on Windows it could not be deleted.
+        probe.removeAttribute('src');
+        probe.load();
+        await whenIdle();
+      }
       if (gen !== loadGen) break; // another folder was opened
       if (!clips.includes(entry)) continue; // deleted after the upload
       try {
         probe.src = entry.url;
-        await once(probe, 'loadeddata');
+        await once(probe, 'loadedmetadata');
         entry.duration = probe.duration;
         if (!probe.videoWidth) throw new Error('no video track the browser can decode');
-        probe.currentTime = Math.min(1, probe.duration / 3);
+        probe.currentTime = thumbTime(probe.duration, entry.keyframes, entry.fps ?? DEFAULT_FPS);
         await once(probe, 'seeked');
         const ctx = canvas.getContext('2d')!;
         canvas.height = Math.round((160 * probe.videoHeight) / probe.videoWidth);
         ctx.drawImage(probe, 0, 0, canvas.width, canvas.height);
-        entry.item.querySelector<HTMLImageElement>('[data-clip-thumb]')!.src = canvas.toDataURL('image/jpeg', 0.7);
+        const image = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.7));
+        if (image && gen === loadGen) {
+          showThumb(entry, image);
+          void browser?.saveThumb(thumbKey(entry.file), image, probe.duration).catch(() => {});
+        }
       } catch {
         entry.error = true;
       }
@@ -640,11 +690,18 @@ export function init(root: HTMLElement): void {
 
   function paintTime() {
     if (!current) return;
-    seek.value = String(video.currentTime);
-    seek.setAttribute('aria-valuetext', position(video.currentTime));
-    seek.style.setProperty('--played', `${video.duration ? (video.currentTime / video.duration) * 100 : 0}%`);
-    readoutPos.textContent = position(video.currentTime);
-    readoutWave.textContent = waveTime(current, video.currentTime);
+    const t = video.currentTime;
+    seek.value = String(t);
+    seek.style.setProperty('--played', `${video.duration ? (t / video.duration) * 100 : 0}%`);
+    setText(readoutPos, position(t));
+    setText(readoutWave, waveTime(current, t));
+    // Where it stopped, for a screen reader; not 30 times a second while it plays.
+    if (video.paused) seek.setAttribute('aria-valuetext', position(t));
+  }
+
+  /** Writing the same text again still costs the page a layout. */
+  function setText(el: HTMLElement, text: string) {
+    if (el.textContent !== text) el.textContent = text;
   }
 
   // --- Drawing ---
@@ -1300,6 +1357,7 @@ export function init(root: HTMLElement): void {
   });
   video.addEventListener('ended', () => {
     root.dataset.playing = 'false';
+    paintTime();
   });
   video.addEventListener('seeked', () => {
     paintTime();
@@ -1324,9 +1382,14 @@ export function init(root: HTMLElement): void {
     record({ type: 'rate', t: Math.round(video.currentTime * 1000) / 1000, rate: video.playbackRate });
   }
   video.addEventListener('timeupdate', paintTime);
-  // Smooth readout while playing; timeupdate alone ticks about 4 times a second.
-  const tick = () => {
-    if (!video.paused) paintTime();
+  // Smooth readout while playing (timeupdate alone ticks about 4 times a second), but not on every frame:
+  // each paint costs the page a layout, and every other frame at 60 Hz looks just as smooth.
+  let lastPaint = 0;
+  const tick = (now: number) => {
+    if (!video.paused && now - lastPaint >= READOUT_MS) {
+      lastPaint = now;
+      paintTime();
+    }
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
