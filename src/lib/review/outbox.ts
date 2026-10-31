@@ -1,26 +1,24 @@
 /**
- * What waits to be uploaded, as the "Pendiente de subir" panel shows it, and the log as it is uploaded.
- * Pure: the review page paints it.
+ * What waits to be uploaded, as the "Pendiente de subir" panel shows it, what is already in Drive, and the log
+ * as it is uploaded. Pure: the review page paints it.
  */
-import type { ClipTags, ReviewEvent, ReviewLog } from './log';
-import { clipTags, type Draft } from './store';
+import type { ClipTags, ReviewLog } from './log';
+import { clipTags, draftCaptures, hasTags, pendingClips, uploadedCaptures, type CaptureEvent, type FolderState } from './state';
+
+export { hasTags } from './state';
 
 /** 'all', a surfer id, or a kind of clip the panel filters by. */
 export type Filter = 'all' | 'landscape' | 'extras' | (string & {});
 
-type CaptureEvent = Extract<ReviewEvent, { type: 'capture' }>;
-
 export interface Outbox {
-  /** Captures whose clip passes the filter, newest first. */
+  /** Captures of the review in progress whose clip passes the filter, newest first. */
   captures: CaptureEvent[];
-  /** Clips with surfers, landscape or extras that pass the filter, in list order. Clips to delete are not here. */
+  /** Clips whose tags changed since the last upload, with surfers, landscape or extras, that pass the filter, in list order. */
   tagged: { clip: string; tags: ClipTags }[];
   /** Clips marked to delete, in list order, whatever the filter. */
   deletes: string[];
-}
-
-export function hasTags(tags: ClipTags): boolean {
-  return tags.surfers.length > 0 || tags.kinds.length > 0;
+  /** Captures already in Drive whose clip passes the filter, newest first. */
+  uploaded: CaptureEvent[];
 }
 
 export function matches(tags: ClipTags, filter: Filter): boolean {
@@ -29,36 +27,41 @@ export function matches(tags: ClipTags, filter: Filter): boolean {
   return tags.surfers.includes(filter);
 }
 
-/** The clips the draft knows: first in the order of the list, then the rest by name. */
-function clipsInOrder(draft: Draft, order: string[]): string[] {
-  const known = new Set([...Object.keys(draft.clips ?? {}), ...draft.log.events.map((e) => e.clip)]);
-  const rest = [...known].filter((c) => !order.includes(c)).sort();
-  return [...order.filter((c) => known.has(c)), ...rest];
+/** Names in the order of the list, then the ones missing from it by name. */
+function inOrder(names: Iterable<string>, order: string[]): string[] {
+  const set = new Set(names);
+  const rest = [...set].filter((c) => !order.includes(c)).sort();
+  return [...order.filter((c) => set.has(c)), ...rest];
 }
 
-export function outbox(draft: Draft | null, order: string[], filter: Filter): Outbox {
-  if (!draft) return { captures: [], tagged: [], deletes: [] };
-  const captures = draft.log.events
-    .filter((e): e is CaptureEvent => e.type === 'capture')
-    .filter((e) => matches(clipTags(draft, e.clip), filter))
-    .reverse();
+export function outbox(state: FolderState, order: string[], filter: Filter): Outbox {
+  const pass = (e: CaptureEvent) => matches(clipTags(state, e.clip), filter);
+  const changed = new Set(pendingClips(state));
   const tagged: Outbox['tagged'] = [];
   const deletes: string[] = [];
-  for (const clip of clipsInOrder(draft, order)) {
-    const tags = clipTags(draft, clip);
+  for (const clip of inOrder(Object.keys(state.clips), order)) {
+    const tags = clipTags(state, clip);
     if (tags.kinds.includes('delete')) deletes.push(clip);
-    else if (hasTags(tags) && matches(tags, filter)) tagged.push({ clip, tags });
+    else if (changed.has(clip) && hasTags(tags) && matches(tags, filter)) tagged.push({ clip, tags });
   }
-  return { captures, tagged, deletes };
+  return {
+    captures: draftCaptures(state).filter(pass).reverse(),
+    tagged,
+    deletes,
+    uploaded: uploadedCaptures(state).filter(pass).reverse(),
+  };
 }
 
-/** The log as it is uploaded: the tags of each tagged clip, and each capture with its clip's surfers. */
-export function finalLog(draft: Draft): ReviewLog {
-  const clips: Record<string, ClipTags> = {};
-  for (const clip of clipsInOrder(draft, [])) {
-    const tags = clipTags(draft, clip);
-    if (hasTags(tags)) clips[clip] = tags;
-  }
-  const events = draft.log.events.map((e) => (e.type === 'capture' ? { ...e, surfers: clipTags(draft, e.clip).surfers } : e));
+/** What the next upload sends: the pending captures and the clips whose tags changed. */
+export function pendingCount(state: FolderState): number {
+  return draftCaptures(state).length + pendingClips(state).length;
+}
+
+/** The log as it is uploaded: the folder's tags, and each capture with its clip's surfers. */
+export function finalLog(state: FolderState): ReviewLog {
+  const draft = state.draft;
+  if (!draft) throw new Error('No review in progress');
+  const clips = Object.fromEntries(Object.keys(state.clips).sort().map((c) => [c, state.clips[c]]));
+  const events = draft.log.events.map((e) => (e.type === 'capture' ? { ...e, surfers: clipTags(state, e.clip).surfers } : e));
   return { ...draft.log, events, clips };
 }

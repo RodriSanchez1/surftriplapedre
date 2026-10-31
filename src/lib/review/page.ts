@@ -17,6 +17,7 @@ import { initPlayback } from './playback-page';
 import { cursorFor, ICONS } from './icons';
 import { placeMenu } from './menu';
 import { askWrite, canPickFolder, canRead, isVideo, pickFolder, removeVideos, uniqueDirs, videosIn } from './folder';
+import { FolderStore } from './folder-store';
 import {
   addEvent,
   captureId,
@@ -32,8 +33,22 @@ import {
   type ReviewEvent,
 } from './log';
 import { fileReader, readClipInfo } from './mp4';
-import { finalLog, hasTags, outbox, type Filter } from './outbox';
-import { clipTags, openReviewStore, withDelete, type Draft, type ReviewStore } from './store';
+import { finalLog, outbox, pendingCount, type Filter } from './outbox';
+import {
+  afterDiscard,
+  afterUpload,
+  clipTags,
+  draftCaptures,
+  emptyState,
+  forgetClips,
+  hasWork,
+  setTags as withTags,
+  uploadedCaptures,
+  withDelete,
+  type Draft,
+  type FolderState,
+} from './state';
+import { openReviewStore, type ReviewStore, type StateStore } from './store';
 import { thumbKey, thumbTime } from './thumbs';
 import { initListWidth } from './list-width-page';
 import { initTour, type Tour } from './tour-page';
@@ -52,6 +67,10 @@ export interface Texts {
   finishCount: string;
   sessionLocked: string;
   restored: string;
+  restoredFolder: string;
+  folderReadOnly: string;
+  saveFailed: string;
+  uploadedMark: string;
   nothing: string;
   uploading: string;
   done: string;
@@ -153,6 +172,7 @@ export function init(root: HTMLElement): void {
   const readoutPos = $('[data-pos]');
   const readoutWave = $('[data-wave]');
   const shots = $('[data-shots]');
+  const uploadedShots = $('[data-uploaded-shots]');
   const message = $('[data-message]');
   const messageBox = $('[data-message-box]');
   const retryButton = $('[data-action="retry"]');
@@ -177,10 +197,20 @@ export function init(root: HTMLElement): void {
   const sketchCanvas = $<HTMLCanvasElement>('[data-sketch]');
   const sketch = new Sketch(sketchCanvas);
 
-  let store: ReviewStore | null = null;
-  let draft: Draft | null = null;
-  /** Captures kept in memory too, in case IndexedDB fails. */
+  /** The browser's store: the last folder, and the work when the clips come without a folder to write to. */
+  let browser: ReviewStore | null = null;
+  /** Where the work is kept now: the folder's .analysis/ or the browser. */
+  let store: StateStore | null = null;
+  /** Which store the shown state came from: nothing loaded yet, the browser, or a folder. */
+  let place: 'none' | 'browser' | 'folder' = 'none';
+  /** The work on the clips open now: tags, the review in progress and the uploaded reviews. */
+  let state: FolderState = emptyState();
+  /** Captures kept in memory too, in case the store fails. */
   const blobs = new Map<string, Blob>();
+  /** Whether the coach was already told that the folder could not be written. */
+  let saveWarned = false;
+  /** Counts paints of the captures, so a slow one can tell that a newer one started. */
+  let shotsGen = 0;
   let writes: Promise<unknown> = Promise.resolve();
   let clips: Entry[] = [];
   let current: Entry | null = null;
@@ -292,11 +322,11 @@ export function init(root: HTMLElement): void {
     return li;
   }
 
-  /** The pending panel: filters, captures, tagged clips, clips to delete and the label of its button. */
+  /** The pending panel: filters, captures, tagged clips, clips to delete, uploaded captures and the label of its button. */
   function paintShots() {
-    const box = outbox(draft, clips.map((c) => c.file.name), filter);
-    const shown = new Set(box.captures.map((e) => e.file));
-    for (const f of shots.querySelectorAll<HTMLElement>('.shot')) {
+    const box = outbox(state, clips.map((c) => c.file.name), filter);
+    const shown = new Set([...box.captures, ...box.uploaded].map((e) => e.file));
+    for (const f of root.querySelectorAll<HTMLElement>('[data-shots] .shot, [data-uploaded-shots] .shot')) {
       f.hidden = !shown.has(f.dataset.file!);
       paintShotTags(f);
     }
@@ -304,9 +334,11 @@ export function init(root: HTMLElement): void {
       b.setAttribute('aria-pressed', String(b.dataset.filter === filter));
     }
     $('[data-count-captures]').textContent = String(box.captures.length);
-    $('[data-none]').hidden = box.captures.length > 0 || box.tagged.length > 0;
+    $('[data-none]').hidden = box.captures.length > 0 || box.tagged.length > 0 || box.uploaded.length > 0;
     $('[data-count-tagged]').textContent = String(box.tagged.length);
     $('[data-tagged]').replaceChildren(...box.tagged.map(({ clip, tags }) => taggedRow(clip, tags)));
+    $('[data-uploaded-part]').hidden = !uploadedCaptures(state).length;
+    $('[data-count-uploaded]').textContent = String(box.uploaded.length);
     // Deleting needs the folder (Chrome and Edge); clips picked one by one are only marked.
     const deletable = box.deletes.filter((c) => folderHandle && dirs.has(c));
     $('[data-deletes]').hidden = !box.deletes.length;
@@ -323,17 +355,24 @@ export function init(root: HTMLElement): void {
   }
 
   function captureEvents() {
-    return (draft?.log.events ?? []).filter((e): e is Extract<ReviewEvent, { type: 'capture' }> => e.type === 'capture');
+    return draftCaptures(state);
+  }
+
+  /** Pending and uploaded captures: both can be opened. */
+  function allCaptures() {
+    return [...draftCaptures(state), ...uploadedCaptures(state)];
   }
 
   function paintStatus() {
-    const captures = captureEvents().length;
-    // Nothing to upload until there is a capture or a tagged clip; the count is what the pending panel lists.
+    const draft = state.draft;
+    const pending = pendingCount(state);
     if (outboxToggle) {
-      const pending = captures + Object.values(draft?.clips ?? {}).filter(hasTags).length;
-      outboxToggle.hidden = !pending;
+      // The panel also holds the uploaded captures, so it stays in reach after an upload.
+      outboxToggle.hidden = !pending && !uploadedCaptures(state).length;
       if (!uploading) paintFinish(format(texts.finishCount, { n: pending }), String(pending));
     }
+    const finishButton = root.querySelector<HTMLButtonElement>('[data-action="finish"]');
+    if (finishButton && !uploading) finishButton.disabled = !pending;
     dateSelect.disabled = !!draft;
     const why = draft ? texts.sessionLocked : '';
     // The reason is for touch and screen readers too, not only a tooltip.
@@ -344,7 +383,7 @@ export function init(root: HTMLElement): void {
     lockWhy.textContent = why;
     $('[data-action="discard"]').hidden = !draft;
     for (const c of clips) {
-      c.item.classList.toggle('has-capture', captureEvents().some((e) => e.clip === c.file.name));
+      c.item.classList.toggle('has-capture', allCaptures().some((e) => e.clip === c.file.name));
       paintClipTags(c);
     }
     paintShots();
@@ -352,7 +391,7 @@ export function init(root: HTMLElement): void {
 
   /** Who surfs in a clip and what it is, next to it in the list. */
   function paintClipTags(entry: Entry) {
-    const tags = clipTags(draft, entry.file.name);
+    const tags = clipTags(state, entry.file.name);
     entry.item.querySelector('[data-clip-tags]')!.replaceChildren(...dotsOf(tags.surfers));
     entry.item.querySelector('[data-clip-kinds]')!.textContent = kindIcons(tags.kinds.filter((k) => k !== 'delete'));
     entry.item.classList.toggle('to-delete', tags.kinds.includes('delete'));
@@ -384,21 +423,30 @@ export function init(root: HTMLElement): void {
     for (const b of locked()) b.disabled = on;
   }
 
-  /** Queues a write of the draft. If IndexedDB fails, everything stays in memory. */
+  /** Queues a write of the state. If the store fails, everything stays in memory. */
   function persist() {
     const s = store;
-    const d = draft;
-    if (!s || !d) return;
-    writes = writes.then(() => s.saveDraft(structuredClone(d))).catch((e) => console.error(e));
+    if (!s) return;
+    const copy = structuredClone(state);
+    writes = writes.then(() => s.saveState(copy)).catch(saveFailed);
   }
 
+  /** A write failed: logged, and in a folder the coach is told once, since closing the page would lose the work. */
+  function saveFailed(e: unknown) {
+    console.error(e);
+    if (saveWarned || !(store instanceof FolderStore)) return;
+    saveWarned = true;
+    say(texts.saveFailed, 'error', true);
+  }
+
+  /** The review in progress, started by the first thing done after an upload (or in a new folder). */
   function ensureDraft(): Draft {
-    if (!draft) {
+    if (!state.draft) {
       const now = new Date();
       const date = dateSelect.value;
-      draft = { log: newLog(date, `${date}_${clockIn(timeZone, now)}`, now), sessions: {}, uploaded: [] };
+      state = { ...state, draft: { log: newLog(date, `${date}_${clockIn(timeZone, now)}`, now), sessions: {}, uploaded: [] } };
     }
-    return draft;
+    return state.draft!;
   }
 
   function record(event: NewEvent) {
@@ -499,7 +547,7 @@ export function init(root: HTMLElement): void {
   async function thumbnails(entries: Entry[], gen: number) {
     const missing: Entry[] = [];
     for (const entry of entries) {
-      const saved = await store?.thumb(thumbKey(entry.file)).catch(() => undefined);
+      const saved = await browser?.thumb(thumbKey(entry.file)).catch(() => undefined);
       if (gen !== loadGen) return; // another folder was opened
       if (!saved) {
         missing.push(entry);
@@ -539,7 +587,7 @@ export function init(root: HTMLElement): void {
         const image = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.7));
         if (image && gen === loadGen) {
           showThumb(entry, image);
-          void store?.saveThumb(thumbKey(entry.file), image, probe.duration).catch(() => {});
+          void browser?.saveThumb(thumbKey(entry.file), image, probe.duration).catch(() => {});
         }
       } catch {
         entry.error = true;
@@ -610,7 +658,7 @@ export function init(root: HTMLElement): void {
   /** Opening a clip by keyboard or on load counts as showing it only when it is played or drawn on. */
   function ensureOpened() {
     if (!current || !video.duration) return;
-    const last = [...(draft?.log.events ?? [])].reverse().find((e) => e.type === 'open');
+    const last = [...(state.draft?.log.events ?? [])].reverse().find((e) => e.type === 'open');
     if (last?.clip !== current.file.name) {
       record({
         type: 'open',
@@ -767,7 +815,7 @@ export function init(root: HTMLElement): void {
     const ids = chips().filter((c) => c.checked).map((c) => c.value);
     const kinds = kindChips().filter((c) => c.checked).map((c) => c.value as ClipKind);
     // The delete mark is set from the clip list, not the selector; the pill still shows it, so Supr never acts unseen.
-    if (current && clipTags(draft, current.file.name).kinds.includes('delete')) kinds.push('delete');
+    if (current && clipTags(state, current.file.name).kinds.includes('delete')) kinds.push('delete');
     const names = surfersOf(ids).map((w) => w.name).join(', ');
     $('[data-pill-dots]').replaceChildren(...dotsOf(ids));
     $('[data-pill-label]').textContent = [names, kindIcons(kinds)].filter(Boolean).join(' · ') || texts.whoSurfs;
@@ -777,7 +825,7 @@ export function init(root: HTMLElement): void {
 
   /** Shows the current clip's saved tags in the selector and the pill (none when there is no draft). */
   function syncTags() {
-    const tags = clipTags(draft, current?.file.name ?? '');
+    const tags = clipTags(state, current?.file.name ?? '');
     for (const c of chips()) c.checked = tags.surfers.includes(c.value);
     for (const c of kindChips()) c.checked = tags.kinds.includes(c.value as ClipKind);
     paintPill();
@@ -788,18 +836,19 @@ export function init(root: HTMLElement): void {
     paintPill();
     if (!current || uploading) return;
     ensureOpened();
-    const d = ensureDraft();
     const surfers = chips().filter((c) => c.checked).map((c) => c.value);
     const kinds = kindChips().filter((c) => c.checked).map((c) => c.value as ClipKind);
-    d.clips = { ...d.clips, [current.file.name]: withDelete({ surfers, kinds }, clipTags(d, current.file.name).kinds.includes('delete')) };
+    const name = current.file.name;
+    // Tags belong to the folder, not to a review: they live outside the draft and count as pending until uploaded.
+    state = withTags(state, name, withDelete({ surfers, kinds }, clipTags(state, name).kinds.includes('delete')));
     persist();
     paintStatus();
   }
 
   /** Takes the delete mark off a clip, from the panel or the clip list. */
   function keepClip(clip: string) {
-    if (!draft || uploading) return;
-    draft.clips = { ...draft.clips, [clip]: withDelete(clipTags(draft, clip), false) };
+    if (uploading) return;
+    state = withTags(state, clip, withDelete(clipTags(state, clip), false));
     persist();
     paintPill();
     paintStatus();
@@ -809,15 +858,14 @@ export function init(root: HTMLElement): void {
   async function toggleDelete(entry: Entry) {
     if (uploading) return;
     const name = entry.file.name;
-    if (clipTags(draft, name).kinds.includes('delete')) return keepClip(name);
+    if (clipTags(state, name).kinds.includes('delete')) return keepClip(name);
     const yes = await ask(confirmDialog, {
       title: format(texts.deleteClipTitle, { name }),
       body: texts.deleteClipBody,
       confirm: texts.deleteClipYes,
     });
     if (!yes || uploading) return;
-    const d = ensureDraft();
-    d.clips = { ...d.clips, [name]: withDelete(clipTags(d, name), true) };
+    state = withTags(state, name, withDelete(clipTags(state, name), true));
     persist();
     paintPill();
     paintStatus();
@@ -830,7 +878,7 @@ export function init(root: HTMLElement): void {
 
   /** The dots of who surfs in the capture's clip: captures follow their clip's tags. */
   function paintShotTags(figure: HTMLElement) {
-    const ids = clipTags(draft, figure.dataset.clip!).surfers;
+    const ids = clipTags(state, figure.dataset.clip!).surfers;
     const names = surfersOf(ids).map((w) => w.name).join(', ');
     const label = names ? `${texts.openCapture}: ${names}` : texts.openCapture;
     const view = figure.querySelector<HTMLElement>('.shot-open')!;
@@ -839,7 +887,8 @@ export function init(root: HTMLElement): void {
     figure.querySelector('.shot-tags')!.replaceChildren(...dotsOf(ids));
   }
 
-  function addShot(file: string, id: string, blob: Blob, clip: string) {
+  /** A capture's thumbnail: a pending one with ✕ in the captures, an uploaded one with ✓ in "Ya subidas". */
+  function addShot(file: string, id: string, blob: Blob, clip: string, uploaded = false) {
     const figure = document.createElement('figure');
     figure.className = 'shot';
     figure.dataset.file = file;
@@ -856,19 +905,50 @@ export function init(root: HTMLElement): void {
     const tags = document.createElement('span');
     tags.className = 'shot-tags';
     tags.setAttribute('aria-hidden', 'true');
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'shot-remove';
-    remove.textContent = '✕';
-    remove.title = texts.deleteCapture;
-    remove.setAttribute('aria-label', texts.deleteCapture);
-    remove.dataset.action = 'delete-capture';
-    remove.dataset.file = file;
-    remove.dataset.lock = '';
-    figure.append(view, tags, remove);
-    // Newest first.
-    shots.prepend(figure);
+    if (uploaded) {
+      // Already in Drive: it stays, so it has a mark instead of a delete button.
+      const done = document.createElement('span');
+      done.className = 'shot-done';
+      done.textContent = '✓';
+      done.title = texts.uploadedMark;
+      done.setAttribute('role', 'img');
+      done.setAttribute('aria-label', texts.uploadedMark);
+      figure.append(view, tags, done);
+      uploadedShots.prepend(figure);
+    } else {
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'shot-remove';
+      remove.textContent = '✕';
+      remove.title = texts.deleteCapture;
+      remove.setAttribute('aria-label', texts.deleteCapture);
+      remove.dataset.action = 'delete-capture';
+      remove.dataset.file = file;
+      remove.dataset.lock = '';
+      figure.append(view, tags, remove);
+      // Newest first.
+      shots.prepend(figure);
+    }
     paintShotTags(figure);
+    paintShots();
+  }
+
+  /** Paints every capture of the state again, pending and uploaded, from memory or the store. */
+  async function renderShots() {
+    const gen = ++shotsGen;
+    for (const img of root.querySelectorAll<HTMLImageElement>('[data-shots] img, [data-uploaded-shots] img')) URL.revokeObjectURL(img.src);
+    shots.replaceChildren();
+    uploadedShots.replaceChildren();
+    for (const [events, uploaded] of [
+      [uploadedCaptures(state), true],
+      [draftCaptures(state), false],
+    ] as const) {
+      for (const e of events) {
+        const blob = await blobOf(e.file);
+        if (gen !== shotsGen) return;
+        if (blob) addShot(e.file, e.id, blob, e.clip, uploaded);
+      }
+    }
     paintShots();
   }
 
@@ -894,9 +974,9 @@ export function init(root: HTMLElement): void {
     const id = captureId(d.log.group, n);
     blobs.set(file, blob);
     const s = store;
-    if (s) writes = writes.then(() => s.saveCapture(file, blob)).catch((e) => console.error(e));
+    if (s) writes = writes.then(() => s.saveCapture(file, blob)).catch(saveFailed);
     // A capture takes its clip's surfers; the upload writes them again in case the clip is tagged later.
-    const tagged = clipTags(d, clip).surfers;
+    const tagged = clipTags(state, clip).surfers;
     record({
       type: 'capture',
       t: Math.round(video.currentTime * 1000) / 1000,
@@ -915,7 +995,7 @@ export function init(root: HTMLElement): void {
   }
 
   async function deleteCapture(file: string) {
-    if (!draft || uploading) return;
+    if (!state.draft || uploading) return;
     const thumb = shots.querySelector<HTMLImageElement>(`[data-file="${CSS.escape(file)}"] img`)?.src;
     const yes = await ask(confirmDialog, {
       title: texts.deleteCaptureTitle,
@@ -923,12 +1003,13 @@ export function init(root: HTMLElement): void {
       confirm: texts.deleteCaptureYes,
       thumb,
     });
+    const draft = state.draft;
     if (!yes || !draft || uploading) return;
     draft.log = { ...draft.log, events: draft.log.events.filter((e) => !(e.type === 'capture' && e.file === file)) };
     blobs.delete(file);
     persist();
     const s = store;
-    if (s) writes = writes.then(() => s.removeCapture(file)).catch((e) => console.error(e));
+    if (s) writes = writes.then(() => s.removeCapture(file)).catch(saveFailed);
     shots.querySelector(`[data-file="${CSS.escape(file)}"]`)?.remove();
     paintShots();
     paintStatus();
@@ -936,7 +1017,7 @@ export function init(root: HTMLElement): void {
 
   /** Goes to the clip and the moment of a capture. */
   async function openCapture(file: string) {
-    const event = captureEvents().find((e) => e.file === file);
+    const event = allCaptures().find((e) => e.file === file);
     const entry = clips.find((c) => c.file.name === event?.clip);
     if (!event || !entry || uploading) return;
     // On a phone the panel covers the picture: going to the moment puts it away.
@@ -987,10 +1068,11 @@ export function init(root: HTMLElement): void {
   }
 
   async function finish() {
-    const d = draft;
-    if (!d || !d.log.events.length) return say(texts.nothing, 'warn');
+    if (!pendingCount(state)) return say(texts.nothing, 'warn');
     if (!deps || !folderId || uploading) return;
-    const toDelete = outbox(d, clips.map((c) => c.file.name), 'all').deletes.filter((c) => dirs.has(c));
+    // Only changed tags and no review yet: the upload is a review with no captures.
+    const d = ensureDraft();
+    const toDelete = outbox(state, clips.map((c) => c.file.name), 'all').deletes.filter((c) => dirs.has(c));
     // Order matters: requestPermission has to be called first and synchronously, while the tap still counts as a
     // user gesture. The token may open a Google popup and use that gesture up, so it is asked only after.
     const writable = toDelete.length && folderHandle ? askWrite(folderHandle) : Promise.resolve(false);
@@ -1026,7 +1108,7 @@ export function init(root: HTMLElement): void {
       progress(total, total);
       const name = reviewName(d.log.group);
       // The tags of each clip and the surfers of each capture as they are now.
-      const blob = new Blob([toJson(finalLog(d))], { type: 'application/json' });
+      const blob = new Blob([toJson(finalLog(state))], { type: 'application/json' });
       await send(deps, {
         file: { name, mime: 'application/json', size: blob.size, folder },
         blob,
@@ -1036,14 +1118,14 @@ export function init(root: HTMLElement): void {
           persist();
         },
       });
+      // Everything stays: the review joins the uploads and its captures get their ✓.
+      state = afterUpload(state, new Date().toISOString());
+      persist();
       await writes;
-      await store?.clear();
-      draft = null;
-      blobs.clear();
-      shots.replaceChildren();
       $('[data-restored]').hidden = true;
       syncTags();
       setOutbox(false);
+      void renderShots();
       // Only now, with everything in Drive, the marked clips leave the folder.
       if (!toDelete.length) {
         say(texts.done, 'ok', true);
@@ -1051,6 +1133,10 @@ export function init(root: HTMLElement): void {
         say(texts.deleteDenied, 'warn', true);
       } else {
         const { removed, failed } = await deleteClips(toDelete);
+        if (removed.length) {
+          state = forgetClips(state, removed);
+          persist();
+        }
         if (failed.length) say(format(texts.deleteFailed, { names: failed.join(', ') }), 'warn', true);
         else say(removed.length === 1 ? texts.doneDeletedOne : format(texts.doneDeleted, { n: removed.length }), 'ok', true);
       }
@@ -1079,12 +1165,16 @@ export function init(root: HTMLElement): void {
       cancel: texts.discardNo,
     });
     if (!yes || uploading) return;
+    const files = draftCaptures(state).map((e) => e.file);
+    state = afterDiscard(state);
+    persist();
+    const s = store;
+    for (const file of files) {
+      blobs.delete(file);
+      if (s) writes = writes.then(() => s.removeCapture(file)).catch(saveFailed);
+    }
     await writes;
-    await store?.clear();
-    draft = null;
-    blobs.clear();
-    shots.replaceChildren();
-    paintShots();
+    void renderShots();
     $('[data-restored]').hidden = true;
     syncTags();
     setOutbox(false);
@@ -1111,18 +1201,96 @@ export function init(root: HTMLElement): void {
 
   // --- Folder ---
 
+  /** Shows a state: its tags, its captures and, with a review in progress, the notice that it goes on. */
+  async function show(next: FolderState, inFolder: boolean) {
+    state = next;
+    blobs.clear();
+    const draft = state.draft;
+    if (draft) dateSelect.value = draft.log.talkDate;
+    $('[data-restored]').hidden = !draft?.log.events.length;
+    $('[data-restored-text]').textContent = draft
+      ? format(inFolder ? texts.restoredFolder : texts.restored, { date: dayMonth(draft.log.talkDate), n: draftCaptures(state).length })
+      : '';
+    syncTags();
+    paintStatus();
+    await renderShots();
+  }
+
+  /** Keeps the work in this browser: files picked one by one, other browsers, or a folder the page cannot write to. */
+  async function useBrowser() {
+    if (place === 'browser') return;
+    await writes;
+    place = 'browser';
+    store = browser;
+    saveWarned = false;
+    await show((await browser?.state().catch(() => undefined)) ?? emptyState(), false);
+  }
+
+  /** Keeps the work in the folder's .analysis/. A folder with none takes the browser's unfinished work, once. */
+  async function useFolder(handle: FileSystemDirectoryHandle) {
+    await writes;
+    const folder = new FolderStore(handle);
+    // No permission, or media that refuses writes (a locked SD card): the work goes to the browser.
+    if (!(await folder.writable())) {
+      say(texts.folderReadOnly, 'warn');
+      place = 'none';
+      return useBrowser();
+    }
+    let next: FolderState | undefined;
+    try {
+      next = await folder.state();
+    } catch (e) {
+      // A review.json it cannot read is never overwritten: the work goes to the browser this time.
+      console.error(e);
+      say(texts.saveFailed, 'error', true);
+      place = 'none';
+      return useBrowser();
+    }
+    place = 'folder';
+    store = folder;
+    saveWarned = false;
+    await show(next ?? (await adopt(folder)) ?? emptyState(), true);
+  }
+
+  /**
+   * Moves the old single draft (from before the folder kept its work) into a folder that has none: each image,
+   * then the state, then the browser forgets it. Other browser work stays put: it may belong to other clips.
+   */
+  async function adopt(folder: FolderStore): Promise<FolderState | undefined> {
+    const old = browser && (await browser.legacy().catch(() => undefined));
+    if (!browser || !old || !hasWork(old)) return undefined;
+    const files = draftCaptures(old).map((e) => e.file);
+    try {
+      for (const file of files) {
+        const blob = await browser.capture(file);
+        if (blob) await folder.saveCapture(file, blob);
+      }
+      await folder.saveState(old);
+    } catch (e) {
+      console.error(e);
+      say(texts.saveFailed, 'error', true);
+      return undefined;
+    }
+    // The folder has it now; if the browser cannot forget it, it is only offered again.
+    await browser.forgetLegacy(files).catch((e) => console.error(e));
+    return old;
+  }
+
   async function loadFolder(handle: FileSystemDirectoryHandle) {
     const found = await videosIn(handle);
     folderHandle = handle;
     // Names that repeat across subfolders are left out (they cannot be deleted safely, see uniqueDirs).
     dirs = uniqueDirs(found);
+    await useFolder(handle);
     await loadFiles(found.map((v) => v.file));
   }
 
   async function chooseFolder() {
+    // Mid-upload the page is sending this folder's review: another folder would take over its state.
+    if (uploading) return;
     try {
       const handle = await pickFolder();
-      void store?.saveFolder(handle).catch(() => {});
+      void browser?.saveFolder(handle).catch(() => {});
       $('[data-action="reopen"]').hidden = true;
       await loadFolder(handle);
     } catch (e) {
@@ -1131,7 +1299,8 @@ export function init(root: HTMLElement): void {
   }
 
   async function reopen() {
-    const handle = await store?.folder();
+    if (uploading) return;
+    const handle = await browser?.folder();
     if (!handle) return;
     if (await canRead(handle, true)) {
       $('[data-action="reopen"]').hidden = true;
@@ -1139,32 +1308,17 @@ export function init(root: HTMLElement): void {
     }
   }
 
+  /** On load: the remembered folder if it can be read without asking; otherwise the browser's work and a reopen button. */
   async function restore() {
-    if (!store) return;
-    const d = await store.draft();
-    if (d && d.log.events.length) {
-      draft = d;
-      dateSelect.value = d.log.talkDate;
-      for (const e of captureEvents()) {
-        const blob = await store.capture(e.file);
-        if (blob) addShot(e.file, e.id, blob, e.clip);
-      }
-      $('[data-restored-text]').textContent = format(texts.restored, {
-        date: dayMonth(d.log.talkDate),
-        n: captureEvents().length,
-      });
-      $('[data-restored]').hidden = false;
-    }
-    paintStatus();
-    const handle = await store.folder();
-    if (!handle || !canPickFolder()) return;
-    if (await canRead(handle, false)) {
-      await loadFolder(handle);
-    } else {
-      const button = $('[data-action="reopen"]');
-      button.textContent = format(texts.reopen, { name: handle.name });
-      button.hidden = false;
-    }
+    // The coach may have opened clips before IndexedDB answered: that choice stands.
+    if (!browser || place !== 'none') return;
+    const handle = canPickFolder() ? await browser.folder() : undefined;
+    if (handle && (await canRead(handle, false))) return loadFolder(handle);
+    await useBrowser();
+    if (!handle) return;
+    const button = $('[data-action="reopen"]');
+    button.textContent = format(texts.reopen, { name: handle.name });
+    button.hidden = false;
   }
 
   // --- Immersive: only the picture, the tools and the controls ---
@@ -1241,7 +1395,7 @@ export function init(root: HTMLElement): void {
   requestAnimationFrame(tick);
 
   function recordSeek() {
-    if (draft?.log.events.some((e) => e.clip === current?.file.name)) {
+    if (state.draft?.log.events.some((e) => e.clip === current?.file.name)) {
       record({ type: 'seek', t: Math.round(video.currentTime * 1000) / 1000 });
     }
   }
@@ -1477,9 +1631,11 @@ export function init(root: HTMLElement): void {
 
   filesInput.addEventListener('change', (e) => {
     const input = e.target as HTMLInputElement;
+    if (uploading) return;
     folderHandle = null;
     dirs = new Map();
-    void loadFiles([...(input.files ?? [])]);
+    const files = [...(input.files ?? [])];
+    void useBrowser().then(() => loadFiles(files));
   });
 
   // Drop video files on the picture.
@@ -1493,9 +1649,10 @@ export function init(root: HTMLElement): void {
     e.preventDefault();
     viewer.removeAttribute('data-dragging');
     const dropped = [...(e.dataTransfer?.files ?? [])];
+    if (uploading) return;
     folderHandle = null;
     dirs = new Map();
-    if (dropped.length) void loadFiles(dropped.filter((f) => isVideo(f.name)));
+    if (dropped.length) void useBrowser().then(() => loadFiles(dropped.filter((f) => isVideo(f.name))));
   });
 
   // A tap outside puts away the recording popover and, on a phone, the clip drawer.
@@ -1716,11 +1873,11 @@ export function init(root: HTMLElement): void {
   if (account) loadGoogle().catch(() => {});
   openReviewStore()
     .then((s) => {
-      store = s;
+      browser = s;
       return restore();
     })
     .catch((e) => {
       console.error(e);
-      store = null;
+      browser = null;
     });
 }

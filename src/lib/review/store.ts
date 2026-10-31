@@ -1,45 +1,30 @@
 /**
- * What the review page keeps on the device (IndexedDB) until Drive confirms it:
- * the log in progress, its captures, which files are already uploaded, and the folder of clips.
- * It also keeps the clip list's thumbnails between visits.
+ * The browser's copy of the review work (IndexedDB). The page uses it when the clips come without a folder it can
+ * write to: files picked one by one, Safari, Firefox, a read-only folder. It also remembers the last folder picked,
+ * and keeps the clip list's thumbnails between visits.
  */
-import type { ClipTags, ReviewLog } from './log';
+import { fromDraft, type FolderState, type LegacyDraft } from './state';
 import { MAX_THUMBS, type SavedThumb } from './thumbs';
 
-/** The review in progress. */
-export interface Draft {
-  log: ReviewLog;
-  /** Upload session URL by file name, so an upload resumes after a reload. */
-  sessions: Record<string, string>;
-  /** File names already in Drive. */
-  uploaded: string[];
-  /** Tags of each clip, by clip file name: the ones picked on it. Missing in drafts from before it existed. */
-  clips?: Record<string, ClipTags>;
-}
-
-/** The tags of a clip: the ones picked on it or, in an older draft, everyone in its captures. */
-export function clipTags(draft: Draft | null, clip: string): ClipTags {
-  if (!draft) return { surfers: [], kinds: [] };
-  const picked = draft.clips?.[clip];
-  if (picked) return picked;
-  const ids = draft.log.events.flatMap((e) => (e.type === 'capture' && e.clip === clip ? e.surfers : []));
-  return { surfers: [...new Set(ids)], kinds: [] };
-}
-
-/** A clip's tags with the delete mark put on or taken off; the surfers and the other kinds stay. */
-export function withDelete(tags: ClipTags, on: boolean): ClipTags {
-  const kinds = tags.kinds.filter((k) => k !== 'delete');
-  return { surfers: tags.surfers, kinds: on ? [...kinds, 'delete'] : kinds };
+/** Where the page keeps the work and the capture images: the folder (folder-store.ts) or this browser. */
+export interface StateStore {
+  state(): Promise<FolderState | undefined>;
+  saveState(state: FolderState): Promise<void>;
+  capture(file: string): Promise<Blob | undefined>;
+  saveCapture(file: string, blob: Blob): Promise<void>;
+  removeCapture(file: string): Promise<void>;
 }
 
 const DB = 'surftrip-review';
 const VERSION = 2;
 const KV = 'kv';
 const CAPTURES = 'captures';
+const STATE = 'state';
+/** The single draft kept before the folder state existed. Read once, deleted on the next save. */
+const LEGACY_DRAFT = 'draft';
 /** Thumbnails by thumbKey, with an index on when each was last used. Since version 2. */
 const THUMBS = 'thumbs';
 const USED = 'usedAt';
-const DRAFT = 'draft';
 const FOLDER = 'folder';
 
 function result<T>(req: IDBRequest<T>): Promise<T> {
@@ -57,7 +42,7 @@ function complete(tx: IDBTransaction): Promise<void> {
   });
 }
 
-export class ReviewStore {
+export class ReviewStore implements StateStore {
   readonly #db: IDBDatabase;
 
   constructor(db: IDBDatabase) {
@@ -74,12 +59,32 @@ export class ReviewStore {
     return (await result(this.#db.transaction(store).objectStore(store).get(key))) as T | undefined;
   }
 
-  draft(): Promise<Draft | undefined> {
-    return this.#get<Draft>(KV, DRAFT);
+  async state(): Promise<FolderState | undefined> {
+    const state = await this.#get<FolderState>(KV, STATE);
+    if (state) return state;
+    const old = await this.#get<LegacyDraft>(KV, LEGACY_DRAFT);
+    return old ? fromDraft(old) : undefined;
   }
 
-  saveDraft(draft: Draft): Promise<void> {
-    return this.#put(KV, DRAFT, draft);
+  async saveState(state: FolderState): Promise<void> {
+    const tx = this.#db.transaction(KV, 'readwrite');
+    tx.objectStore(KV).put(state, STATE);
+    tx.objectStore(KV).delete(LEGACY_DRAFT);
+    await complete(tx);
+  }
+
+  /** The old single draft as a state, if it is still here: the only browser work that moves into a folder. */
+  async legacy(): Promise<FolderState | undefined> {
+    const old = await this.#get<LegacyDraft>(KV, LEGACY_DRAFT);
+    return old ? fromDraft(old) : undefined;
+  }
+
+  /** Forgets the old draft and the images that moved with it; the browser's own state stays. */
+  async forgetLegacy(files: string[]): Promise<void> {
+    const tx = this.#db.transaction([KV, CAPTURES], 'readwrite');
+    tx.objectStore(KV).delete(LEGACY_DRAFT);
+    for (const file of files) tx.objectStore(CAPTURES).delete(file);
+    await complete(tx);
   }
 
   capture(file: string): Promise<Blob | undefined> {
@@ -96,10 +101,11 @@ export class ReviewStore {
     await complete(tx);
   }
 
-  /** Deletes the draft and every capture. */
+  /** Deletes the state, an old draft and every capture; the remembered folder stays. */
   async clear(): Promise<void> {
     const tx = this.#db.transaction([KV, CAPTURES], 'readwrite');
-    tx.objectStore(KV).delete(DRAFT);
+    tx.objectStore(KV).delete(STATE);
+    tx.objectStore(KV).delete(LEGACY_DRAFT);
     tx.objectStore(CAPTURES).clear();
     await complete(tx);
   }
