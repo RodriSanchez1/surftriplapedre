@@ -44,6 +44,10 @@ const texts: Texts = {
   finishCount: t(lang, 'review.finishCount'),
   sessionLocked: t(lang, 'review.sessionLocked'),
   restored: t(lang, 'review.restored'),
+  restoredFolder: t(lang, 'review.restoredFolder'),
+  folderReadOnly: t(lang, 'review.folderReadOnly'),
+  saveFailed: t(lang, 'review.saveFailed'),
+  uploadedMark: t(lang, 'review.uploadedMark'),
   nothing: t(lang, 'review.nothing'),
   uploading: t(lang, 'review.uploading'),
   done: t(lang, 'review.done'),
@@ -660,6 +664,29 @@ const demoClips = [
             )
           }
         </ul>
+      </div>
+      <div class="outbox-part" data-uploaded-part hidden={!demo}>
+        <h3><span aria-hidden="true">✓</span> {t(lang, 'review.uploadedTitle')} <b class="count" data-count-uploaded>{demo ? 2 : 0}</b></h3>
+        <div class="shots" data-uploaded-shots>
+          {
+            demo &&
+              [1, 2].map(() => (
+                <figure class="shot">
+                  <span class="shot-open">
+                    <span class="demo-thumb" />
+                  </span>
+                  {surfers[1] && (
+                    <span class="shot-tags" aria-hidden="true">
+                      <span class="dot" style={`--accent: var(--c-${surfers[1].color})`} />
+                    </span>
+                  )}
+                  <span class="shot-done" role="img" aria-label={t(lang, 'review.uploadedMark')} title={t(lang, 'review.uploadedMark')}>
+                    ✓
+                  </span>
+                </figure>
+              ))
+          }
+        </div>
       </div>
     </div>
     {
@@ -1978,6 +2005,22 @@ const demoClips = [
     content: '';
     position: absolute;
     inset: calc((var(--hit) - 100%) / -2);
+  }
+  /* An uploaded capture: a ✓ where a pending one has its ✕. It is a mark, not a button. */
+  .shots :global(.shot-done) {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 50%;
+    border: 2px solid var(--c-ink);
+    background: var(--c-green);
+    color: var(--c-ink);
   }
   /* Who surfs in the capture's clip: the surfers' dots on its corner. */
   .shots :global(.shot-tags) {

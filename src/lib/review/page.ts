@@ -51,6 +51,10 @@ export interface Texts {
   finishCount: string;
   sessionLocked: string;
   restored: string;
+  restoredFolder: string;
+  folderReadOnly: string;
+  saveFailed: string;
+  uploadedMark: string;
   nothing: string;
   uploading: string;
   done: string;
