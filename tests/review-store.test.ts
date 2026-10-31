@@ -1,21 +1,40 @@
 import { IDBFactory as FakeIDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
 import { newLog } from '../src/lib/review/log';
-import { clipTags, openReviewStore, withDelete, type Draft } from '../src/lib/review/store';
+import { emptyState, setTags } from '../src/lib/review/state';
+import { openReviewStore } from '../src/lib/review/store';
 
 const fresh = () => new FakeIDBFactory() as unknown as IDBFactory;
+const log = newLog('2026-10-27', '2026-10-27_183012', new Date('2026-10-27T21:30:12Z'));
+
+/** Writes a value under a key the way the page did before (the old single draft). */
+async function putRaw(idb: IDBFactory, key: string, value: unknown) {
+  await openReviewStore(idb);
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const req = idb.open('surftrip-review', 1);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('kv', 'readwrite');
+    tx.objectStore('kv').put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
 
 describe('review store', () => {
-  it('keeps the draft and the captures until cleared', async () => {
+  it('keeps the state and the captures until cleared', async () => {
     const idb = fresh();
     const store = await openReviewStore(idb);
-    const log = newLog('2026-10-27', '2026-10-27_183012', new Date('2026-10-27T21:30:12Z'));
-    await store.saveDraft({ log, sessions: { 'a.jpg': 'https://upload' }, uploaded: [] });
+    expect(await store.state()).toBeUndefined();
+    const state = { ...setTags(emptyState(), 'a.mp4', { surfers: ['juan'], kinds: [] }), draft: { log, sessions: { 'a.jpg': 'https://upload' }, uploaded: [] } };
+    await store.saveState(state);
     await store.saveCapture('a.jpg', new Blob(['jpeg'], { type: 'image/jpeg' }));
 
     const again = await openReviewStore(idb);
-    expect((await again.draft())?.log).toEqual(log);
-    expect((await again.draft())?.sessions).toEqual({ 'a.jpg': 'https://upload' });
+    expect(await again.state()).toEqual(state);
     expect(await again.capture('a.jpg')).toBeDefined();
 
     await again.removeCapture('a.jpg');
@@ -23,53 +42,24 @@ describe('review store', () => {
 
     await again.saveCapture('b.jpg', new Blob(['jpeg']));
     await again.clear();
-    expect(await again.draft()).toBeUndefined();
+    expect(await again.state()).toBeUndefined();
     expect(await again.capture('b.jpg')).toBeUndefined();
   });
-});
 
-describe('clipTags', () => {
-  const log = newLog('2026-10-27', '2026-10-27_183012', new Date('2026-10-27T21:30:12Z'));
-  const capture = (clip: string, surfers: string[], n: number) => ({
-    type: 'capture' as const,
-    at: '2026-10-27T21:31:00.000Z',
-    clip,
-    t: 1,
-    id: `183012-${n}`,
-    file: `2026-10-27_183012_cap-${n}.jpg`,
-    surfers,
-  });
-  const draft = (clips?: Draft['clips']): Draft => ({
-    log: { ...log, events: [capture('a.mp4', ['juan'], 1), capture('a.mp4', ['juan', 'rodo'], 2), capture('b.mp4', [], 3)] },
-    sessions: {},
-    uploaded: [],
-    clips,
+  it('reads an old draft as a state and drops it once a state is saved', async () => {
+    const idb = fresh();
+    await putRaw(idb, 'draft', { log: { ...log, events: [] }, sessions: {}, uploaded: [], clips: { 'a.mp4': { surfers: ['rodo'], kinds: [] } } });
+    const store = await openReviewStore(idb);
+    expect(await store.state()).toEqual({ version: 1, clips: { 'a.mp4': { surfers: ['rodo'], kinds: [] } }, draft: null, uploads: [] });
+
+    await store.saveState(emptyState());
+    expect(await store.state()).toEqual(emptyState());
   });
 
-  it('gives the tags picked on the clip', () => {
-    expect(clipTags(draft({ 'a.mp4': { surfers: ['rodo'], kinds: ['extras'] } }), 'a.mp4')).toEqual({ surfers: ['rodo'], kinds: ['extras'] });
-    expect(clipTags(draft({ 'a.mp4': { surfers: [], kinds: [] } }), 'a.mp4')).toEqual({ surfers: [], kinds: [] });
-  });
-
-  it('falls back to everyone in the clip captures for an older draft', () => {
-    expect(clipTags(draft(), 'a.mp4')).toEqual({ surfers: ['juan', 'rodo'], kinds: [] });
-    expect(clipTags(draft({}), 'b.mp4')).toEqual({ surfers: [], kinds: [] });
-  });
-
-  it('is empty without a draft or for a clip never tagged', () => {
-    expect(clipTags(null, 'a.mp4')).toEqual({ surfers: [], kinds: [] });
-    expect(clipTags(draft(), 'c.mp4')).toEqual({ surfers: [], kinds: [] });
-  });
-});
-
-describe('withDelete', () => {
-  it('puts the mark on at the end and keeps the surfers and the other kinds', () => {
-    expect(withDelete({ surfers: ['rodo'], kinds: ['extras'] }, true)).toEqual({ surfers: ['rodo'], kinds: ['extras', 'delete'] });
-  });
-  it('does not repeat the mark', () => {
-    expect(withDelete({ surfers: [], kinds: ['delete'] }, true)).toEqual({ surfers: [], kinds: ['delete'] });
-  });
-  it('takes the mark off and keeps the rest', () => {
-    expect(withDelete({ surfers: ['rodo'], kinds: ['delete', 'landscape'] }, false)).toEqual({ surfers: ['rodo'], kinds: ['landscape'] });
+  it('keeps the remembered folder when cleared', async () => {
+    const store = await openReviewStore(fresh());
+    await store.saveFolder({ name: 'clips' } as unknown as FileSystemDirectoryHandle);
+    await store.clear();
+    expect(await store.folder()).toEqual({ name: 'clips' });
   });
 });
