@@ -197,4 +197,7 @@ npm run review-timeline -- <date>   timeline of the video review for a transcrib
 npm run recording -- <date> <youtube-url> <video-file> [--trim <s>]   link a session to its review recording
 npm run session-auto -- [--list] [--date <date>] [--local] [--no-claude] [--force]
 npm run shots -- <base-url> <folder> [route ...]   screenshots at 390 px and 1280 px
+node scripts/perf/playback.mjs <base-url> <clips-folder> <clip> [--wait=<ms>] [--bare]   how evenly /review/ plays
+node scripts/perf/thumbnails.mjs <base-url> <clips-folder>   thumbnail time, first visit and second
+node scripts/perf/slow-motion.mjs <base-url> <clips-folder> <clip> <back|fwd>   frames in a 4 s hold
 ```
