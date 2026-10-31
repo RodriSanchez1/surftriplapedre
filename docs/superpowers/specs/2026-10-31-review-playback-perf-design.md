@@ -60,7 +60,7 @@ The video track lookup that `frameRate` does today becomes a `videoTrack` helper
 
 ## Thumbnails
 
-- **Pure logic** in a new `src/lib/review/thumbs.ts`: `thumbTime(duration, keyframes, fps)`, `thumbKey(file)` and `thumbsToDrop(used, max)`.
+- **Pure logic** in a new `src/lib/review/thumbs.ts`: `thumbTime(duration, keyframes, fps)`, `thumbKey(file)`, and the `SavedThumb` shape.
 - **Storage** in `store.ts`: database version 2 adds a `thumbs` object store (with a `usedAt` index); `thumb(key)` (reading it marks it used) and `saveThumb(key, image, duration)` (drops the least recently used beyond 2,000). The upgrade creates only the stores that are missing, so existing drafts and captures stay.
 - **Page** (`page.ts`, `thumbnails()`): first every saved thumbnail is shown and its duration painted; then the missing ones go one at a time, each waiting until the video is idle. The images are object URLs, let go when another folder opens. When the store is not open yet (or IndexedDB fails), everything is made as now, without keeping it.
 
