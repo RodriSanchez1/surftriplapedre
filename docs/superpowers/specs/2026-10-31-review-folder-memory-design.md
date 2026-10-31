@@ -14,21 +14,21 @@ There will be two kinds of users later: a surfer with their own clips already so
 
 ## Decisions
 
-1. The folder's work is saved **inside the folder**, in an `analysis/` subfolder, next to the clips. It survives clearing the browser and travels with the folder (another computer, handing it to the coach).
+1. The folder's work is saved **inside the folder**, in a hidden `.analysis/` subfolder, next to the clips. It survives clearing the browser and travels with the folder (another computer, handing it to the coach).
 2. Tags belong to the **folder**, not to a review.
 3. After ⬆ Subir **everything stays**. Uploaded captures are marked ✓. The next upload is a **new review** (a new `group`, a new Drive subfolder) with the new captures, the new log and the tags as they are then.
-4. Approach: a `FolderStore` with the same job as `ReviewStore`, reading and writing `analysis/`. `ReviewStore` (IndexedDB) stays for browsers without folders and for folders the page cannot write to. Both store the same model.
+4. Approach: a `FolderStore` with the same job as `ReviewStore`, reading and writing `.analysis/`. `ReviewStore` (IndexedDB) stays for browsers without folders and for folders the page cannot write to. Both store the same model.
 
 ## What is in the folder
 
 ```
 <clips folder>/
-  analysis/
+  .analysis/
     review.json
     captures/<date>_<HHmmss>_cap-<n>.jpg
 ```
 
-The folder is visible, so the owner can find it, copy it or delete it. `videosIn` skips a subfolder named `analysis` at the top of the picked folder (a new constant, `ANALYSIS_DIR`, shared with `FolderStore`), so the page never walks into it looking for clips.
+`videosIn` already skips entries whose name starts with a dot, so `.analysis/` never shows up as clips. On Windows a dot does not hide a folder in the Explorer; that is fine.
 
 `review.json` is a `FolderState`:
 
@@ -74,9 +74,9 @@ The model replaces `Draft` in the page. The tags move out of the draft into `cli
 
 **Opening a folder** (Chrome or Edge, folder picked or reopened):
 
-1. With write permission, read `analysis/review.json`. If it is there, load the tags, every capture (uploaded and pending) and the review in progress. The date of the talk comes from the review in progress, if there is one.
+1. With write permission, read `.analysis/review.json`. If it is there, load the tags, every capture (uploaded and pending) and the review in progress. The date of the talk comes from the review in progress, if there is one.
 2. If it is not there and the browser has an old draft with something in it, that draft moves into the folder **once** (state and capture images), and it is deleted from the browser. This keeps today's unfinished work.
-3. If there is neither, the folder starts empty. `analysis/` is created on the first write, not on opening, so opening a folder only to watch leaves nothing behind.
+3. If there is neither, the folder starts empty. `.analysis/` is created on the first write, not on opening, so opening a folder only to watch leaves nothing behind.
 4. The "Seguís con el análisis sin subir…" notice keeps showing when there is a review in progress. It now says "in this folder", not "on this device".
 
 **Without write permission** (the browser refused it, read-only media): the page uses `ReviewStore` like today and says once: "No puedo guardar en la carpeta; lo guardo en este navegador." (`review.folderReadOnly`).
@@ -89,7 +89,7 @@ The model replaces `Draft` in the page. The tags move out of the draft into `cli
 
 - the review moves to `uploads` (its captures and a copy of `clips`) and `draft` becomes `null`;
 - clips deleted from the folder after the upload leave `clips`;
-- nothing is deleted from `analysis/`.
+- nothing is deleted from `.analysis/`.
 
 If the upload is cut, `draft.sessions` and `draft.uploaded` resume it, like today.
 
@@ -117,7 +117,7 @@ This is a small UI change. It goes straight to the code (rule 7): the panel's de
 | Unit | Job | Tests |
 |---|---|---|
 | `src/lib/review/state.ts` (new, pure) | `FolderState` and its transitions: `emptyState`, `fromDraft` (old IndexedDB draft), `afterUpload(state, at, removedClips)`, `afterDiscard`, `pendingClips(state)`, `uploadedCaptures(state)` | Vitest |
-| `src/lib/review/folder-store.ts` (new) | Reads and writes `analysis/` in a `FileSystemDirectoryHandle`: `state()`, `saveState()`, `capture(file)`, `saveCapture()`, `removeCapture()`, and `writable()` | Vitest with an in-memory fake directory handle |
+| `src/lib/review/folder-store.ts` (new) | Reads and writes `.analysis/` in a `FileSystemDirectoryHandle`: `state()`, `saveState()`, `capture(file)`, `saveCapture()`, `removeCapture()`, and `writable()` | Vitest with an in-memory fake directory handle |
 | `src/lib/review/store.ts` | `ReviewStore` stores a `FolderState` and migrates the old `Draft` on read; same method names as `FolderStore` so the page takes either | Vitest with fake-indexeddb (exists) |
 | `src/lib/review/outbox.ts` | Pending captures and pending tags from a `FolderState`; `finalLog` takes the draft and `clips` | Vitest (exists) |
 | `src/lib/review/page.ts` | Picks the store when a folder opens, moves the old draft, paints "Ya subidas", and no longer clears on upload | Screenshots and a manual run in Chrome |
@@ -126,7 +126,7 @@ This is a small UI change. It goes straight to the code (rule 7): the panel's de
 
 - The surfer and coach profiles, and sending the analysis to each student.
 - One talk over several folders.
-- Syncing `analysis/` with Drive, or reading it back from Drive.
+- Syncing `.analysis/` with Drive, or reading it back from Drive.
 - Cleaning `clips` entries of clips deleted by hand outside the app. They stay in the JSON and are not shown.
 
 ## Checks
