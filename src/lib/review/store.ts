@@ -1,8 +1,10 @@
 /**
  * What the review page keeps on the device (IndexedDB) until Drive confirms it:
  * the log in progress, its captures, which files are already uploaded, and the folder of clips.
+ * It also keeps the clip list's thumbnails between visits.
  */
 import type { ClipTags, ReviewLog } from './log';
+import { MAX_THUMBS, type SavedThumb } from './thumbs';
 
 /** The review in progress. */
 export interface Draft {
@@ -31,9 +33,12 @@ export function withDelete(tags: ClipTags, on: boolean): ClipTags {
 }
 
 const DB = 'surftrip-review';
-const VERSION = 1;
+const VERSION = 2;
 const KV = 'kv';
 const CAPTURES = 'captures';
+/** Thumbnails by thumbKey, with an index on when each was last used. Since version 2. */
+const THUMBS = 'thumbs';
+const USED = 'usedAt';
 const DRAFT = 'draft';
 const FOLDER = 'folder';
 
@@ -107,14 +112,47 @@ export class ReviewStore {
   saveFolder(handle: FileSystemDirectoryHandle): Promise<void> {
     return this.#put(KV, FOLDER, handle);
   }
+
+  /** A clip's thumbnail kept from an earlier visit, by thumbKey. Reading it counts as using it. */
+  async thumb(key: string, now = Date.now()): Promise<SavedThumb | undefined> {
+    const saved = await this.#get<SavedThumb>(THUMBS, key);
+    if (saved) await this.#put(THUMBS, key, { ...saved, usedAt: now } satisfies SavedThumb);
+    return saved;
+  }
+
+  /** Keeps a clip's thumbnail, and drops the least recently used beyond `max`. */
+  async saveThumb(key: string, image: Blob, duration: number, now = Date.now(), max = MAX_THUMBS): Promise<void> {
+    const tx = this.#db.transaction(THUMBS, 'readwrite');
+    const thumbs = tx.objectStore(THUMBS);
+    thumbs.put({ image, duration, usedAt: now } satisfies SavedThumb, key);
+    let extra = (await result(thumbs.count())) - max;
+    if (extra > 0) {
+      await new Promise<void>((resolve, reject) => {
+        // Oldest first: the index goes up by usedAt.
+        const req = thumbs.index(USED).openKeyCursor();
+        req.onsuccess = () => {
+          const cursor = req.result;
+          if (!cursor || extra <= 0) return resolve();
+          thumbs.delete(cursor.primaryKey);
+          extra--;
+          cursor.continue();
+        };
+        req.onerror = () => reject(req.error);
+      });
+    }
+    await complete(tx);
+  }
 }
 
 /** Opens (or creates) the database. Tests pass a fake-indexeddb IDBFactory. */
 export async function openReviewStore(idb: IDBFactory = indexedDB): Promise<ReviewStore> {
   const req = idb.open(DB, VERSION);
   req.onupgradeneeded = () => {
-    req.result.createObjectStore(KV);
-    req.result.createObjectStore(CAPTURES);
+    const db = req.result;
+    // Only what is missing: a version 1 database keeps its draft and captures.
+    if (!db.objectStoreNames.contains(KV)) db.createObjectStore(KV);
+    if (!db.objectStoreNames.contains(CAPTURES)) db.createObjectStore(CAPTURES);
+    if (!db.objectStoreNames.contains(THUMBS)) db.createObjectStore(THUMBS).createIndex(USED, USED);
   };
   return new ReviewStore(await result(req));
 }

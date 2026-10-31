@@ -28,6 +28,51 @@ describe('review store', () => {
   });
 });
 
+describe('thumbnail store', () => {
+  const jpeg = (text: string) => new Blob([text], { type: 'image/jpeg' });
+
+  it('keeps a thumbnail and its duration by key', async () => {
+    const store = await openReviewStore(fresh());
+    await store.saveThumb('C0223.MP4|1|2', jpeg('jpeg'), 17.02);
+    const saved = await store.thumb('C0223.MP4|1|2');
+    expect(saved?.duration).toBe(17.02);
+    expect(saved?.image.size).toBe(4);
+    expect(await store.thumb('C0224.MP4|1|2')).toBeUndefined();
+  });
+
+  it('drops the least recently used beyond the max, counting a read as a use', async () => {
+    const store = await openReviewStore(fresh());
+    await store.saveThumb('a', jpeg('a'), 1, 100, 2);
+    await store.saveThumb('b', jpeg('b'), 1, 200, 2);
+    await store.thumb('a', 300);
+    await store.saveThumb('c', jpeg('c'), 1, 400, 2);
+    expect(await store.thumb('b')).toBeUndefined();
+    expect(await store.thumb('a')).toBeDefined();
+    expect(await store.thumb('c')).toBeDefined();
+  });
+
+  it('upgrades a version 1 database and keeps its draft', async () => {
+    const idb = fresh();
+    const req = idb.open('surftrip-review', 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore('kv');
+      req.result.createObjectStore('captures');
+    };
+    const db = await new Promise<IDBDatabase>((resolve) => (req.onsuccess = () => resolve(req.result)));
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put({ log: 'old', sessions: {}, uploaded: [] }, 'draft');
+      tx.oncomplete = () => resolve();
+    });
+    db.close();
+
+    const store = await openReviewStore(idb);
+    expect(((await store.draft()) as unknown as { log: string }).log).toBe('old');
+    await store.saveThumb('a', jpeg('a'), 1);
+    expect(await store.thumb('a')).toBeDefined();
+  });
+});
+
 describe('clipTags', () => {
   const log = newLog('2026-10-27', '2026-10-27_183012', new Date('2026-10-27T21:30:12Z'));
   const capture = (clip: string, surfers: string[], n: number) => ({
