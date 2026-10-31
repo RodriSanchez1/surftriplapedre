@@ -101,6 +101,8 @@ interface Entry extends Clip {
 
 /** Characters of a file name shown in the clip list before the middle is cut. */
 const NAME_MAX = 14;
+/** While playing, the time readout and the seek bar are painted at most this often (ms). */
+const READOUT_MS = 30;
 /** Landscape, extras and delete as icons, in the order of the kinds. */
 const KIND_ICONS: Record<ClipKind, string> = { landscape: '🏞', extras: '🎉', delete: '🗑' };
 function kindIcons(kinds: ClipKind[]): string {
@@ -633,11 +635,18 @@ export function init(root: HTMLElement): void {
 
   function paintTime() {
     if (!current) return;
-    seek.value = String(video.currentTime);
-    seek.setAttribute('aria-valuetext', position(video.currentTime));
-    seek.style.setProperty('--played', `${video.duration ? (video.currentTime / video.duration) * 100 : 0}%`);
-    readoutPos.textContent = position(video.currentTime);
-    readoutWave.textContent = waveTime(current, video.currentTime);
+    const t = video.currentTime;
+    seek.value = String(t);
+    seek.style.setProperty('--played', `${video.duration ? (t / video.duration) * 100 : 0}%`);
+    setText(readoutPos, position(t));
+    setText(readoutWave, waveTime(current, t));
+    // Where it stopped, for a screen reader; not 30 times a second while it plays.
+    if (video.paused) seek.setAttribute('aria-valuetext', position(t));
+  }
+
+  /** Writing the same text again still costs the page a layout. */
+  function setText(el: HTMLElement, text: string) {
+    if (el.textContent !== text) el.textContent = text;
   }
 
   // --- Drawing ---
@@ -1211,9 +1220,14 @@ export function init(root: HTMLElement): void {
     record({ type: 'rate', t: Math.round(video.currentTime * 1000) / 1000, rate: video.playbackRate });
   }
   video.addEventListener('timeupdate', paintTime);
-  // Smooth readout while playing; timeupdate alone ticks about 4 times a second.
-  const tick = () => {
-    if (!video.paused) paintTime();
+  // Smooth readout while playing (timeupdate alone ticks about 4 times a second), but not on every frame:
+  // each paint costs the page a layout, and every other frame at 60 Hz looks just as smooth.
+  let lastPaint = 0;
+  const tick = (now: number) => {
+    if (!video.paused && now - lastPaint >= READOUT_MS) {
+      lastPaint = now;
+      paintTime();
+    }
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
