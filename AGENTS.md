@@ -47,6 +47,7 @@ src/components/               design system
 src/views/                    body of each page (they receive lang)
 src/pages/  src/pages/pt/     one-line wrappers per language
 src/pages/design/proposals/   design proposals being discussed or built (deleted once built, see rule 7)
+src/pages/design/spikes/      temporary measuring pages (webcodecs: decode speed on this computer), deleted with their feature
 public/captures/<date>/       frames from the video review, with the coach's drawing (<id>.jpg, committed with the insights)
 scripts/                      avatars, import-session, shots, transcribe.py, session-auto, review-timeline
 .claude/skills/process-session/   skill: from the transcript to the insights loaded in the site
