@@ -53,7 +53,7 @@ import {
   hasWork,
   parseState,
   pendingClips,
-  setTags,
+  setTags as withTags,
   uploadedCaptures,
   withDelete,
   type FolderState,
@@ -1317,7 +1317,7 @@ import {
   emptyState,
   forgetClips,
   hasWork,
-  setTags,
+  setTags as withTags,
   uploadedCaptures,
   withDelete,
   type Draft,
@@ -1553,7 +1553,7 @@ with
     const kinds = kindChips().filter((c) => c.checked).map((c) => c.value as ClipKind);
     const name = current.file.name;
     // Tags belong to the folder, not to a review: tagging alone starts no review.
-    state = setTags(state, name, withDelete({ surfers, kinds }, clipTags(state, name).kinds.includes('delete')));
+    state = withTags(state, name, withDelete({ surfers, kinds }, clipTags(state, name).kinds.includes('delete')));
 ```
 
 In `keepClip`, replace
@@ -1567,7 +1567,7 @@ with
 
 ```ts
     if (uploading) return;
-    state = setTags(state, clip, withDelete(clipTags(state, clip), false));
+    state = withTags(state, clip, withDelete(clipTags(state, clip), false));
 ```
 
 In `toggleDelete`, replace
@@ -1580,7 +1580,7 @@ In `toggleDelete`, replace
 with
 
 ```ts
-    state = setTags(state, name, withDelete(clipTags(state, name), true));
+    state = withTags(state, name, withDelete(clipTags(state, name), true));
 ```
 
 - [ ] **Step 8: Capture thumbnails, pending and uploaded**
