@@ -34,6 +34,7 @@ import {
 import { fileReader, readClipInfo } from './mp4';
 import { finalLog, hasTags, outbox, type Filter } from './outbox';
 import { clipTags, openReviewStore, withDelete, type Draft, type ReviewStore } from './store';
+import { thumbKey, thumbTime } from './thumbs';
 import { initListWidth } from './list-width-page';
 import { initTour, type Tour } from './tour-page';
 
@@ -91,6 +92,8 @@ type NewEvent = ReviewEvent extends infer E ? (E extends ReviewEvent ? Omit<E, '
 
 interface Entry extends Clip {
   url: string;
+  /** When its keyframes are shown (mp4.ts); null when the header has no table. */
+  keyframes: number[] | null;
   duration: number | null;
   error: boolean;
   item: HTMLElement;
@@ -189,6 +192,8 @@ export function init(root: HTMLElement): void {
   let dirs = new Map<string, FileSystemDirectoryHandle>();
   /** Counts folder loads, so a slow thumbnail pass can tell that another folder was opened. */
   let loadGen = 0;
+  /** The thumbnails' object URLs, let go when another folder opens. */
+  let thumbUrls: string[] = [];
   /** The guided tour: while it is open the shortcuts are off and messages wait for it to close. */
   let tour: Tour | null = null;
   let heldMessage: Parameters<typeof say> | null = null;
@@ -428,6 +433,8 @@ export function init(root: HTMLElement): void {
     const gen = ++loadGen;
     reverse.load(null);
     for (const c of clips) URL.revokeObjectURL(c.url);
+    for (const u of thumbUrls) URL.revokeObjectURL(u);
+    thumbUrls = [];
     clips = [];
     current = null;
     list.replaceChildren();
@@ -448,6 +455,7 @@ export function init(root: HTMLElement): void {
           filmedAt: info.filmedAt ?? new Date(file.lastModified),
           filmedAtSource: info.filmedAt ? ('metadata' as const) : ('file-date' as const),
           fps: info.fps,
+          keyframes: info.keyframes,
         };
       }),
     );
@@ -469,28 +477,61 @@ export function init(root: HTMLElement): void {
     void thumbnails(clips, gen);
   }
 
-  /** Duration, a thumbnail and whether it plays, one clip at a time with a hidden video. */
+  function showThumb(entry: Entry, image: Blob) {
+    const url = URL.createObjectURL(image);
+    thumbUrls.push(url);
+    entry.item.querySelector<HTMLImageElement>('[data-clip-thumb]')!.src = url;
+  }
+
+  /** While the video plays or slow motion moves it, thumbnails wait: they would take the decoder from the picture. */
+  async function whenIdle() {
+    while (!video.paused || motion.quiet) await new Promise((r) => setTimeout(r, 250));
+  }
+
+  /**
+   * Duration, a thumbnail and whether it plays: the ones kept from an earlier visit at once, then the rest one clip
+   * at a time with a hidden video, each kept for next time.
+   */
   async function thumbnails(entries: Entry[], gen: number) {
+    const missing: Entry[] = [];
+    for (const entry of entries) {
+      const saved = await store?.thumb(thumbKey(entry.file)).catch(() => undefined);
+      if (gen !== loadGen) return; // another folder was opened
+      if (!saved) {
+        missing.push(entry);
+        continue;
+      }
+      entry.duration = saved.duration;
+      showThumb(entry, saved.image);
+      paintItem(entry);
+    }
+    if (!missing.length) return;
     const probe = document.createElement('video');
     probe.muted = true;
-    probe.preload = 'auto';
+    // Only the header up front; the seek reads the frame. loadeddata need not come with this preload.
+    probe.preload = 'metadata';
     const canvas = document.createElement('canvas');
     canvas.width = 160;
     canvas.height = 90;
-    for (const entry of entries) {
+    for (const entry of missing) {
+      await whenIdle();
       if (gen !== loadGen) break; // another folder was opened
       if (!clips.includes(entry)) continue; // deleted after the upload
       try {
         probe.src = entry.url;
-        await once(probe, 'loadeddata');
+        await once(probe, 'loadedmetadata');
         entry.duration = probe.duration;
         if (!probe.videoWidth) throw new Error('no video track the browser can decode');
-        probe.currentTime = Math.min(1, probe.duration / 3);
+        probe.currentTime = thumbTime(probe.duration, entry.keyframes, entry.fps ?? DEFAULT_FPS);
         await once(probe, 'seeked');
         const ctx = canvas.getContext('2d')!;
         canvas.height = Math.round((160 * probe.videoHeight) / probe.videoWidth);
         ctx.drawImage(probe, 0, 0, canvas.width, canvas.height);
-        entry.item.querySelector<HTMLImageElement>('[data-clip-thumb]')!.src = canvas.toDataURL('image/jpeg', 0.7);
+        const image = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.7));
+        if (image && gen === loadGen) {
+          showThumb(entry, image);
+          void store?.saveThumb(thumbKey(entry.file), image, probe.duration).catch(() => {});
+        }
       } catch {
         entry.error = true;
       }
