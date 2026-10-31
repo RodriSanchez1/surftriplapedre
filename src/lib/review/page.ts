@@ -8,9 +8,12 @@ import { format } from '../i18n';
 import { ask, confirmIn } from '../confirm';
 import { googleAccount, loadGoogle, LoginError, SIGNED_IN } from '../audio/google';
 import { folderIn, send, verifyAccess, PermissionError, type Dependencies } from '../audio/upload';
-import { clock, DEFAULT_FPS, length, middleEllipsis, position, scrubFrames, sortClips, stepFrame, type Clip } from './clips';
+import { adjacentClip, clock, DEFAULT_FPS, length, middleEllipsis, position, scrubFrames, sortClips, stepFrame, type Clip } from './clips';
 import { Sketch, type Tool } from './draw';
 import { initZoom } from './zoom-page';
+import { initMotion } from './motion-page';
+import { initReverse } from './reverse-page';
+import { initPlayback } from './playback-page';
 import { cursorFor, ICONS } from './icons';
 import { placeMenu } from './menu';
 import { askWrite, canPickFolder, canRead, isVideo, pickFolder, removeVideos, uniqueDirs, videosIn } from './folder';
@@ -189,6 +192,21 @@ export function init(root: HTMLElement): void {
   /** The guided tour: while it is open the shortcuts are off and messages wait for it to close. */
   let tour: Tour | null = null;
   let heldMessage: Parameters<typeof say> | null = null;
+  /** The speed menu and the volume popover; opening one puts the arrow menu away. */
+  const playback = initPlayback(root, video, () => setArrowMenu(false));
+  /** Slow motion for the held frame buttons and arrow keys and for the drag across the picture. */
+  const reverse = initReverse($<HTMLCanvasElement>('[data-reverse]'), video, () => current?.fps ?? DEFAULT_FPS);
+  const motion = initMotion(video, {
+    fps: () => current?.fps ?? DEFAULT_FPS,
+    reverse,
+    onTap: (dir) => step(dir),
+    onStart: () => ensureOpened(),
+    // The log keeps only where it stopped, like any seek.
+    onStop: () => {
+      recordRate();
+      recordSeek();
+    },
+  });
 
   // --- Messages and state ---
 
@@ -200,6 +218,7 @@ export function init(root: HTMLElement): void {
     for (const el of interactive) el.inert = view !== 'ready';
     if (view !== 'ready') setTags(false);
     if (view !== 'ready') setArrowMenu(false);
+    if (view !== 'ready') playback.close();
     $('[data-next-clip]').hidden = clips.length < 2;
   }
 
@@ -407,6 +426,7 @@ export function init(root: HTMLElement): void {
 
   async function loadFiles(files: File[]) {
     const gen = ++loadGen;
+    reverse.load(null);
     for (const c of clips) URL.revokeObjectURL(c.url);
     clips = [];
     current = null;
@@ -482,6 +502,9 @@ export function init(root: HTMLElement): void {
 
   async function open(entry: Entry, log = true) {
     if (current === entry && root.dataset.view === 'ready') return;
+    // A hold or drag on the clip being left ends without a seek in the log.
+    dropScrub(false);
+    motion.stop(false);
     current = entry;
     for (const c of clips) {
       c.item.classList.toggle('active', c === entry);
@@ -500,6 +523,7 @@ export function init(root: HTMLElement): void {
     // The picture area stays in place; it only shows what is going on.
     setView('loading');
     video.src = entry.url;
+    reverse.load(entry.url);
     try {
       await once(video, 'loadedmetadata', 15000);
     } catch {
@@ -516,6 +540,13 @@ export function init(root: HTMLElement): void {
     setView('ready');
     paintTime();
     if (log) ensureOpened();
+  }
+
+  /** N and Shift+N: the clip after or before the open one in the list; nothing at the ends. */
+  function goClip(dir: 1 | -1) {
+    if (!current) return;
+    const i = adjacentClip(clips.indexOf(current), clips.length, dir);
+    if (i !== null) void open(clips[i]);
   }
 
   /** From a clip that does not play to the next one that might. */
@@ -552,6 +583,8 @@ export function init(root: HTMLElement): void {
   }
 
   function toggle() {
+    // While slow motion moves the clip, the space bar waits for it to end.
+    if (motion.quiet) return;
     if (!current || !video.duration) return;
     if (video.paused) void video.play();
     else video.pause();
@@ -606,6 +639,7 @@ export function init(root: HTMLElement): void {
     arrowMenu.hidden = !open;
     arrowButton.setAttribute('aria-expanded', String(open));
     if (!open) return;
+    playback.close();
     const gap = parseFloat(getComputedStyle(root).getPropertyValue('--s-2')) || 8;
     const place = placeMenu(
       arrowButton.getBoundingClientRect(),
@@ -791,6 +825,8 @@ export function init(root: HTMLElement): void {
 
   async function saveCapture() {
     if (!current || !video.videoWidth || uploading) return;
+    // In slow motion the picture may be the backwards canvas, ahead of the video: capture after the release.
+    if (motion.quiet || reverse.showing !== null) return;
     const clip = current.file.name;
     video.pause();
     ensureOpened();
@@ -879,6 +915,7 @@ export function init(root: HTMLElement): void {
         video.pause();
         video.removeAttribute('src');
         video.load();
+        reverse.load(null);
       }
       URL.revokeObjectURL(entry.url);
       entry.item.remove();
@@ -1093,6 +1130,8 @@ export function init(root: HTMLElement): void {
   // --- Events ---
 
   video.addEventListener('play', () => {
+    // Slow motion plays, pauses and changes the rate for itself: that is not the coach playing.
+    if (motion.quiet) return;
     ensureOpened();
     if (!pinned) sketch.clear();
     if (sketch.tool) setTool(null);
@@ -1100,6 +1139,8 @@ export function init(root: HTMLElement): void {
     root.dataset.playing = 'true';
   });
   video.addEventListener('pause', () => {
+    // Slow motion plays, pauses and changes the rate for itself: that is not the coach playing.
+    if (motion.quiet) return;
     root.dataset.playing = 'false';
     if (!video.ended) record({ type: 'pause', t: Math.round(video.currentTime * 1000) / 1000 });
   });
@@ -1107,27 +1148,27 @@ export function init(root: HTMLElement): void {
     root.dataset.playing = 'false';
   });
   video.addEventListener('seeked', () => {
-    // A drag asks for frames faster than the browser finds them: only the latest one is shown next.
-    if (scrub.pending !== null) {
-      video.currentTime = scrub.pending;
-      scrub.pending = null;
-      return;
-    }
     paintTime();
-    // A drag goes through many frames; the log keeps only where it stopped.
-    if (scrub.id !== null) return;
+    // Slow motion goes through many frames; it records where it stopped when it ends.
+    if (motion.quiet) return;
     recordSeek();
   });
   video.addEventListener('ratechange', () => {
+    // The menu shows the speed picked (the default), not slow motion's own rate; even one picked mid-hold.
     for (const b of root.querySelectorAll<HTMLElement>('[data-rate]')) {
-      b.setAttribute('aria-pressed', String(Number(b.dataset.rate) === video.playbackRate));
+      b.setAttribute('aria-checked', String(Number(b.dataset.rate) === video.defaultPlaybackRate));
     }
-    $('[data-rate-label]').textContent = `${video.playbackRate}×`;
+    $('[data-rate-label]').textContent = `${video.defaultPlaybackRate}×`;
+    // Slow motion plays, pauses and changes the rate for itself: that is not the coach playing. Its stop logs a pick.
+    if (motion.quiet) return;
+    recordRate();
+  });
+  function recordRate() {
     // Loading a clip resets the rate to the default, and setting the default fires it too: only real changes count.
     if (video.readyState === 0 || video.playbackRate === lastRate) return;
     lastRate = video.playbackRate;
     record({ type: 'rate', t: Math.round(video.currentTime * 1000) / 1000, rate: video.playbackRate });
-  });
+  }
   video.addEventListener('timeupdate', paintTime);
   // Smooth readout while playing; timeupdate alone ticks about 4 times a second.
   const tick = () => {
@@ -1158,7 +1199,7 @@ export function init(root: HTMLElement): void {
 
   // Paused and without a tool, dragging across the picture goes through the clip frame by frame:
   // to the right forward, to the left back. Declared here because a drag must not also count as a tap.
-  const scrub = { id: null as number | null, x: 0, from: 0, moved: false, pending: null as number | null };
+  const scrub = { id: null as number | null, x: 0, from: 0, moved: false };
 
   // Without a tool, a click on the picture plays or pauses.
   stage.addEventListener('click', (e) => {
@@ -1175,7 +1216,7 @@ export function init(root: HTMLElement): void {
     scrub.moved = false;
     if (sketch.tool || zoom.zoomed || !current || !video.duration || !video.paused || !e.isPrimary || e.button !== 0) return;
     if (!(e.target as Element).matches('[data-sketch], video')) return;
-    Object.assign(scrub, { id: e.pointerId, x: e.clientX, from: video.currentTime, moved: false, pending: null });
+    Object.assign(scrub, { id: e.pointerId, x: e.clientX, from: video.currentTime, moved: false });
   });
   stage.addEventListener('pointermove', (e) => {
     if (e.pointerId !== scrub.id || !current) return;
@@ -1185,22 +1226,36 @@ export function init(root: HTMLElement): void {
       scrub.moved = true;
       stage.setPointerCapture(e.pointerId);
       root.dataset.scrubbing = 'true';
-      ensureOpened();
     }
-    const t = stepFrame(scrub.from, current.fps ?? DEFAULT_FPS, frames, video.duration);
-    if (video.seeking) scrub.pending = t;
-    else if (Math.abs(t - video.currentTime) > 1e-6) video.currentTime = t;
+    motion.follow(stepFrame(scrub.from, current.fps ?? DEFAULT_FPS, frames, video.duration));
   });
   function endScrub(e: PointerEvent) {
-    if (e.pointerId !== scrub.id) return;
+    if (e.pointerId === scrub.id) dropScrub();
+  }
+  /** Ends the drag across the picture; with report false (another clip opens) it is not logged. */
+  function dropScrub(report = true) {
+    if (scrub.id === null) return;
     scrub.id = null;
     if (!scrub.moved) return;
     delete root.dataset.scrubbing;
-    // Still on the way to the last frame: seeked records it when it gets there.
-    if (!video.seeking && scrub.pending === null) recordSeek();
+    motion.stop(report);
   }
   stage.addEventListener('pointerup', endScrub);
   stage.addEventListener('pointercancel', endScrub);
+  stage.addEventListener('lostpointercapture', endScrub);
+
+  // |◀ and ▶|: a tap is one frame, holding plays slow motion until they are let go.
+  for (const b of root.querySelectorAll<HTMLElement>('[data-action="prev-frame"], [data-action="next-frame"]')) {
+    const dir = b.dataset.action === 'next-frame' ? 1 : -1;
+    b.addEventListener('pointerdown', (e) => {
+      if (!e.isPrimary || e.button !== 0) return;
+      b.setPointerCapture(e.pointerId);
+      motion.press(dir, 'pointer');
+    });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(type, () => motion.release('pointer'));
+    // A long press on a phone must not open the system menu.
+    b.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
 
   // Zoom: the rail button, + - 0, the wheel, two fingers and dragging the zoomed picture (zoom-page.ts).
   // After the scrub's listeners, so a second finger's pointerdown reaches the scrub first and the zoom stops it.
@@ -1215,7 +1270,7 @@ export function init(root: HTMLElement): void {
       scrub.id = null;
       scrub.moved = true;
       delete root.dataset.scrubbing;
-      if (moved && !video.seeking && scrub.pending === null) recordSeek();
+      if (moved) motion.stop();
     },
   });
 
@@ -1253,7 +1308,7 @@ export function init(root: HTMLElement): void {
     first?.focus();
   }
 
-  const actions: Record<string, (b: HTMLElement) => void> = {
+  const actions: Record<string, (b: HTMLElement, e: MouseEvent) => void> = {
     'pick-folder': () => void chooseFolder(),
     reopen: () => void reopen(),
     // Open or closed by what is on screen (CSS decides the default for the screen size).
@@ -1273,20 +1328,11 @@ export function init(root: HTMLElement): void {
       b.closest<HTMLElement>('.notice')!.hidden = true;
     },
     play: () => toggle(),
-    'prev-frame': () => step(-1),
-    'next-frame': () => step(1),
-    rate: (b) => {
-      // The default too, so the next clip opens at the same speed.
-      video.defaultPlaybackRate = Number(b.dataset.rate);
-      video.playbackRate = Number(b.dataset.rate);
-    },
-    // 1× → 0.5× → 0.25× → 1×, for the narrow screens where three buttons do not fit.
-    'cycle-rate': (b) => {
-      const speeds = (b.dataset.rates ?? '1').split(' ').map(Number);
-      const next = speeds[(speeds.indexOf(video.playbackRate) + 1) % speeds.length];
-      video.defaultPlaybackRate = next;
-      video.playbackRate = next;
-    },
+    'prev-frame': (_b, e) => e.detail === 0 && step(-1),
+    'next-frame': (_b, e) => e.detail === 0 && step(1),
+    speed: () => playback.toggleSpeed(),
+    rate: (b) => playback.pickRate(b),
+    volume: () => playback.pressVolume(),
     fullscreen: () => setImmersive(!root.hasAttribute('data-immersive')),
     tool: (b) => setTool(b.dataset.tool as Tool),
     // Off: turns on the last arrow. On: opens the straight / free menu, with the focus on the arrow in use.
@@ -1354,7 +1400,7 @@ export function init(root: HTMLElement): void {
     const b = (e.target as Element).closest<HTMLElement>('[data-action]');
     // The audio panel has buttons named like ours (finish, retry) and handles them itself.
     if (!b || !root.contains(b) || b.closest('[data-audio]')) return;
-    actions[b.dataset.action!]?.(b);
+    actions[b.dataset.action!]?.(b, e);
     // A clicked button keeps the focus; the space bar would press it again instead of playing.
     if (e.detail > 0) b.blur();
   });
@@ -1392,6 +1438,7 @@ export function init(root: HTMLElement): void {
   // A tap outside puts away the recording popover and, on a phone, the clip drawer.
   document.addEventListener('pointerdown', (e) => {
     const target = e.target as Element;
+    if (playback.closeIfOutside(target)) swallowNextTap();
     if (!arrowMenu.hidden && !target.closest('[data-arrow-menu], [data-action="arrow"]')) {
       setArrowMenu(false);
       swallowNextTap();
@@ -1444,6 +1491,8 @@ export function init(root: HTMLElement): void {
       }
       return;
     }
+    // Esc puts away the speed menu or the volume; inside them, their own keys work and no shortcut runs.
+    if (playback.key(e)) return;
     if (e.key === 'Escape' && root.dataset.tags === 'open') {
       setTags(false);
       tagPill.focus();
@@ -1484,10 +1533,18 @@ export function init(root: HTMLElement): void {
     }
     // On a focused button the space bar presses it (a mouse click already blurs it, so focus here means keyboard).
     if (e.key === ' ' && target.closest('button, label.btn, [role="button"], a')) return;
+    // ← → : a tap is one frame, held is slow motion until keyup. Auto-repeat is ignored. Shift jumps 5 s (below).
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.shiftKey) {
+      e.preventDefault();
+      if (!e.repeat) motion.press(e.key === 'ArrowRight' ? 1 : -1, e.key);
+      return;
+    }
     const keys: Record<string, () => void> = {
       ' ': toggle,
-      ArrowLeft: () => (e.shiftKey ? jump(-5) : step(-1)),
-      ArrowRight: () => (e.shiftKey ? jump(5) : step(1)),
+      ArrowLeft: () => jump(-5),
+      ArrowRight: () => jump(5),
+      n: () => goClip(1),
+      N: () => goClip(e.shiftKey ? -1 : 1),
       l: actions['toggle-list'] as () => void,
       L: actions['toggle-list'] as () => void,
       f: actions.fullscreen as () => void,
@@ -1503,12 +1560,24 @@ export function init(root: HTMLElement): void {
       '=': () => zoom.step(1),
       '-': () => zoom.step(-1),
       '0': () => zoom.reset(),
+      ArrowUp: () => playback.stepVolume(1),
+      ArrowDown: () => playback.stepVolume(-1),
+      m: () => playback.toggleMute(),
+      M: () => playback.toggleMute(),
       Escape: () => setTool(null),
     };
     const run = keys[e.key];
     if (!run) return;
     e.preventDefault();
     run();
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') motion.release(e.key);
+  });
+  // Switching windows mid-hold never sends the keyup.
+  window.addEventListener('blur', () => {
+    motion.release();
+    dropScrub();
   });
 
   sketch.onChange = (count) => {

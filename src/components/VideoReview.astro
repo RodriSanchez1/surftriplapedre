@@ -87,7 +87,7 @@ const colors = [
   { value: '#e4261c', token: 'var(--c-red)' },
   { value: '#ffffff', token: 'var(--c-white)' },
 ];
-const speeds = [0.25, 0.5, 1];
+const speeds = [1, 0.5, 0.25];
 const kinds = [
   { id: 'landscape', icon: '🏞', label: t(lang, 'review.kindLandscape') },
   { id: 'extras', icon: '🎉', label: t(lang, 'review.kindExtras') },
@@ -379,6 +379,7 @@ const demoClips = [
     <div class="stage" data-stage style={demo ? '--ar: 1.7778' : undefined}>
       <div class="frame" data-frame>
         <video data-video playsinline preload="auto" class:list={{ 'demo-frame': demo }}></video>
+        <canvas data-reverse hidden></canvas>
         <canvas data-sketch></canvas>
         <span class="zoom-level" data-zoom-level hidden></span>
         {
@@ -445,18 +446,68 @@ const demoClips = [
       <span class="readout"><span data-pos>{demo ? '0:13.40' : ''}</span><span class="wave"> · <span data-wave>{demo ? '10:42:18' : ''}</span></span></span>
     </div>
     <div class="t-opts">
-      <span class="rates" role="group" aria-label={t(lang, 'review.speed')}>
-        {
-          speeds.map((r) => (
-            <button type="button" class="btn small" data-action="rate" data-rate={r} aria-pressed={(demo ? r === 0.5 : r === 1) ? 'true' : 'false'}>
-              {r}×
-            </button>
-          ))
-        }
+      <span class="pop-anchor">
+        <button
+          type="button"
+          class="btn small speed"
+          data-action="speed"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          aria-controls="speed-menu"
+          title={t(lang, 'review.speed')}
+        >
+          <span class="visually-hidden">{t(lang, 'review.speed')}</span><span data-rate-label>{demo ? '0.5×' : '1×'}</span><span
+            class="caret"
+            aria-hidden="true">▾</span
+          >
+        </button>
+        <span class="pop speed-menu" id="speed-menu" role="menu" aria-label={t(lang, 'review.speed')} data-speed-menu hidden>
+          {
+            speeds.map((r) => (
+              <button
+                type="button"
+                class="menu-item"
+                role="menuitemradio"
+                data-action="rate"
+                data-rate={r}
+                aria-checked={(demo ? r === 0.5 : r === 1) ? 'true' : 'false'}
+              >
+                <span>{r}×</span>
+              </button>
+            ))
+          }
+        </span>
       </span>
-      <button type="button" class="btn small rate-cycle" data-action="cycle-rate" data-rates={[1, 0.5, 0.25].join(' ')}>
-        <span class="visually-hidden">{t(lang, 'review.speed')}</span><span data-rate-label>{demo ? '0.5×' : '1×'}</span>
-      </button>
+      <span class="pop-anchor">
+        <button
+          type="button"
+          class="btn small volume"
+          data-action="volume"
+          aria-expanded="false"
+          aria-controls="volume-pop"
+          title={t(lang, 'review.volume')}
+          aria-label={t(lang, 'review.volume')}
+          data-label-volume={t(lang, 'review.volume')}
+          data-label-mute={t(lang, 'review.mute')}
+          data-label-unmute={t(lang, 'review.unmute')}
+        >
+          <ToolIcon name="volume" />
+        </button>
+        <span class="pop volume-pop" id="volume-pop" data-volume-pop hidden>
+          <input
+            type="range"
+            class="vol"
+            min="0"
+            max="1"
+            step="0.05"
+            value="1"
+            style="--played: 100%"
+            aria-label={t(lang, 'review.volume')}
+            aria-orientation="vertical"
+            data-volume
+          />
+        </span>
+      </span>
       <button
         type="button"
         class="btn small"
@@ -1243,7 +1294,8 @@ const demoClips = [
     width: 100%;
     height: 100%;
   }
-  video {
+  video,
+  [data-reverse] {
     object-fit: contain;
     /* The page takes every drag and both fingers: a sideways drag goes through the clip, two fingers zoom. */
     touch-action: none;
@@ -1283,6 +1335,10 @@ const demoClips = [
     cursor: crosshair;
   }
   [data-tool=''] canvas {
+    pointer-events: none;
+  }
+  /* Slow motion backwards draws its frames here, over the video; the pointer goes to the page as on the video. */
+  [data-reverse] {
     pointer-events: none;
   }
 
@@ -1411,7 +1467,8 @@ const demoClips = [
   .t-opts {
     display: flex;
     align-items: center;
-    gap: var(--s-1);
+    /* Wide enough that a button's shadow, even lifted on hover, never touches the next one. */
+    gap: var(--s-3);
   }
   .t-seek {
     display: flex;
@@ -1474,17 +1531,102 @@ const demoClips = [
   .seek:focus-visible {
     border-radius: 999px;
   }
-  /* Three speeds fit on a laptop; elsewhere one button steps through them. */
-  .rates {
+  /* The speed menu and the volume slider open above their button, over the picture. */
+  .pop-anchor {
+    position: relative;
+    display: inline-flex;
+  }
+  .pop {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + var(--s-2));
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-1);
+    padding: var(--s-1);
+    background: var(--c-paper);
+    border: var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .pop[hidden] {
     display: none;
+  }
+  .speed-menu {
+    min-width: 7rem;
+  }
+  .speed .caret {
+    margin-left: var(--s-1);
+    font-size: 11px;
+  }
+  .speed[aria-expanded='true'],
+  [data-muted='true'] .volume {
+    background: var(--c-yellow);
+  }
+  .volume-pop {
+    align-items: center;
+    padding: var(--s-2) var(--s-1);
+  }
+  /* The volume: the timeline's track and knob, smaller and standing up. Muted, it keeps its level, dimmed. */
+  .vol {
+    width: var(--hit);
+    height: 7rem;
+    margin: 0;
+    background: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    writing-mode: vertical-lr;
+    direction: rtl;
+  }
+  .vol::-webkit-slider-runnable-track {
+    width: 10px;
+    box-sizing: border-box;
+    border: 2px solid var(--c-ink);
+    border-radius: 999px;
+    background: linear-gradient(to top, var(--c-red) var(--played, 0%), var(--c-white) var(--played, 0%));
+  }
+  .vol::-moz-range-track {
+    width: 10px;
+    box-sizing: border-box;
+    border: 2px solid var(--c-ink);
+    border-radius: 999px;
+    background: linear-gradient(to top, var(--c-red) var(--played, 0%), var(--c-white) var(--played, 0%));
+  }
+  .vol::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    box-sizing: border-box;
+    margin-left: -5px;
+    border: 3px solid var(--c-ink);
+    border-radius: 50%;
+    background: var(--c-yellow);
+  }
+  .vol::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    box-sizing: border-box;
+    border: 3px solid var(--c-ink);
+    border-radius: 50%;
+    background: var(--c-yellow);
+  }
+  [data-muted='true'] .vol {
+    opacity: 0.4;
+  }
+  /* Held down they play slow motion: no text selection, scrolling or long-press menu on a phone. */
+  [data-action='prev-frame'],
+  [data-action='next-frame'] {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
   .readout {
     font: 14px var(--font-strong);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-  }
-  .rates [aria-pressed='true'] {
-    background: var(--c-yellow);
   }
 
   /* Each surfer is a colour: a dot on the pill, in the clip list, the panel and each capture. */
@@ -1932,14 +2074,6 @@ const demoClips = [
       display: inline-flex;
     }
     .drawer-pick {
-      display: none;
-    }
-    .rates {
-      display: flex;
-      align-items: center;
-      gap: var(--s-1);
-    }
-    .rate-cycle {
       display: none;
     }
     .rail {

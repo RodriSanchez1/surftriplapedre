@@ -5,7 +5,7 @@
  */
 import type { Tool } from './draw';
 
-export type IconName = Tool | 'undo' | 'clear' | 'pin' | 'zoom' | 'keyboard' | 'grip' | 'trash';
+export type IconName = Tool | 'undo' | 'clear' | 'pin' | 'zoom' | 'keyboard' | 'grip' | 'trash' | 'volume' | 'muted';
 
 /** The inside of each icon's `<svg viewBox="0 0 24 24">`. */
 export const ICONS: Record<IconName, string> = {
@@ -21,6 +21,9 @@ export const ICONS: Record<IconName, string> = {
   /** Two columns of three dots; drawn with a heavier stroke where it is used, so the dots read at 16 px. */
   grip: '<path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"/>',
   trash: '<path d="M4 7h16M10 3h4M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
+  /** The transport's speaker, with sound and muted. */
+  volume: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
+  muted: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/>',
 };
 
 /** The same drawings a little tighter, for the badge of the cross cursor. */

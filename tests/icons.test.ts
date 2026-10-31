@@ -7,7 +7,7 @@ const tools: Tool[] = ['pen', 'arrow', 'freeArrow', 'circle'];
 
 describe('ICONS', () => {
   it('has a drawing for every rail button and the clip list', () => {
-    for (const name of ['pen', 'arrow', 'freeArrow', 'circle', 'undo', 'clear', 'pin', 'zoom', 'keyboard', 'grip', 'trash'] as const) {
+    for (const name of ['pen', 'arrow', 'freeArrow', 'circle', 'undo', 'clear', 'pin', 'zoom', 'keyboard', 'grip', 'trash', 'volume', 'muted'] as const) {
       expect(ICONS[name]).toMatch(/^<(path|circle|rect) /);
     }
   });

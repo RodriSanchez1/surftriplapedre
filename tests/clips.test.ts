@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clock, dayIn, length, middleEllipsis, position, scrubFrames, SCRUB_PX_PER_FRAME, sortClips, stepFrame, type Clip } from '../src/lib/review/clips';
+import { clock, dayIn, length, middleEllipsis, position, scrubFrames, SCRUB_PX_PER_FRAME, sortClips, stepFrame, adjacentClip, type Clip } from '../src/lib/review/clips';
 
 const TZ = 'America/Montevideo';
 const clip = (name: string, iso: string): Clip => ({
@@ -71,5 +71,17 @@ describe('middleEllipsis', () => {
 
   it('never goes over the limit', () => {
     for (const max of [3, 4, 9, 10, 19]) expect(middleEllipsis('x'.repeat(50), max)).toHaveLength(max);
+  });
+});
+
+describe('adjacentClip', () => {
+  it('is the clip after or before, and nothing past the ends (N and Shift+N do not wrap)', () => {
+    expect(adjacentClip(0, 3, 1)).toBe(1);
+    expect(adjacentClip(2, 3, -1)).toBe(1);
+    expect(adjacentClip(2, 3, 1)).toBeNull();
+    expect(adjacentClip(0, 3, -1)).toBeNull();
+  });
+  it('is nothing when the open clip is not in the list', () => {
+    expect(adjacentClip(-1, 3, 1)).toBeNull();
   });
 });
