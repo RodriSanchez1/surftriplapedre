@@ -1,0 +1,82 @@
+---
+/**
+ * Temporary: measures WebCodecs on this computer (see src/lib/review/spike-webcodecs.ts). Deleted when stage 2 of
+ * the playback performance work closes; the spec keeps the numbers.
+ */
+import BaseLayout from '../../../components/BaseLayout.astro';
+---
+
+<BaseLayout title="Prueba: WebCodecs" lang="es" team="Design system" langSwitch={false}>
+  <main class="wrap">
+    <h1 class="section-title">Prueba: decodificar con la placa de video</h1>
+    <div class="prose card">
+      <p>
+        Elegí un clip de la cámara. La página lo decodifica entero con WebCodecs, primero pidiendo la placa de video y después
+        solo con el procesador, y mide cuántos cuadros por segundo salen. Tarda menos de un minuto.
+        Después tocá <strong>Copiar resultados</strong> y pegáselos a Claude.
+      </p>
+      <p><input type="file" accept="video/*,.mp4,.mov" data-spike-file /></p>
+      <p data-spike-status aria-live="polite"></p>
+      <table data-spike-table hidden>
+        <thead>
+          <tr><th>Modo</th><th>¿Disponible?</th><th>Clip entero</th><th>Un tramo (1 s)</th><th>Tramo achicado</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p><button class="btn" type="button" data-spike-copy hidden>Copiar resultados</button></p>
+      <pre data-spike-json hidden></pre>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+  }
+  table {
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+</style>
+
+<script>
+  import { runSpike, type ModeResult, type Run } from '../../../lib/review/spike-webcodecs';
+
+  const input = document.querySelector<HTMLInputElement>('[data-spike-file]')!;
+  const status = document.querySelector<HTMLElement>('[data-spike-status]')!;
+  const table = document.querySelector<HTMLTableElement>('[data-spike-table]')!;
+  const json = document.querySelector<HTMLElement>('[data-spike-json]')!;
+  const copy = document.querySelector<HTMLButtonElement>('[data-spike-copy]')!;
+
+  const cell = (r?: Run) => (r ? `${r.fps} cuadros/s (${r.frames} en ${r.ms} ms)` : '—');
+  function row(name: string, r?: ModeResult) {
+    const tr = document.createElement('tr');
+    const values = [name, r?.supported ? 'sí' : 'no', cell(r?.whole), cell(r?.interval), cell(r?.intervalShrunk)];
+    for (const v of values) tr.append(Object.assign(document.createElement('td'), { textContent: v }));
+    if (r?.error) tr.append(Object.assign(document.createElement('td'), { textContent: r.error }));
+    return tr;
+  }
+
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    input.disabled = true;
+    table.hidden = json.hidden = copy.hidden = true;
+    try {
+      const result = await runSpike(file, (step) => (status.textContent = step));
+      status.textContent = result.webcodecs ? `Listo: ${result.codec}, ${result.size}, ${result.samples} cuadros, ${result.keyframes} keyframes.` : 'Este navegador no tiene WebCodecs.';
+      table.tBodies[0].replaceChildren(row('Placa de video', result.hardware), row('Procesador', result.software));
+      table.hidden = !result.webcodecs;
+      json.textContent = JSON.stringify(result, null, 2);
+      json.hidden = copy.hidden = false;
+    } catch (e) {
+      status.textContent = `Falló: ${e}`;
+    } finally {
+      input.disabled = false;
+    }
+  });
+
+  copy.addEventListener('click', () => void navigator.clipboard.writeText(json.textContent ?? '').then(() => (copy.textContent = 'Copiado ✓')));
+</script>

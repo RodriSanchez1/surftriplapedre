@@ -47,6 +47,7 @@ src/components/               design system
 src/views/                    body of each page (they receive lang)
 src/pages/  src/pages/pt/     one-line wrappers per language
 src/pages/design/proposals/   design proposals being discussed or built (deleted once built, see rule 7)
+src/pages/design/spikes/      temporary measuring pages (webcodecs: decode speed on this computer), deleted with their feature
 public/captures/<date>/       frames from the video review, with the coach's drawing (<id>.jpg, committed with the insights)
 scripts/                      avatars, import-session, shots, transcribe.py, session-auto, review-timeline
 .claude/skills/process-session/   skill: from the transcript to the insights loaded in the site
@@ -197,4 +198,7 @@ npm run review-timeline -- <date>   timeline of the video review for a transcrib
 npm run recording -- <date> <youtube-url> <video-file> [--trim <s>]   link a session to its review recording
 npm run session-auto -- [--list] [--date <date>] [--local] [--no-claude] [--force]
 npm run shots -- <base-url> <folder> [route ...]   screenshots at 390 px and 1280 px
+node scripts/perf/playback.mjs <base-url> <clips-folder> <clip> [--wait=<ms>] [--bare]   how evenly /review/ plays
+node scripts/perf/thumbnails.mjs <base-url> <clips-folder>   thumbnail time, first visit and second
+node scripts/perf/slow-motion.mjs <base-url> <clips-folder> <clip> <back|fwd>   frames in a 4 s hold
 ```
